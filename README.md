@@ -1,73 +1,64 @@
-# React + TypeScript + Vite
+# Aivys
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Aivys** is a cross-platform offline music player built with **Rust** and **Tauri 2.0**. The project focuses on complete independence from cloud services, providing a high-performance environment for managing local music libraries with a focus on data integrity.
 
-Currently, two official plugins are available:
+## 📡 Core Concept
+Unlike traditional streaming services or simple players, **Aivys** aims to implement a seamless **local synchronization engine**. It allows users to keep their music tracks and playlists in sync across Android and Desktop devices within a local network, ensuring that your library remains consistent without relying on external servers.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🛠 Tech Stack
+* **Backend:** [Rust](https://www.rust-lang.org/) — ensures memory safety and high performance for file processing.
+* **Frontend:** [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) — a modern, responsive UI.
+* **Build Tool:** [Vite](https://vitejs.dev/) & [Tauri 2.0](https://v2.tauri.app/) — bridging native capabilities with web technologies.
+* **Database:** [SQLite](https://www.sqlite.org/) — reliable local storage for metadata and sync states.
 
-## React Compiler
+## 📱 Platform Support
+| Platform | Status | Environment |
+| :--- | :--- | :--- |
+| **Android** | 🛠 Development | Tested on Samsung A55 |
+| **Windows** | 🛠 Development | Windows 11 |
+| **Linux/macOS** | 📅 Planned | — |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🧪 Project Status & Experiments
+Aivys is currently in an **experimental phase**. The primary goal is to explore:
+- High-performance file system scanning on Android using Rust.
+- Reliable local data synchronization without centralized servers.
+- Minimalist and efficient UI for large offline music collections.
 
-## Expanding the ESLint configuration
+## 🏗 Development Setup
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 1. Prerequisites
+Before running the project, ensure you have the following installed:
+* **Rust:** [rustup](https://rustup.rs/) (stable channel).
+* **Node.js:** v18 or newer.
+* **Android Studio:** * **SDK Platform:** API 34 or 35.
+    * **SDK Tools:** Android SDK Build-Tools, NDK (Side by side), and CMake.
+* **Environment Variables:**
+    * `ANDROID_HOME` pointing to your SDK location.
+    * `NDK_HOME` pointing to the specific NDK version (e.g., `...\ndk\26.x.x`).
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 2. Initial Setup
+```powershell
+# Clone the repository
+git clone [https://github.com/cestxde/aivys.git](https://github.com/cestxde/aivys.git)
+cd aivys
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+# Install dependencies
+npm install
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Initialize Android project files (required once after cloning)
+npm run tauri android init
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 3. Running the App
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+#### **Windows**
+```powershell
+npm run tauri dev
 ```
+
+#### **Android**
+To run on a physical device (e.g., Samsung A55), ensure it is connected via USB with Debugging enabled.
+```powershell
+npm run tauri android dev
+```
+> **Note:** If you have multiple network adapters (VPN, Radmin, VM bridges), ensure your primary Wi-Fi/Ethernet adapter has the highest priority (lowest Metric) in Windows settings.
