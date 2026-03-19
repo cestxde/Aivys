@@ -46,36 +46,63 @@ function App() {
 	};
 
 	return (
-		<main className="p-10 bg-gray-900 min-h-screen text-white">
-			<h1 className="text-3xl font-bold mb-6">Aivys Player</h1>
+		<main style={{ padding: '40px', background: 'var(--bg)', minHeight: '100vh', color: 'var(--text)' }}>
+			<h1 style={{ fontSize: '24px', fontWeight: 600, marginBottom: '24px', color: 'var(--text-h)' }}>
+				Aivys Player
+			</h1>
 
-			<div className="flex gap-2 mb-8">
+			<div style={{ display: 'flex', gap: '8px', marginBottom: '32px' }}>
 				<input
 					type="text"
 					placeholder="Enter path (e.g., D:/Music)"
-					className="bg-gray-800 border border-gray-700 p-2 flex-1 rounded text-white focus:outline-none focus:border-blue-500"
+					style={{
+						flex: 1,
+						background: 'var(--code-bg)',
+						border: '1px solid var(--border)',
+						color: 'var(--text-h)',
+						padding: '8px 12px',
+						borderRadius: '4px',
+						outline: 'none'
+					}}
 					value={path}
 					onChange={(e) => setPath(e.target.value)}
 				/>
 				<button
 					onClick={handleScan}
-					className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded font-medium transition-colors"
+					style={{
+						background: 'var(--accent)',
+						color: 'white',
+						padding: '0 24px',
+						borderRadius: '4px',
+						border: 'none',
+						cursor: 'pointer',
+						fontWeight: 500
+					}}
 				>
 					Scan Directory
 				</button>
 			</div>
 
-			<div className="grid gap-3">
+			<div className="music-grid">
 				{files.map((file, i) => (
 					<div
 						key={i}
-						onClick={() => playTrack(file.path)}
-						className="flex justify-between items-center p-4 bg-gray-800 rounded-lg border border-gray-700 hover:border-blue-500 hover:bg-gray-750 transition-all cursor-pointer group"
+						onClick={() => {
+							playTrack(file.path);
+							setActivePath(file.path);
+						}}
+						className={`audio-item ${activePath === file.path ? 'active' : ''}`}
 					>
-						<div className="overflow-hidden">
-							<p className="font-semibold truncate group-hover:text-blue-400">{file.name}</p>
+						<div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', overflow: 'hidden', flex: 1 }}>
+							<span style={{ fontWeight: 500, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+								{file.name}
+							</span>
+							<span style={{ fontSize: '10px', opacity: 0.4, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+								{file.path.split(/[\\/]/).slice(-2, -1)}
+							</span>
 						</div>
-						<span className="text-sm font-mono bg-gray-700 px-2 py-1 rounded ml-4 shrink-0">
+
+						<span className="duration-tag">
 							{formatDuration(file.duration)}
 						</span>
 					</div>
