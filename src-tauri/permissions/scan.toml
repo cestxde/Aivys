@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-scan-directory"
+description = "Allows the application to scan local directories for music files"
+commands.allow = ["scan_directory"]
