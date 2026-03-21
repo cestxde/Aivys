@@ -1,14 +1,15 @@
 {
   "name": "aivys",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "version": "node scripts/sync-version.js && cargo metadata --no-deps --manifest-path src-tauri/Cargo.toml > nul && timeout /t 2 /nobreak > nul && git add src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
