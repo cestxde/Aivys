@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "version": "node -e \"const fs=require('fs'); const p='./src-tauri/tauri.conf.json'; const c=JSON.parse(fs.readFileSync(p)); c.version=process.env.npm_package_version; fs.writeFileSync(p, JSON.stringify(c, null, 2))\""
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
