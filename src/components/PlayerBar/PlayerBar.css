@@ -1,26 +1,70 @@
-.player-bar {
+.player-bar-wrapper {
     position: fixed;
     bottom: 0;
     left: 50%;
     transform: translateX(-50%);
     width: 100%;
     max-width: 1126px;
-    height: 80px;
     background: var(--code-bg);
     border-top: 1px solid var(--border);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    padding: 12px 0 20px 0;
+}
+
+.seek-container {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 2rem;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+}
+
+.seek-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    margin: 0 -2px;
+}
+
+.seek-slider:hover {
+    height: 6px;
+}
+
+.seek-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 0;
+}
+
+.player-bar-content {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 2rem;
     box-sizing: border-box;
-    z-index: 100;
+    width: 100%;
+}
+
+.time-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    min-width: 38px;
+    text-align: center;
+    opacity: 0.6;
 }
 
 .track-info {
     display: flex;
     flex-direction: column;
     width: 30%;
-    min-width: 0;
 }
 
 .now-playing {
@@ -53,12 +97,6 @@
     font-size: 1.2rem;
     cursor: pointer;
     opacity: 0.8;
-    transition: transform 0.1s, opacity 0.2s;
-}
-
-.control-btn:hover {
-    opacity: 1;
-    transform: scale(1.1);
 }
 
 .play-pause {
@@ -70,7 +108,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1rem;
 }
 
 .volume-section {

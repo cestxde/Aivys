@@ -6,7 +6,8 @@ import { PlayerBar } from "./components/PlayerBar/PlayerBar";
 function App() {
 	const {
 		path, setPath, files, activePath, handleScan, playTrack,
-		isPlaying, togglePlay, volume, setVolume
+		isPlaying, togglePlay, volume, setVolume,
+		currentTime, duration, seek
 	} = useAudioPlayer();
 
 	const currentTrack = files.find(f => f.path === activePath);
@@ -44,6 +45,9 @@ function App() {
 				onVolumeChange={setVolume}
 				onPrev={() => console.log("Prev")}
 				onNext={() => console.log("Next")}
+				currentTime={currentTime}
+				duration={duration}
+				onSeek={seek}
 			/>
 		</main>
 	);

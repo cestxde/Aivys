@@ -8,6 +8,8 @@ export const useAudioPlayer = () => {
     const [activePath, setActivePath] = useState<string | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [volume, setVolume] = useState(0.5);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -16,6 +18,29 @@ export const useAudioPlayer = () => {
             audioRef.current.volume = Math.pow(volume, 2);
         }
     }, [volume]);
+
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        const updateTime = () => setCurrentTime(audio.currentTime);
+        const updateDuration = () => setDuration(audio.duration);
+
+        audio.addEventListener("timeupdate", updateTime);
+        audio.addEventListener("loadedmetadata", updateDuration);
+
+        return () => {
+            audio.removeEventListener("timeupdate", updateTime);
+            audio.removeEventListener("loadedmetadata", updateDuration);
+        };
+    }, [activePath]);
+
+    const seek = (time: number) => {
+        if (audioRef.current) {
+            audioRef.current.currentTime = time;
+            setCurrentTime(time);
+        }
+    };
 
     const handleScan = async () => {
         try {
@@ -64,6 +89,9 @@ export const useAudioPlayer = () => {
         setVolume,
         handleScan,
         playTrack,
-        togglePlay
+        togglePlay,
+        currentTime,
+        duration,
+        seek
     };
 };
