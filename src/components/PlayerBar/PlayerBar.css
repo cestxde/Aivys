@@ -171,3 +171,19 @@
     -webkit-appearance: none;
     width: 0;
 }
+
+.control-btn.secondary {
+    font-size: 1.2rem;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+}
+
+.control-btn.secondary.active {
+    opacity: 1;
+    color: var(--accent);
+    text-shadow: 0 0 8px var(--accent);
+}
+
+.control-btn.secondary:hover {
+    opacity: 1;
+}

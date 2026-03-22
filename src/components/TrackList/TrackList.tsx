@@ -4,7 +4,7 @@ import type { AudioFile } from "../../types";
 interface TrackListProps {
     files: AudioFile[];
     activePath: string | null;
-    onPlay: (path: string) => void;
+    onPlay: (track: AudioFile) => void;
 }
 
 const formatDuration = (seconds: number) => {
@@ -22,7 +22,7 @@ export const TrackList = ({ files, activePath, onPlay }: TrackListProps) => {
                 files.map((file, i) => (
                     <div
                         key={i}
-                        onClick={() => onPlay(file.path)}
+                        onClick={() => onPlay(file)}
                         className={`audio-item ${activePath === file.path ? 'active' : ''}`}
                     >
                         <div className="track-main-info">

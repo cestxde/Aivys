@@ -7,7 +7,10 @@ function App() {
 	const {
 		path, setPath, files, activePath, handleScan, playTrack,
 		isPlaying, togglePlay, volume, setVolume,
-		currentTime, duration, seek
+		currentTime, duration, seek,
+		onNext, onPrev,
+		toggleShuffle, isShuffle,
+		repeatMode, setRepeatMode
 	} = useAudioPlayer();
 
 	const currentTrack = files.find(f => f.path === activePath);
@@ -43,11 +46,19 @@ function App() {
 				volume={volume}
 				onTogglePlay={togglePlay}
 				onVolumeChange={setVolume}
-				onPrev={() => console.log("Prev")}
-				onNext={() => console.log("Next")}
+				onPrev={onPrev}
+				onNext={onNext}
 				currentTime={currentTime}
 				duration={duration}
 				onSeek={seek}
+				isShuffle={isShuffle}
+				repeatMode={repeatMode}
+				onToggleShuffle={toggleShuffle}
+				onToggleRepeat={() => {
+					const modes: ('none' | 'all' | 'one')[] = ['none', 'all', 'one'];
+					const nextIndex = (modes.indexOf(repeatMode) + 1) % modes.length;
+					setRepeatMode(modes[nextIndex]);
+				}}
 			/>
 		</main>
 	);
