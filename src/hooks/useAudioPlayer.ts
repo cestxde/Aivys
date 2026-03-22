@@ -3,7 +3,9 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import type { AudioFile } from "../types";
 
 export const useAudioPlayer = () => {
-    const [path, setPath] = useState("");
+    const [path, setPath] = useState<string>(() => {
+        return localStorage.getItem("aivys_last_path") || "";
+    });
     const [files, setFiles] = useState<AudioFile[]>([]);
     const [activePath, setActivePath] = useState<string | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -12,6 +14,12 @@ export const useAudioPlayer = () => {
     const [duration, setDuration] = useState(0);
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    useEffect(() => {
+        if (path) {
+            localStorage.setItem("aivys_last_path", path);
+        }
+    }, [path]);
 
     useEffect(() => {
         if (audioRef.current) {
@@ -46,6 +54,7 @@ export const useAudioPlayer = () => {
         try {
             const result: AudioFile[] = await invoke("scan_directory", { basePath: path });
             setFiles(result);
+            localStorage.setItem("aivys_last_path", path);
         } catch (error) {
             console.error("Scan error:", error);
         }
