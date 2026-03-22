@@ -1,9 +1,15 @@
 import "./App.css";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { TrackList } from "./components/TrackList/TrackList";
+import { PlayerBar } from "./components/PlayerBar/PlayerBar";
 
 function App() {
-	const { path, setPath, files, activePath, handleScan, playTrack } = useAudioPlayer();
+	const {
+		path, setPath, files, activePath, handleScan, playTrack,
+		isPlaying, togglePlay, volume, setVolume
+	} = useAudioPlayer();
+
+	const currentTrack = files.find(f => f.path === activePath);
 
 	return (
 		<main className="container">
@@ -28,6 +34,16 @@ function App() {
 				files={files}
 				activePath={activePath}
 				onPlay={playTrack}
+			/>
+
+			<PlayerBar
+				currentTrackName={currentTrack?.name || null}
+				isPlaying={isPlaying}
+				volume={volume}
+				onTogglePlay={togglePlay}
+				onVolumeChange={setVolume}
+				onPrev={() => console.log("Prev")}
+				onNext={() => console.log("Next")}
 			/>
 		</main>
 	);
