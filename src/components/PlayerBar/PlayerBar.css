@@ -11,9 +11,11 @@
     display: flex;
     flex-direction: column;
     padding: 12px 0 20px 0;
+    box-sizing: border-box;
 }
 
 .seek-container {
+    position: relative;
     width: 100%;
     display: flex;
     align-items: center;
@@ -21,6 +23,32 @@
     padding: 0 2rem;
     box-sizing: border-box;
     margin-bottom: 10px;
+}
+
+.slider-tooltip {
+    position: absolute;
+    bottom: 20px;
+    transform: translateX(-50%);
+    background: #282828;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: var(--mono);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s ease-out;
+    z-index: 200;
+    white-space: nowrap;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.slider-tooltip.visible {
+    opacity: 1;
+}
+
+.volume-slider-wrapper .slider-tooltip {
+    bottom: 17px;
 }
 
 .seek-slider {
@@ -32,7 +60,6 @@
     border-radius: 2px;
     outline: none;
     cursor: pointer;
-    margin: 0 -2px;
 }
 
 .seek-slider:hover {
@@ -118,6 +145,13 @@
     justify-content: flex-end;
 }
 
+.volume-slider-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100px;
+}
+
 .volume-slider-clean {
     -webkit-appearance: none;
     appearance: none;
@@ -127,8 +161,6 @@
     border-radius: 2px;
     outline: none;
     cursor: pointer;
-    margin: 0;
-    transition: height 0.2s;
 }
 
 .volume-slider-clean:hover {
@@ -138,9 +170,4 @@
 .volume-slider-clean::-webkit-slider-thumb {
     -webkit-appearance: none;
     width: 0;
-}
-
-.volume-slider-clean::-moz-range-thumb {
-    width: 0;
-    border: none;
 }
