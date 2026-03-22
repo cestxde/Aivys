@@ -1,0 +1,71 @@
+.music-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.audio-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s ease;
+    cursor: pointer;
+    min-width: 0;
+    height: 40px;
+    background: var(--bg);
+    /* Чтобы не просвечивал фон грида */
+}
+
+.audio-item:hover {
+    background: var(--code-bg);
+}
+
+.audio-item.active {
+    background: var(--accent-bg);
+    border-left: 2px solid var(--accent);
+}
+
+.track-main-info {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    overflow: hidden;
+    flex: 1;
+}
+
+.track-name {
+    font-weight: 500;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-h);
+}
+
+.track-folder {
+    font-size: 10px;
+    opacity: 0.4;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.duration-tag {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text);
+    opacity: 0.8;
+}
+
+.empty-state {
+    padding: 4rem;
+    text-align: center;
+    color: var(--text);
+    opacity: 0.5;
+    background: var(--bg);
+}

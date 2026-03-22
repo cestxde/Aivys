@@ -20,23 +20,24 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --text: #a1a1aa;
-    /* Zinc 400 */
     --text-h: #f4f4f5;
-    /* Zinc 100 */
     --bg: #101014;
-    /* Almost Black (Zinc 950) */
     --border: #27272a;
-    /* Zinc 800 */
     --code-bg: #18181b;
-    /* Zinc 900 */
 
-    /* Tiny hint of blue-ish tint for the accent */
     --accent: #3b82f6;
     --accent-bg: rgba(59, 130, 246, 0.03);
     --accent-border: rgba(59, 130, 246, 0.2);
 
     --shadow: rgba(0, 0, 0, 0.6) 0 20px 25px -5px;
   }
+}
+
+body,
+html {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
 }
 
 #root {
@@ -51,43 +52,13 @@
   box-sizing: border-box;
 }
 
-/* UI Elements */
-.audio-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.1s ease;
-  cursor: pointer;
-  min-width: 0;
-  height: 40px;
-}
-
-.audio-item:hover {
-  background: var(--code-bg);
-  /* Slight highlight on hover */
-}
-
-.audio-item.active {
-  background: var(--accent-bg);
-  border-left: 2px solid var(--accent);
-}
-
-.duration-tag {
-  font-family: var(--mono);
-  font-size: 0.85rem;
-  color: var(--text);
-  opacity: 0.8;
-}
-
-h1 {
-  font-weight: 600;
+h1,
+h2,
+h3 {
+  margin: 0;
   color: var(--text-h);
-  padding: 0 1rem;
 }
 
-/* Custom Scrollbar for a cleaner look */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -103,5 +74,4 @@ h1 {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #3f3f46;
-  /* Slightly lighter on hover */
 }
