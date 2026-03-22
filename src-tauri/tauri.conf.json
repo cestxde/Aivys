@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2.0.0-rc",
   "productName": "Aivys",
   "version": "0.2.0",
-  "identifier": "com.ayvis.app",
+  "identifier": "com.aivys.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
