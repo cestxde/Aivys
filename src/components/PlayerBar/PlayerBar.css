@@ -113,13 +113,34 @@
 .volume-section {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     width: 30%;
     justify-content: flex-end;
 }
 
-.volume-slider {
+.volume-slider-clean {
+    -webkit-appearance: none;
+    appearance: none;
     width: 100px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
     cursor: pointer;
-    accent-color: var(--accent);
+    margin: 0;
+    transition: height 0.2s;
+}
+
+.volume-slider-clean:hover {
+    height: 6px;
+}
+
+.volume-slider-clean::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 0;
+}
+
+.volume-slider-clean::-moz-range-thumb {
+    width: 0;
+    border: none;
 }

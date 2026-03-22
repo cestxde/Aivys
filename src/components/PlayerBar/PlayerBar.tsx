@@ -68,7 +68,7 @@ export const PlayerBar = ({
                 </div>
 
                 <div className="volume-section">
-                    <span className="volume-icon">Vol</span>
+                    <span className="volume-icon">🔈</span>
                     <input
                         type="range"
                         min="0"
@@ -76,7 +76,10 @@ export const PlayerBar = ({
                         step="0.01"
                         value={volume}
                         onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-                        className="volume-slider"
+                        className="volume-slider-clean"
+                        style={{
+                            background: `linear-gradient(to right, var(--accent) ${volume * 100}%, var(--border) ${volume * 100}%)`
+                        }}
                     />
                 </div>
             </div>
