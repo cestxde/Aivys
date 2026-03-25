@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Volume2, Volume1, Volume, VolumeX } from "lucide-react";
 
 interface VolumeControlProps {
     volume: number;
@@ -22,22 +23,39 @@ export const VolumeControl = ({ volume, onVolumeChange }: VolumeControlProps) =>
         });
     };
 
+    const getVolumeIcon = () => {
+        if (volume === 0) return <VolumeX size={18} opacity={0.5} />;
+        if (volume < 0.3) return <Volume size={18} />;
+        if (volume < 0.7) return <Volume1 size={18} />;
+        return <Volume2 size={18} />;
+    };
+
     return (
         <div className="volume-section">
-            <span className="volume-icon">🔈</span>
+            <span className="volume-icon">
+                {getVolumeIcon()}
+            </span>
             <div className="volume-slider-wrapper">
-                <div className={`slider-tooltip ${tooltip.visible ? "visible" : ""}`} style={{ left: `${tooltip.x}px` }}>
+                <div
+                    className={`slider-tooltip ${tooltip.visible ? "visible" : ""}`}
+                    style={{ left: `${tooltip.x}px` }}
+                >
                     {tooltip.text}
                 </div>
                 <input
-                    type="range" min="0" max="1" step="0.01"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
                     value={volume}
                     onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
                     onMouseMove={handleMouseMove}
                     onMouseEnter={() => setTooltip(prev => ({ ...prev, visible: true }))}
                     onMouseLeave={() => setTooltip(prev => ({ ...prev, visible: false }))}
                     className="volume-slider-clean"
-                    style={{ background: `linear-gradient(to right, var(--accent) ${volume * 100}%, var(--border) ${volume * 100}%)` }}
+                    style={{
+                        background: `linear-gradient(to right, var(--accent) ${volume * 100}%, var(--border) ${volume * 100}%)`
+                    }}
                 />
             </div>
         </div>
