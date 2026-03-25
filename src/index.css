@@ -1,11 +1,11 @@
 :root {
-  /* High-contrast Light Mode (Slate) */
   --text: #374151;
   --text-h: #111827;
   --bg: #ffffff;
   --border: #e5e7eb;
   --code-bg: #f3f4f6;
   --accent: #000000;
+  --accent-text: #ffffff;
   --accent-bg: rgba(0, 0, 0, 0.05);
 
   --sans: 'Inter', system-ui, -apple-system, sans-serif;
@@ -25,9 +25,10 @@
     --border: #27272a;
     --code-bg: #18181b;
 
-    --accent: #3b82f6;
-    --accent-bg: rgba(59, 130, 246, 0.03);
-    --accent-border: rgba(59, 130, 246, 0.2);
+    --accent: #d4d4d8;
+    --accent-text: #09090b;
+    --accent-bg: rgba(212, 212, 216, 0.05);
+    --accent-border: rgba(212, 212, 216, 0.2);
 
     --shadow: rgba(0, 0, 0, 0.6) 0 20px 25px -5px;
   }

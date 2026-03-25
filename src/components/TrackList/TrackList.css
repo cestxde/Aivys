@@ -19,7 +19,6 @@
     min-width: 0;
     height: 40px;
     background: var(--bg);
-    /* Чтобы не просвечивал фон грида */
 }
 
 .audio-item:hover {
@@ -29,6 +28,10 @@
 .audio-item.active {
     background: var(--accent-bg);
     border-left: 2px solid var(--accent);
+}
+
+.audio-item.active .track-name {
+    color: var(--accent);
 }
 
 .track-main-info {

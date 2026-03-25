@@ -43,7 +43,7 @@
 
 .scan-button {
   background: var(--accent);
-  color: white;
+  color: var(--accent-text);
   padding: 0 24px;
   border-radius: 4px;
   border: none;

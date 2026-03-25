@@ -31,7 +31,7 @@ fn scan_directory(base_path: String) -> Vec<AudioFile> {
                 .and_then(|m| m.modified().ok())
                 .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
                 .map(|d| d.as_secs())
-                .unwrap_or(0); // Если не удалось прочитать, будет 0
+                .unwrap_or(0);
 
             audio_files.push(AudioFile {
                 name: path.file_name().unwrap().to_string_lossy().into_owned(),

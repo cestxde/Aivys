@@ -27,23 +27,23 @@
     width: 100%;
     padding: 8px 12px;
     border-radius: 6px;
-    border: 1px solid #333;
-    background: #1a1a1a;
-    color: white;
+    border: 1px solid var(--border);
+    background: var(--code-bg);
+    color: var(--text-h);
     outline: none;
     transition: border-color 0.2s;
 }
 
 .search-input:focus {
-    border-color: #007aff;
+    border-color: var(--accent);
 }
 
 .sort-select {
     padding: 8px;
     border-radius: 6px;
-    background: #1a1a1a;
-    color: white;
-    border: 1px solid #333;
+    background: var(--code-bg);
+    color: var(--text-h);
+    border: 1px solid var(--border);
     cursor: pointer;
 }
 
@@ -57,13 +57,13 @@
 }
 
 .play-button {
-    background: #007aff;
-    color: white;
+    background: var(--accent);
+    color: var(--accent-text);
 }
 
 .shuffle-button {
-    background: #333;
-    color: white;
+    background: var(--border);
+    color: var(--text-h);
 }
 
 .toolbar-button:hover {
