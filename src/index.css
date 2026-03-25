@@ -39,6 +39,8 @@ html {
   margin: 0;
   padding: 0;
   background: var(--bg);
+  height: 100vh;
+  overflow: hidden;
 }
 
 #root {
@@ -46,11 +48,13 @@ html {
   max-width: 1126px;
   margin: 0 auto;
   border-inline: 1px solid var(--border);
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background: var(--bg);
   box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
 }
 
 h1,

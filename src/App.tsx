@@ -36,38 +36,42 @@ function App() {
 	};
 
 	return (
-		<main className="container">
-			<header className="header">
-				<h1 className="title">Aivys Player</h1>
-			</header>
+		<>
+			<main className="container">
+				<header className="header">
+					<h1 className="title">Aivys Player</h1>
+				</header>
 
-			<div className="scanner-container">
-				<input
-					className="path-input"
-					type="text"
-					placeholder="Enter path (e.g., D:/Music)"
-					value={path}
-					onChange={(e) => setPath(e.target.value)}
+				<div className="scanner-container">
+					<input
+						className="path-input"
+						type="text"
+						placeholder="Enter path (e.g., D:/Music)"
+						value={path}
+						onChange={(e) => setPath(e.target.value)}
+					/>
+					<button className="scan-button" onClick={handleScan}>
+						Scan Directory
+					</button>
+				</div>
+
+				<Toolbar
+					searchQuery={searchQuery}
+					onSearchChange={setSearchQuery}
+					sortOrder={sortOrder}
+					onSortChange={setSortOrder}
+					onShuffleAll={handleShuffleAll}
+					onPlayAll={handlePlayAll}
 				/>
-				<button className="scan-button" onClick={handleScan}>
-					Scan Directory
-				</button>
-			</div>
 
-			<Toolbar
-				searchQuery={searchQuery}
-				onSearchChange={setSearchQuery}
-				sortOrder={sortOrder}
-				onSortChange={setSortOrder}
-				onShuffleAll={handleShuffleAll}
-				onPlayAll={handlePlayAll}
-			/>
-
-			<TrackList
-				files={displayFiles}
-				activePath={activePath}
-				onPlay={(track) => playTrack(track, displayFiles)}
-			/>
+				<div className="track-list-wrapper">
+					<TrackList
+						files={displayFiles}
+						activePath={activePath}
+						onPlay={(track) => playTrack(track, displayFiles)}
+					/>
+				</div>
+			</main>
 
 			<PlayerBar
 				currentTrackName={currentTrack?.name || null}
@@ -89,7 +93,7 @@ function App() {
 					setRepeatMode(modes[nextIndex]);
 				}}
 			/>
-		</main>
+		</>
 	);
 }
 

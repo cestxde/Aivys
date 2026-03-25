@@ -3,9 +3,11 @@
   flex-direction: column;
   padding: 1.5rem;
   gap: 1rem;
-  flex-grow: 1;
+  flex: 1;
+  min-height: 0;
   width: 100%;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .header {
@@ -54,4 +56,12 @@
 
 .scan-button:hover {
   opacity: 0.9;
+}
+
+.track-list-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-right: -1.5rem;
+  padding-right: 1.5rem;
 }
