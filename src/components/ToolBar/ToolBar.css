@@ -1,0 +1,71 @@
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 0;
+    width: 100%;
+}
+
+.toolbar-section {
+    display: flex;
+    gap: 8px;
+}
+
+.left {
+    flex-shrink: 0;
+}
+
+.center {
+    flex: 1;
+}
+
+.right {
+    flex-shrink: 0;
+}
+
+.search-input {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    background: #1a1a1a;
+    color: white;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.search-input:focus {
+    border-color: #007aff;
+}
+
+.sort-select {
+    padding: 8px;
+    border-radius: 6px;
+    background: #1a1a1a;
+    color: white;
+    border: 1px solid #333;
+    cursor: pointer;
+}
+
+.toolbar-button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: opacity 0.2s;
+}
+
+.play-button {
+    background: #007aff;
+    color: white;
+}
+
+.shuffle-button {
+    background: #333;
+    color: white;
+}
+
+.toolbar-button:hover {
+    opacity: 0.8;
+}

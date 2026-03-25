@@ -12,11 +12,15 @@ export const useAudioPlayer = () => {
     const audio = useAudioController();
     const q = useAudioQueue();
 
-    const playTrack = useCallback((trackOrPath: AudioFile | string, shouldPlay = true) => {
+    const playTrack = useCallback((
+        trackOrPath: AudioFile | string,
+        currentFiles: AudioFile[],
+        shouldPlay = true
+    ) => {
         let track: AudioFile | undefined;
 
         if (typeof trackOrPath === "string") {
-            track = files.find(f => f.path === trackOrPath);
+            track = currentFiles.find(f => f.path === trackOrPath);
         } else {
             track = trackOrPath;
         }
@@ -24,7 +28,7 @@ export const useAudioPlayer = () => {
         if (!track) return;
 
         setActivePath(track.path);
-        q.buildQueue(files, track, q.isShuffle);
+        q.buildQueue(currentFiles, track, q.isShuffle);
 
         if (shouldPlay) {
             audio.playFile(track.path);
@@ -35,14 +39,14 @@ export const useAudioPlayer = () => {
                 audio.setIsPlaying(false);
             }
         }
-    }, [files, q.isShuffle, audio.playFile, audio.setIsPlaying]);
+    }, [q.isShuffle, audio.playFile, audio.setIsPlaying, q.buildQueue]);
 
     const onNext = useCallback(() => {
         const next = q.getNextTrack(activePath);
         if (next) {
-            playTrack(next);
+            playTrack(next, q.queue);
         }
-    }, [activePath, q.getNextTrack, playTrack]);
+    }, [activePath, q.getNextTrack, q.queue, playTrack]);
 
     const onAutoNext = useCallback(() => {
         if (q.repeatMode === 'one') {
@@ -57,7 +61,7 @@ export const useAudioPlayer = () => {
 
         if (isLastInQueue && q.repeatMode === 'none') {
             if (q.queue.length > 0) {
-                playTrack(q.queue[0], false);
+                playTrack(q.queue[0], q.queue, false);
             }
         } else {
             onNext();
@@ -70,8 +74,10 @@ export const useAudioPlayer = () => {
             return;
         }
         const prev = q.getPrevTrack(activePath);
-        if (prev) playTrack(prev);
-    }, [audio.currentTime, audio.seek, q.getPrevTrack, activePath, playTrack]);
+        if (prev) {
+            playTrack(prev, q.queue);
+        }
+    }, [audio.currentTime, audio.seek, q.getPrevTrack, q.queue, activePath, playTrack]);
 
     // Persist folder path
     useEffect(() => {
@@ -101,13 +107,13 @@ export const useAudioPlayer = () => {
         }
     };
 
-    const toggleShuffle = () => {
+    const toggleShuffle = (currentFiles: AudioFile[]) => {
         const nextShuffle = !q.isShuffle;
         q.setIsShuffle(nextShuffle);
 
         if (activePath) {
-            const current = files.find(f => f.path === activePath);
-            if (current) q.buildQueue(files, current, nextShuffle);
+            const current = currentFiles.find(f => f.path === activePath);
+            if (current) q.buildQueue(currentFiles, current, nextShuffle);
         }
     };
 
