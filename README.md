@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="src/assets/logo-white-en.png">
-    <img alt="Aivys Player" src="src/assets/logo-black-en.png" width="350">
+    <source media="(prefers-color-scheme: dark)" srcset="src/assets/logo-white-en.svg">
+    <img alt="Aivys Player" src="src/assets/logo-black-en.svg" width="350">
   </picture>
 </p>
 
