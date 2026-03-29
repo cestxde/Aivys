@@ -5,6 +5,8 @@ import { PlayerBar } from "./components/PlayerBar/PlayerBar";
 import { Toolbar } from "./components/ToolBar/ToolBar";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
 
+import logo from "./assets/logo-white-en.svg";
+
 function App() {
 	const {
 		path, setPath, files, activePath, handleScan, playTrack,
@@ -38,8 +40,17 @@ function App() {
 	return (
 		<>
 			<main className="container">
-				<header className="header">
-					<h1 className="title">Aivys Player</h1>
+				<header className="header" style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+					<div className="logo-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+						<img
+							src={logo}
+							alt=""
+							style={{
+								height: '32px',
+								width: 'auto'
+							}}
+						/>
+					</div>
 				</header>
 
 				<div className="scanner-container">
