@@ -1,10 +1,13 @@
 import { useState } from "react";
 import type { AudioFile } from "../types";
 
-export const useAudioQueue = () => {
+export const useAudioQueue = (
+    isShuffle: boolean,
+    setIsShuffle: (val: boolean) => void,
+    repeatMode: 'none' | 'one' | 'all',
+    setRepeatMode: (val: 'none' | 'one' | 'all') => void
+) => {
     const [queue, setQueue] = useState<AudioFile[]>([]);
-    const [isShuffle, setIsShuffle] = useState(false);
-    const [repeatMode, setRepeatMode] = useState<'none' | 'one' | 'all'>('all');
 
     // Fisher-Yates shuffle algorithm
     const shuffleArray = (array: AudioFile[]) => {

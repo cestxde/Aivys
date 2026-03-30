@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 
-export const useAudioController = () => {
+export const useAudioController = (
+    initialVolume: number,
+    onVolumeChange: (v: number) => void
+) => {
     const [isPlaying, setIsPlaying] = useState(false);
-    const [volume, setVolume] = useState(0.5);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -11,9 +13,9 @@ export const useAudioController = () => {
     // Sync volume
     useEffect(() => {
         if (audioRef.current) {
-            audioRef.current.volume = Math.pow(volume, 2);
+            audioRef.current.volume = Math.pow(initialVolume, 2);
         }
-    }, [volume]);
+    }, [initialVolume]);
 
     // Track time and duration
     useEffect(() => {
@@ -43,7 +45,7 @@ export const useAudioController = () => {
             audioRef.current.load();
         }
 
-        audioRef.current.volume = Math.pow(volume, 2);
+        audioRef.current.volume = Math.pow(initialVolume, 2);
         setIsPlaying(true);
         audioRef.current.play().catch(e => console.error("Playback error:", e));
     };
@@ -67,7 +69,8 @@ export const useAudioController = () => {
 
     return {
         isPlaying, setIsPlaying,
-        volume, setVolume,
+        volume: initialVolume,
+        setVolume: onVolumeChange,
         currentTime, duration,
         audioRef,
         playFile, togglePlay, seek

@@ -3,14 +3,23 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { useAudioController } from "./useAudioController";
 import { useAudioQueue } from "./useAudioQueue";
 import type { AudioFile } from "../types";
+import { usePlayerSettings } from "./usePlayerSettings";
 
 export const useAudioPlayer = () => {
-    const [path, setPath] = useState<string>(() => localStorage.getItem("aivys_last_path") || "");
+    const { settings, updateSettings } = usePlayerSettings();
     const [files, setFiles] = useState<AudioFile[]>([]);
     const [activePath, setActivePath] = useState<string | null>(null);
 
-    const audio = useAudioController();
-    const q = useAudioQueue();
+    const audio = useAudioController(
+        settings.volume,
+        (v) => updateSettings({ volume: v })
+    );
+    const q = useAudioQueue(
+        settings.isShuffle,
+        (val) => updateSettings({ isShuffle: val }),
+        settings.repeatMode,
+        (val) => updateSettings({ repeatMode: val })
+    );
 
     const playTrack = useCallback((
         trackOrPath: AudioFile | string,
@@ -79,11 +88,6 @@ export const useAudioPlayer = () => {
         }
     }, [audio.currentTime, audio.seek, q.getPrevTrack, q.queue, activePath, playTrack]);
 
-    // Persist folder path
-    useEffect(() => {
-        if (path) localStorage.setItem("aivys_last_path", path);
-    }, [path]);
-
     // Handle auto-next when track ends
     useEffect(() => {
         const element = audio.audioRef.current;
@@ -98,8 +102,9 @@ export const useAudioPlayer = () => {
     }, [onAutoNext, audio.audioRef]);
 
     const handleScan = async () => {
+        if (!settings.lastPath) return;
         try {
-            const result: AudioFile[] = await invoke("scan_directory", { basePath: path });
+            const result: AudioFile[] = await invoke("scan_directory", { basePath: settings.lastPath });
             setFiles(result);
             if (!q.isShuffle) q.setQueue(result);
         } catch (error) {
@@ -125,7 +130,9 @@ export const useAudioPlayer = () => {
     };
 
     return {
-        path, setPath, files, activePath, handleScan,
+        path: settings.lastPath,
+        setPath: (val: string) => updateSettings({ lastPath: val }),
+        files, activePath, handleScan,
         playTrack, onNext, onPrev,
         toggleShuffle, isShuffle: q.isShuffle,
         repeatMode: q.repeatMode, setRepeatMode: q.setRepeatMode,
