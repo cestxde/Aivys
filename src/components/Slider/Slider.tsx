@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState, useRef } from "react";
 import "./Slider.css";
 
 interface SliderProps {
@@ -19,6 +19,7 @@ export const Slider = ({
 }: SliderProps) => {
     const [tooltip, setTooltip] = useState({ text: "", x: 0, visible: false });
     const [localValue, setLocalValue] = useState<number | null>(null);
+    const [hoverPercent, setHoverPercent] = useState<number>(0);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const displayValue = localValue !== null ? localValue : value;
 
@@ -33,6 +34,7 @@ export const Slider = ({
         const percent = Math.min(Math.max(xInsideInput / rect.width, 0), 1);
         const val = min + percent * (max - min);
 
+        setHoverPercent(percent * 100);
         setTooltip({
             text: formatTooltip(val),
             x: e.clientX - wrapperRect.left,
@@ -56,7 +58,7 @@ export const Slider = ({
         }
     };
 
-    const progress = max > min ? ((displayValue - min) / (max - min)) * 100 : 0;
+    const progressPercent = max > min ? ((displayValue - min) / (max - min)) * 100 : 0;
 
     return (
         <div className={`base-slider-wrapper ${className || ""}`} ref={wrapperRef}>
@@ -80,14 +82,14 @@ export const Slider = ({
                 onMouseEnter={() => setTooltip(prev => ({ ...prev, visible: true }))}
                 onMouseLeave={() => {
                     setTooltip(prev => ({ ...prev, visible: false }));
+                    setHoverPercent(0);
                     if (localValue !== null) setLocalValue(null);
                 }}
                 className="base-slider-input"
                 style={{
-                    background: !disabled
-                        ? `linear-gradient(to right, var(--accent) ${progress}%, var(--border) ${progress}%)`
-                        : "var(--border)"
-                }}
+                    '--slider-progress': `${progressPercent}%`,
+                    '--slider-hover-pos': `${hoverPercent}%`,
+                } as React.CSSProperties}
             />
         </div>
     );
