@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { Volume2, Volume1, Volume, VolumeX } from "lucide-react";
+import { Slider } from "../Slider/Slider";
 
 interface VolumeControlProps {
     volume: number;
@@ -7,22 +7,6 @@ interface VolumeControlProps {
 }
 
 export const VolumeControl = ({ volume, onVolumeChange }: VolumeControlProps) => {
-    const [tooltip, setTooltip] = useState({ text: "", x: 0, visible: false });
-
-    const handleMouseMove = (e: React.MouseEvent<HTMLInputElement>) => {
-        const input = e.currentTarget;
-        const rect = input.getBoundingClientRect();
-        const wrapperRect = input.parentElement?.getBoundingClientRect();
-        if (!wrapperRect) return;
-
-        const percent = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
-        setTooltip({
-            text: `${Math.round(percent * 100)}%`,
-            x: e.clientX - wrapperRect.left,
-            visible: true
-        });
-    };
-
     const getVolumeIcon = () => {
         if (volume === 0) return <VolumeX size={18} opacity={0.5} />;
         if (volume < 0.3) return <Volume size={18} />;
@@ -35,29 +19,15 @@ export const VolumeControl = ({ volume, onVolumeChange }: VolumeControlProps) =>
             <span className="volume-icon">
                 {getVolumeIcon()}
             </span>
-            <div className="volume-slider-wrapper">
-                <div
-                    className={`slider-tooltip ${tooltip.visible ? "visible" : ""}`}
-                    style={{ left: `${tooltip.x}px` }}
-                >
-                    {tooltip.text}
-                </div>
-                <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={volume}
-                    onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-                    onMouseMove={handleMouseMove}
-                    onMouseEnter={() => setTooltip(prev => ({ ...prev, visible: true }))}
-                    onMouseLeave={() => setTooltip(prev => ({ ...prev, visible: false }))}
-                    className="volume-slider-clean"
-                    style={{
-                        background: `linear-gradient(to right, var(--accent) ${volume * 100}%, var(--border) ${volume * 100}%)`
-                    }}
-                />
-            </div>
+            <Slider
+                value={volume}
+                min={0}
+                max={1}
+                step={0.01}
+                onChange={onVolumeChange}
+                formatTooltip={(val) => `${Math.round(val * 100)}%`}
+                className="volume-slider-layout"
+            />
         </div>
     );
 };
