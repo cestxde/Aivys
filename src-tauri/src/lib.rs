@@ -4,6 +4,7 @@ use lofty::tag::{Accessor, ItemKey};
 use serde::Serialize;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
+use tauri::Manager;
 use walkdir::WalkDir;
 
 #[derive(Serialize)]
@@ -27,6 +28,9 @@ struct Track {
     bitrate: Option<u32>,
     sample_rate: Option<u32>,
     format: Option<String>,
+
+    // Path to the extracted cover art file in the app data cache, if any.
+    cover_path: Option<String>,
 
     // Timestamps (unix seconds)
     date_created: u64,
@@ -105,7 +109,37 @@ fn repair_opt(value: Option<String>) -> Option<String> {
     value.map(|v| repair_mojibake(&v))
 }
 
-fn read_track(path: &Path) -> Option<Track> {
+/// Extract the first embedded picture from the tag, write it to `covers_dir`
+/// (named by the content hash, so identical covers share one file), and return
+/// the file path. Returns None if there is no picture or the write fails.
+fn extract_cover(tag: &lofty::tag::Tag, covers_dir: &Path) -> Option<String> {
+    let picture = tag.pictures().first()?;
+    let data = picture.data();
+    if data.is_empty() {
+        return None;
+    }
+
+    let ext = picture
+        .mime_type()
+        .and_then(|mime| mime.ext())
+        .unwrap_or("bin");
+    let hash = blake3::hash(data).to_hex();
+    let file_path = covers_dir.join(format!("{hash}.{ext}"));
+
+    // Reuse an existing cache file for identical content.
+    if !file_path.exists() {
+        if std::fs::create_dir_all(covers_dir).is_err() {
+            return None;
+        }
+        if std::fs::write(&file_path, data).is_err() {
+            return None;
+        }
+    }
+
+    Some(file_path.to_string_lossy().into_owned())
+}
+
+fn read_track(path: &Path, covers_dir: &Path) -> Option<Track> {
     let probed = Probe::open(path).ok()?.read().ok()?;
 
     let duration = probed.properties().duration().as_secs() as u32;
@@ -125,8 +159,11 @@ fn read_track(path: &Path) -> Option<Track> {
     let mut disc_number = None;
     let mut year = None;
     let mut genre = Vec::new();
+    let mut cover_path = None;
 
     if let Some(tag) = tag {
+        cover_path = extract_cover(tag, covers_dir);
+
         title = tag
             .get_string(ItemKey::TrackTitle)
             .map(str::to_owned)
@@ -187,6 +224,7 @@ fn read_track(path: &Path) -> Option<Track> {
         bitrate,
         sample_rate,
         format,
+        cover_path,
 
         // On a first scan the file has no prior "date added" record yet, so we
         // fall back to the file's mtime. A persistent store (see the roadmap)
@@ -198,14 +236,20 @@ fn read_track(path: &Path) -> Option<Track> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn scan_directory(base_path: String) -> Vec<Track> {
+fn scan_directory(app: tauri::AppHandle, base_path: String) -> Vec<Track> {
+    let covers_dir = app
+        .path()
+        .app_data_dir()
+        .map(|dir| dir.join("covers"))
+        .unwrap_or_else(|_| std::env::temp_dir().join("aivys-covers"));
+
     let mut tracks = Vec::new();
 
     for entry in WalkDir::new(base_path).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
 
         if path.is_file() && is_audio_file(path) {
-            if let Some(track) = read_track(path) {
+            if let Some(track) = read_track(path, &covers_dir) {
                 tracks.push(track);
             }
         }

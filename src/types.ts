@@ -17,6 +17,9 @@ export interface Track {
     sampleRate: number | null;
     format: string | null; // e.g. "mp3", "flac"
 
+    // Path to the extracted cover art file in the app data cache, if any.
+    coverPath: string | null;
+
     // Timestamps (unix seconds).
     // dateCreated is the stable "date added" that must NOT change when metadata is edited.
     dateCreated: number;
