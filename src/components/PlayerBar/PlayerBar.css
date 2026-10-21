@@ -36,13 +36,25 @@
     gap: 20px;
 }
 
+.player-track-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    justify-self: start;
+    width: 100%;
+}
+
+.player-cover {
+    border-radius: 4px;
+}
+
 .track-info {
     display: flex;
     flex-direction: column;
     min-width: 0;
     overflow: hidden;
-    justify-self: start;
-    width: 100%;
+    flex: 1;
 }
 
 .track-artist-display {

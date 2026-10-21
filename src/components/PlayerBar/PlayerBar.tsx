@@ -10,6 +10,7 @@ import {
 import { useRef, useEffect, useState } from "react";
 import type { Track } from "../../types";
 import { displayTitle } from "../../utils/track";
+import { CoverArt } from "../CoverArt";
 import { TrackSlider } from "./TrackSlider";
 import { VolumeControl } from "./VolumeControl";
 import "./PlayerBar.css";
@@ -71,24 +72,27 @@ export const PlayerBar = (props: PlayerBarProps) => {
             />
 
             <div className="player-bar-content">
-                <div className="track-info">
-                    <span
-                        ref={containerRef}
-                        key={title}
-                        className={`track-name-display ${isOverflowing ? "is-overflowing" : ""}`}
-                    >
-                        <span ref={textRef} className="marquee-content">
-                            {title || "No track"}
-                        </span>
-                        {isOverflowing && (
-                            <span className="marquee-duplicate">
-                                {title}
+                <div className="player-track-cell">
+                    <CoverArt path={props.currentTrack?.coverPath} size={40} className="player-cover" />
+                    <div className="track-info">
+                        <span
+                            ref={containerRef}
+                            key={title}
+                            className={`track-name-display ${isOverflowing ? "is-overflowing" : ""}`}
+                        >
+                            <span ref={textRef} className="marquee-content">
+                                {title || "No track"}
                             </span>
+                            {isOverflowing && (
+                                <span className="marquee-duplicate">
+                                    {title}
+                                </span>
+                            )}
+                        </span>
+                        {artist && (
+                            <span className="track-artist-display">{artist}</span>
                         )}
-                    </span>
-                    {artist && (
-                        <span className="track-artist-display">{artist}</span>
-                    )}
+                    </div>
                 </div>
 
                 <div className="playback-controls">

@@ -1,6 +1,7 @@
 import "./TrackList.css";
 import type { Track } from "../../types";
 import { displayTitle } from "../../utils/track";
+import { CoverArt } from "../CoverArt";
 
 interface TrackListProps {
     files: Track[];
@@ -32,6 +33,7 @@ export const TrackList = ({ files, activePath, onPlay }: TrackListProps) => {
                             onClick={() => onPlay(file)}
                             className={`audio-item ${activePath === file.path ? 'active' : ''}`}
                         >
+                            <CoverArt path={file.coverPath} size={36} className="track-cover" />
                             <div className="track-main-info">
                                 <span className="track-title">{title}</span>
                                 <span className="track-artist">{artist}</span>
