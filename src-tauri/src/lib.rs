@@ -71,6 +71,40 @@ fn read_modified(path: &Path) -> u64 {
         .unwrap_or(0)
 }
 
+/// Repairs "mojibake" tags/names whose original bytes were misread as Latin-1:
+/// tries UTF-8 first, then Windows-1251. Only touches all-single-byte strings,
+/// so genuine text (any char > U+00FF) is left untouched.
+fn repair_mojibake(value: &str) -> String {
+    let mut bytes = Vec::with_capacity(value.len());
+    for c in value.chars() {
+        let code = c as u32;
+        if code > 0xFF {
+            // A char above the latin-1 range means this is real text already.
+            return value.to_owned();
+        }
+        bytes.push(code as u8);
+    }
+
+    // Case 1: original was UTF-8, mangled through Latin-1.
+    if let Ok(repaired) = std::str::from_utf8(&bytes) {
+        if repaired != value {
+            return repaired.to_owned();
+        }
+    }
+
+    // Case 2: original was Windows-1251, mangled through Latin-1.
+    let (repaired, _, had_errors) = encoding_rs::WINDOWS_1251.decode(&bytes);
+    if !had_errors && repaired != value {
+        return repaired.into_owned();
+    }
+
+    value.to_owned()
+}
+
+fn repair_opt(value: Option<String>) -> Option<String> {
+    value.map(|v| repair_mojibake(&v))
+}
+
 fn read_track(path: &Path) -> Option<Track> {
     let probed = Probe::open(path).ok()?.read().ok()?;
 
@@ -134,19 +168,21 @@ fn read_track(path: &Path) -> Option<Track> {
 
     let file_mtime = read_modified(path);
 
+    let name = repair_mojibake(&path.file_name()?.to_string_lossy());
+
     Some(Track {
-        name: path.file_name()?.to_string_lossy().into_owned(),
+        name,
         path: path.to_string_lossy().into_owned(),
         duration,
 
-        title,
-        artists,
-        album,
-        album_artist,
+        title: repair_opt(title),
+        artists: artists.iter().map(|a| repair_mojibake(a)).collect(),
+        album: repair_opt(album),
+        album_artist: repair_opt(album_artist),
         track_number,
         disc_number,
         year,
-        genre,
+        genre: genre.iter().map(|g| repair_mojibake(g)).collect(),
 
         bitrate,
         sample_rate,
