@@ -96,7 +96,7 @@ export const PlayerBar = (props: PlayerBarProps) => {
                 </div>
 
                 <div className="playback-controls">
-                    <button className={`control-btn secondary ${props.isShuffle ? "active" : ""}`} onClick={props.onToggleShuffle} disabled={!hasTrack}>
+                    <button className={`control-btn secondary ${props.isShuffle ? "active" : ""}`} onClick={props.onToggleShuffle}>
                         <Shuffle size={20} />
                     </button>
                     <button className="control-btn" onClick={props.onPrev} disabled={!hasTrack}>
@@ -108,7 +108,7 @@ export const PlayerBar = (props: PlayerBarProps) => {
                     <button className="control-btn" onClick={props.onNext} disabled={!hasTrack}>
                         <SkipForward size={22} fill="currentColor" />
                     </button>
-                    <button className={`control-btn secondary ${props.repeatMode !== 'none' ? "active" : ""}`} onClick={props.onToggleRepeat} disabled={!hasTrack}>
+                    <button className={`control-btn secondary ${props.repeatMode !== 'none' ? "active" : ""}`} onClick={props.onToggleRepeat}>
                         {props.repeatMode === 'one' ? <Repeat1 size={20} /> : <Repeat size={20} />}
                     </button>
                 </div>
