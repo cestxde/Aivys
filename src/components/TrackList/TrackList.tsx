@@ -1,5 +1,6 @@
 import "./TrackList.css";
 import type { Track } from "../../types";
+import { displayTitle } from "../../utils/track";
 
 interface TrackListProps {
     files: Track[];
@@ -21,7 +22,7 @@ export const TrackList = ({ files, activePath, onPlay }: TrackListProps) => {
                 <div className="empty-state">No tracks found. Scan a directory to start.</div>
             ) : (
                 files.map((file) => {
-                    const title = file.title?.trim() || file.name;
+                    const title = displayTitle(file);
                     const artist = file.artists.length > 0
                         ? file.artists.join(", ")
                         : "Unknown artist";

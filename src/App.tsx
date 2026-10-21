@@ -85,7 +85,7 @@ function App() {
 			</main>
 
 			<PlayerBar
-				currentTrackName={currentTrack?.name || null}
+				currentTrack={currentTrack ?? null}
 				isPlaying={isPlaying}
 				volume={volume}
 				onTogglePlay={togglePlay}

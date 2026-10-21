@@ -8,12 +8,14 @@ import {
     Repeat1
 } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
+import type { Track } from "../../types";
+import { displayTitle } from "../../utils/track";
 import { TrackSlider } from "./TrackSlider";
 import { VolumeControl } from "./VolumeControl";
 import "./PlayerBar.css";
 
 interface PlayerBarProps {
-    currentTrackName: string | null;
+    currentTrack: Track | null;
     isPlaying: boolean;
     volume: number;
     currentTime: number;
@@ -30,7 +32,12 @@ interface PlayerBarProps {
 }
 
 export const PlayerBar = (props: PlayerBarProps) => {
-    const hasTrack = !!props.currentTrackName;
+    const hasTrack = !!props.currentTrack;
+    const title = props.currentTrack ? displayTitle(props.currentTrack) : null;
+    const artist = props.currentTrack?.artists?.length
+        ? props.currentTrack.artists.join(", ")
+        : null;
+
     const containerRef = useRef<HTMLSpanElement>(null);
     const textRef = useRef<HTMLSpanElement>(null);
     const [isOverflowing, setIsOverflowing] = useState(false);
@@ -52,7 +59,7 @@ export const PlayerBar = (props: PlayerBarProps) => {
             clearTimeout(timer);
             window.removeEventListener('resize', checkOverflow);
         };
-    }, [props.currentTrackName]);
+    }, [title]);
 
     return (
         <div className="player-bar-wrapper">
@@ -65,23 +72,23 @@ export const PlayerBar = (props: PlayerBarProps) => {
 
             <div className="player-bar-content">
                 <div className="track-info">
-                    <span className="now-playing">
-                        {props.isPlaying ? "Now Playing" : "Paused"}
-                    </span>
                     <span
                         ref={containerRef}
-                        key={props.currentTrackName}
+                        key={title}
                         className={`track-name-display ${isOverflowing ? "is-overflowing" : ""}`}
                     >
                         <span ref={textRef} className="marquee-content">
-                            {props.currentTrackName || "No track"}
+                            {title || "No track"}
                         </span>
                         {isOverflowing && (
                             <span className="marquee-duplicate">
-                                {props.currentTrackName}
+                                {title}
                             </span>
                         )}
                     </span>
+                    {artist && (
+                        <span className="track-artist-display">{artist}</span>
+                    )}
                 </div>
 
                 <div className="playback-controls">
