@@ -1,10 +1,11 @@
 import "./ToolBar.css"
+import type { SortOrder } from "../../types";
 
 interface ToolbarProps {
     searchQuery: string;
     onSearchChange: (value: string) => void;
-    sortOrder: 'name' | 'date' | 'duration';
-    onSortChange: (order: 'name' | 'date' | 'duration') => void;
+    sortOrder: SortOrder;
+    onSortChange: (order: SortOrder) => void;
     onShuffleAll: () => void;
     onPlayAll: () => void;
 }
@@ -22,11 +23,13 @@ export const Toolbar = ({
             <div className="toolbar-section left">
                 <select
                     value={sortOrder}
-                    onChange={(e) => onSortChange(e.target.value as any)}
+                    onChange={(e) => onSortChange(e.target.value as SortOrder)}
                     className="sort-select"
                 >
                     <option value="date">Newest</option>
-                    <option value="name">A-Z</option>
+                    <option value="name">Title</option>
+                    <option value="artist">Artist</option>
+                    <option value="album">Album</option>
                     <option value="duration">Duration</option>
                 </select>
             </div>

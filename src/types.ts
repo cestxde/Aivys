@@ -26,7 +26,7 @@ export interface Track {
     metadataModifiedAt: number;
 }
 
-export type SortOrder = 'name' | 'artist' | 'date' | 'manual';
+export type SortOrder = 'name' | 'artist' | 'album' | 'date' | 'duration' | 'manual';
 
 export interface PlayerSettings {
     volume: number;
