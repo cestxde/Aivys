@@ -1,10 +1,11 @@
 import "./TrackList.css";
-import type { AudioFile } from "../../types";
+import type { Track } from "../../types";
 
 interface TrackListProps {
-    files: AudioFile[];
+    files: Track[];
     activePath: string | null;
-    onPlay: (track: AudioFile) => void;
+
+    onPlay: (track: Track) => void;
 }
 
 const formatDuration = (seconds: number) => {

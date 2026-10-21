@@ -1,11 +1,11 @@
 import { useState, useMemo } from "react";
-import type { AudioFile } from "../types";
+import type { Track } from "../types";
 
 export const useTrackListLogic = (
-    files: AudioFile[],
+    files: Track[],
     isShuffle: boolean,
-    toggleShuffle: (currentFiles: AudioFile[]) => void,
-    playTrack: (track: AudioFile, currentFiles: AudioFile[]) => void
+    toggleShuffle: (currentFiles: Track[]) => void,
+    playTrack: (track: Track, currentFiles: Track[]) => void
 ) => {
     const [searchQuery, setSearchQuery] = useState("");
     const [sortOrder, setSortOrder] = useState<'name' | 'date' | 'duration'>('date');
@@ -20,7 +20,7 @@ export const useTrackListLogic = (
         }
 
         result.sort((a, b) => {
-            if (sortOrder === 'date') return (b.modified || 0) - (a.modified || 0);
+            if (sortOrder === 'date') return (b.dateCreated || 0) - (a.dateCreated || 0);
             if (sortOrder === 'duration') return b.duration - a.duration;
             return a.name.localeCompare(b.name);
         });

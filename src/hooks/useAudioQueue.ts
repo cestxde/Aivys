@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { AudioFile } from "../types";
+import type { Track } from "../types";
 
 export const useAudioQueue = (
     isShuffle: boolean,
@@ -7,10 +7,12 @@ export const useAudioQueue = (
     repeatMode: 'none' | 'one' | 'all',
     setRepeatMode: (val: 'none' | 'one' | 'all') => void
 ) => {
-    const [queue, setQueue] = useState<AudioFile[]>([]);
+
+    const [queue, setQueue] = useState<Track[]>([]);
 
     // Fisher-Yates shuffle algorithm
-    const shuffleArray = (array: AudioFile[]) => {
+
+    const shuffleArray = (array: Track[]) => {
         const newArr = [...array];
         for (let i = newArr.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -19,7 +21,8 @@ export const useAudioQueue = (
         return newArr;
     };
 
-    const buildQueue = (files: AudioFile[], activeTrack: AudioFile, shuffle: boolean) => {
+
+    const buildQueue = (files: Track[], activeTrack: Track, shuffle: boolean) => {
         if (!shuffle) {
             setQueue(files);
             return;
@@ -29,7 +32,7 @@ export const useAudioQueue = (
         setQueue([activeTrack, ...shuffleArray(others)]);
     };
 
-    const getNextTrack = (currentPath: string | null): AudioFile | null => {
+    const getNextTrack = (currentPath: string | null): Track | null => {
         if (queue.length === 0 || !currentPath) return null;
         const idx = queue.findIndex(f => f.path === currentPath);
 
@@ -37,7 +40,7 @@ export const useAudioQueue = (
         return queue[idx + 1];
     };
 
-    const getPrevTrack = (currentPath: string | null): AudioFile | null => {
+    const getPrevTrack = (currentPath: string | null): Track | null => {
         if (queue.length === 0 || !currentPath) return null;
         const idx = queue.findIndex(f => f.path === currentPath);
 

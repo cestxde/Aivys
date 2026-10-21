@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { useAudioController } from "./useAudioController";
 import { useAudioQueue } from "./useAudioQueue";
-import type { AudioFile } from "../types";
+import type { Track } from "../types";
 import { usePlayerSettings } from "./usePlayerSettings";
 
 export const useAudioPlayer = () => {
     const { settings, updateSettings } = usePlayerSettings();
-    const [files, setFiles] = useState<AudioFile[]>([]);
+    const [files, setFiles] = useState<Track[]>([]);
     const [activePath, setActivePath] = useState<string | null>(null);
 
     const audio = useAudioController(
@@ -22,11 +22,11 @@ export const useAudioPlayer = () => {
     );
 
     const playTrack = useCallback((
-        trackOrPath: AudioFile | string,
-        currentFiles: AudioFile[],
+        trackOrPath: Track | string,
+        currentFiles: Track[],
         shouldPlay = true
     ) => {
-        let track: AudioFile | undefined;
+        let track: Track | undefined;
 
         if (typeof trackOrPath === "string") {
             track = currentFiles.find(f => f.path === trackOrPath);
@@ -49,7 +49,6 @@ export const useAudioPlayer = () => {
             }
         }
     }, [q.isShuffle, audio.playFile, audio.setIsPlaying, q.buildQueue]);
-
     const onNext = useCallback(() => {
         const next = q.getNextTrack(activePath);
         if (next) {
@@ -104,7 +103,7 @@ export const useAudioPlayer = () => {
     const handleScan = async () => {
         if (!settings.lastPath) return;
         try {
-            const result: AudioFile[] = await invoke("scan_directory", { basePath: settings.lastPath });
+            const result: Track[] = await invoke("scan_directory", { basePath: settings.lastPath });
             setFiles(result);
             if (!q.isShuffle) q.setQueue(result);
         } catch (error) {
@@ -112,7 +111,7 @@ export const useAudioPlayer = () => {
         }
     };
 
-    const toggleShuffle = (currentFiles: AudioFile[]) => {
+    const toggleShuffle = (currentFiles: Track[]) => {
         const nextShuffle = !q.isShuffle;
         q.setIsShuffle(nextShuffle);
 
