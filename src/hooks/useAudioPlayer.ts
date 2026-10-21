@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { useAudioController } from "./useAudioController";
 import { useAudioQueue } from "./useAudioQueue";
 import type { Track } from "../types";
@@ -21,6 +21,8 @@ export const useAudioPlayer = () => {
         (val) => updateSettings({ repeatMode: val })
     );
 
+    // Start a track from a user action (list click, play all, shuffle all).
+    // This rebuilds the queue so playback follows the given file list.
     const playTrack = useCallback((
         trackOrPath: Track | string,
         currentFiles: Track[],
@@ -42,19 +44,22 @@ export const useAudioPlayer = () => {
         if (shouldPlay) {
             audio.playFile(track.path);
         } else {
-            if (audio.audioRef.current) {
-                audio.audioRef.current.src = convertFileSrc(track.path);
-                audio.audioRef.current.load();
-                audio.setIsPlaying(false);
-            }
+            audio.loadFilePaused(track.path);
         }
-    }, [q.isShuffle, audio.playFile, audio.setIsPlaying, q.buildQueue]);
+    }, [q.isShuffle, audio.playFile, audio.loadFilePaused, q.buildQueue]);
+
+    // Move within the existing queue WITHOUT rebuilding it. This keeps a stable
+    // shuffle order, so Prev goes back to the actual previous track.
+    const goToTrack = useCallback((track: Track) => {
+        setActivePath(track.path);
+        audio.playFile(track.path);
+    }, [audio.playFile]);
     const onNext = useCallback(() => {
         const next = q.getNextTrack(activePath);
         if (next) {
-            playTrack(next, q.queue);
+            goToTrack(next);
         }
-    }, [activePath, q.getNextTrack, q.queue, playTrack]);
+    }, [activePath, q.getNextTrack, goToTrack]);
 
     const onAutoNext = useCallback(() => {
         if (q.repeatMode === 'one') {
@@ -64,17 +69,20 @@ export const useAudioPlayer = () => {
             return;
         }
 
-        const isLastInQueue = q.queue.length > 0 &&
-            activePath === q.queue[q.queue.length - 1].path;
+        if (q.queue.length === 0) return;
+
+        const isLastInQueue = activePath === q.queue[q.queue.length - 1].path;
 
         if (isLastInQueue && q.repeatMode === 'none') {
-            if (q.queue.length > 0) {
-                playTrack(q.queue[0], q.queue, false);
-            }
-        } else {
-            onNext();
+            // End of queue: return to the first track, paused at position 0.
+            const first = q.queue[0];
+            setActivePath(first.path);
+            audio.loadFilePaused(first.path);
+            return;
         }
-    }, [q.repeatMode, q.queue, activePath, onNext, playTrack, audio.seek, audio.setIsPlaying]);
+
+        onNext();
+    }, [q.repeatMode, q.queue, activePath, onNext, audio.seek, audio.setIsPlaying, audio.loadFilePaused]);
 
     const onPrev = useCallback(() => {
         if (audio.currentTime > 3) {
@@ -83,9 +91,9 @@ export const useAudioPlayer = () => {
         }
         const prev = q.getPrevTrack(activePath);
         if (prev) {
-            playTrack(prev, q.queue);
+            goToTrack(prev);
         }
-    }, [audio.currentTime, audio.seek, q.getPrevTrack, q.queue, activePath, playTrack]);
+    }, [audio.currentTime, audio.seek, q.getPrevTrack, activePath, goToTrack]);
 
     // Handle auto-next when track ends
     useEffect(() => {

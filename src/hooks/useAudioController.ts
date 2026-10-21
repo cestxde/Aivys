@@ -34,7 +34,9 @@ export const useAudioController = (
         };
     }, [isPlaying, audioRef.current]);
 
-    const playFile = (filePath: string) => {
+    // Replace the current source with `filePath`, resetting the position to 0.
+    // Returns the audio element so callers can start playback if needed.
+    const loadSource = (filePath: string) => {
         const assetUrl = convertFileSrc(filePath);
 
         if (!audioRef.current) {
@@ -46,8 +48,21 @@ export const useAudioController = (
         }
 
         audioRef.current.volume = Math.pow(initialVolume, 2);
+        audioRef.current.currentTime = 0;
+        setCurrentTime(0);
+        return audioRef.current;
+    };
+
+    const playFile = (filePath: string) => {
+        const audio = loadSource(filePath);
         setIsPlaying(true);
-        audioRef.current.play().catch(e => console.error("Playback error:", e));
+        audio.play().catch(e => console.error("Playback error:", e));
+    };
+
+    // Load a track without starting playback (paused, position at 0).
+    const loadFilePaused = (filePath: string) => {
+        loadSource(filePath);
+        setIsPlaying(false);
     };
 
     const togglePlay = () => {
@@ -73,6 +88,6 @@ export const useAudioController = (
         setVolume: onVolumeChange,
         currentTime, duration,
         audioRef,
-        playFile, togglePlay, seek
+        playFile, loadFilePaused, togglePlay, seek
     };
 };
