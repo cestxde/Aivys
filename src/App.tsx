@@ -56,7 +56,11 @@ function App() {
 	};
 
 	const handleRemoveRecent = (path: string) => {
-		updateSettings({ recentPaths: removeRecentPath(settings.recentPaths, path) });
+		const recentPaths = removeRecentPath(settings.recentPaths, path);
+		// If the removed folder was the one we'd reopen on startup, forget it too,
+		// so the next launch won't auto-open a folder the user removed.
+		const lastPath = path === settings.lastPath ? "" : settings.lastPath;
+		updateSettings({ recentPaths, lastPath });
 	};
 
 	// On startup: reopen the last folder if it still exists, otherwise stay on
