@@ -46,16 +46,9 @@ function App() {
 	return (
 		<>
 			<main className="container">
-				<header className="header" style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
-					<div className="logo-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-						<img
-							src={logo}
-							alt=""
-							style={{
-								height: '32px',
-								width: 'auto'
-							}}
-						/>
+				<header className="header">
+					<div className="logo-wrapper">
+						<img src={logo} alt="" className="app-logo" />
 					</div>
 				</header>
 

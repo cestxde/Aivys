@@ -13,6 +13,21 @@
 .header {
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.logo-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-logo {
+  height: 32px;
+  width: auto;
 }
 
 .title {
