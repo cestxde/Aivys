@@ -20,23 +20,27 @@ export const TrackList = ({ files, activePath, onPlay }: TrackListProps) => {
             {files.length === 0 ? (
                 <div className="empty-state">No tracks found. Scan a directory to start.</div>
             ) : (
-                files.map((file, i) => (
-                    <div
-                        key={i}
-                        onClick={() => onPlay(file)}
-                        className={`audio-item ${activePath === file.path ? 'active' : ''}`}
-                    >
-                        <div className="track-main-info">
-                            <span className="track-name">{file.name}</span>
-                            <span className="track-folder">
-                                {file.path.split(/[\\/]/).slice(-2, -1)}
+                files.map((file) => {
+                    const title = file.title?.trim() || file.name;
+                    const artist = file.artists.length > 0
+                        ? file.artists.join(", ")
+                        : "Unknown artist";
+                    return (
+                        <div
+                            key={file.path}
+                            onClick={() => onPlay(file)}
+                            className={`audio-item ${activePath === file.path ? 'active' : ''}`}
+                        >
+                            <div className="track-main-info">
+                                <span className="track-title">{title}</span>
+                                <span className="track-artist">{artist}</span>
+                            </div>
+                            <span className="duration-tag">
+                                {formatDuration(file.duration)}
                             </span>
                         </div>
-                        <span className="duration-tag">
-                            {formatDuration(file.duration)}
-                        </span>
-                    </div>
-                ))
+                    );
+                })
             )}
         </div>
     );

@@ -12,12 +12,13 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 1rem;
+    padding: 0.4rem 1rem;
     border-bottom: 1px solid var(--border);
     transition: background 0.1s ease;
     cursor: pointer;
     min-width: 0;
-    height: 40px;
+    height: 48px;
+    gap: 12px;
     background: var(--bg);
 }
 
@@ -30,19 +31,21 @@
     border-left: 2px solid var(--accent);
 }
 
-.audio-item.active .track-name {
+.audio-item.active .track-title {
     color: var(--accent);
 }
 
 .track-main-info {
     display: flex;
-    align-items: baseline;
-    gap: 12px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
     overflow: hidden;
     flex: 1;
+    min-width: 0;
 }
 
-.track-name {
+.track-title {
     font-weight: 500;
     font-size: 14px;
     white-space: nowrap;
@@ -51,11 +54,13 @@
     color: var(--text-h);
 }
 
-.track-folder {
-    font-size: 10px;
-    opacity: 0.4;
-    text-transform: uppercase;
+.track-artist {
+    font-size: 12px;
+    opacity: 0.6;
+    color: var(--text);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .duration-tag {
@@ -63,6 +68,7 @@
     font-size: 0.85rem;
     color: var(--text);
     opacity: 0.8;
+    flex-shrink: 0;
 }
 
 .empty-state {
