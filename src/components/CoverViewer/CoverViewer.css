@@ -1,0 +1,63 @@
+.cover-viewer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 5vmin;
+    animation: cover-viewer-fade 0.15s ease;
+}
+
+@keyframes cover-viewer-fade {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.cover-viewer-image {
+    width: min(80vmin, 100%);
+    height: min(80vmin, 100%);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    box-shadow: var(--shadow, 0 20px 25px -5px rgba(0, 0, 0, 0.6));
+}
+
+.cover-viewer-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.cover-viewer-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.cover-viewer-close:hover {
+    background: rgba(255, 255, 255, 0.25);
+}

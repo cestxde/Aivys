@@ -11,6 +11,7 @@ import { useRef, useEffect, useState } from "react";
 import type { Track } from "../../types";
 import { displayTitle } from "../../utils/track";
 import { CoverArt } from "../CoverArt";
+import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { TrackSlider } from "./TrackSlider";
 import { VolumeControl } from "./VolumeControl";
 import "./PlayerBar.css";
@@ -42,6 +43,7 @@ export const PlayerBar = (props: PlayerBarProps) => {
     const containerRef = useRef<HTMLSpanElement>(null);
     const textRef = useRef<HTMLSpanElement>(null);
     const [isOverflowing, setIsOverflowing] = useState(false);
+    const [showCover, setShowCover] = useState(false);
 
     const checkOverflow = () => {
         if (containerRef.current && textRef.current) {
@@ -73,7 +75,12 @@ export const PlayerBar = (props: PlayerBarProps) => {
 
             <div className="player-bar-content">
                 <div className="player-track-cell">
-                    <CoverArt path={props.currentTrack?.coverPath} size={40} className="player-cover" />
+                    <CoverArt
+                        path={props.currentTrack?.coverPath}
+                        size={40}
+                        className="player-cover"
+                        onClick={hasTrack ? () => setShowCover(true) : undefined}
+                    />
                     <div className="track-info">
                         <span
                             ref={containerRef}
@@ -115,6 +122,13 @@ export const PlayerBar = (props: PlayerBarProps) => {
 
                 <VolumeControl volume={props.volume} onVolumeChange={props.onVolumeChange} />
             </div>
+
+            {showCover && props.currentTrack && (
+                <CoverViewer
+                    path={props.currentTrack.coverPath}
+                    onClose={() => setShowCover(false)}
+                />
+            )}
         </div>
     );
 };

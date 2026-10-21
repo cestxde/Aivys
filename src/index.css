@@ -121,6 +121,15 @@ h3 {
   display: block;
 }
 
+.cover-art-clickable {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.cover-art-clickable:hover {
+  opacity: 0.85;
+}
+
 /* Nudge the placeholder icon slightly left to look optically centered. */
 .cover-art svg {
   margin-left: -2px;
