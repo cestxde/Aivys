@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { useAudioController } from "./useAudioController";
 import { useAudioQueue } from "./useAudioQueue";
 import type { Track } from "../types";
 import { usePlayerSettings } from "./usePlayerSettings";
+import { nextRepeatMode } from "../constants";
 
-export const useAudioPlayer = () => {
+export const useAudioPlayer = (files: Track[]) => {
     const { settings, updateSettings } = usePlayerSettings();
-    const [files, setFiles] = useState<Track[]>([]);
     const [activePath, setActivePath] = useState<string | null>(null);
 
     const audio = useAudioController(
@@ -108,16 +107,13 @@ export const useAudioPlayer = () => {
         return () => element.removeEventListener("ended", handleEnded);
     }, [onAutoNext, audio.audioRef]);
 
-    const handleScan = async () => {
-        if (!settings.lastPath) return;
-        try {
-            const result: Track[] = await invoke("scan_directory", { basePath: settings.lastPath });
-            setFiles(result);
-            if (!q.isShuffle) q.setQueue(result);
-        } catch (error) {
-            console.error("Scan error:", error);
+    // Keep the queue in sync with the library when not shuffling.
+    // (Shuffle builds its own order in buildQueue, so we leave it alone.)
+    useEffect(() => {
+        if (!q.isShuffle) {
+            q.setQueue(files);
         }
-    };
+    }, [files, q.isShuffle]);
 
     const toggleShuffle = (currentFiles: Track[]) => {
         const nextShuffle = !q.isShuffle;
@@ -130,16 +126,13 @@ export const useAudioPlayer = () => {
     };
 
     const toggleRepeatMode = () => {
-        const modes: ('none' | 'all' | 'one')[] = ['none', 'all', 'one'];
-        const currentIndex = modes.indexOf(q.repeatMode);
-        const nextIndex = (currentIndex + 1) % modes.length;
-        q.setRepeatMode(modes[nextIndex]);
+        q.setRepeatMode(nextRepeatMode(q.repeatMode));
     };
 
     return {
         path: settings.lastPath,
         setPath: (val: string) => updateSettings({ lastPath: val }),
-        files, activePath, handleScan,
+        activePath,
         playTrack, onNext, onPrev,
         toggleShuffle, isShuffle: q.isShuffle,
         repeatMode: q.repeatMode, setRepeatMode: q.setRepeatMode,

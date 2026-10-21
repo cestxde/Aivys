@@ -1,5 +1,6 @@
 import "./App.css";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
+import { useLibrary } from "./hooks/useLibrary";
 import { TrackList } from "./components/TrackList/TrackList";
 import { PlayerBar } from "./components/PlayerBar/PlayerBar";
 import { Toolbar } from "./components/ToolBar/ToolBar";
@@ -8,14 +9,19 @@ import { useTrackListLogic } from "./hooks/useTrackListLogic";
 import logo from "./assets/logo-white-en.svg";
 
 function App() {
+	const library = useLibrary();
+
 	const {
-		path, setPath, files, activePath, handleScan, playTrack,
+		path, setPath, activePath, playTrack,
 		isPlaying, togglePlay, volume, setVolume,
 		currentTime, duration, seek,
 		onNext, onPrev,
 		toggleShuffle, isShuffle,
-		repeatMode, setRepeatMode
-	} = useAudioPlayer();
+		repeatMode, toggleRepeatMode
+	} = useAudioPlayer(library.files);
+
+	const files = library.files;
+	const handleScan = () => library.scan(path);
 
 	const currentTrack = files.find(f => f.path === activePath);
 
@@ -98,11 +104,7 @@ function App() {
 				isShuffle={isShuffle}
 				repeatMode={repeatMode}
 				onToggleShuffle={() => toggleShuffle(displayFiles)}
-				onToggleRepeat={() => {
-					const modes: ('none' | 'all' | 'one')[] = ['none', 'all', 'one'];
-					const nextIndex = (modes.indexOf(repeatMode) + 1) % modes.length;
-					setRepeatMode(modes[nextIndex]);
-				}}
+				onToggleRepeat={toggleRepeatMode}
 			/>
 		</>
 	);

@@ -1,6 +1,7 @@
 import "./TrackList.css";
 import type { Track } from "../../types";
 import { displayTitle } from "../../utils/track";
+import { formatDuration } from "../../utils/format";
 import { CoverArt } from "../CoverArt";
 
 interface TrackListProps {
@@ -9,12 +10,6 @@ interface TrackListProps {
 
     onPlay: (track: Track) => void;
 }
-
-const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-};
 
 export const TrackList = ({ files, activePath, onPlay }: TrackListProps) => {
     return (

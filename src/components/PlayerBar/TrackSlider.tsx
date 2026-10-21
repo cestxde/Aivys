@@ -1,11 +1,5 @@
 import { Slider } from "../Slider/Slider";
-
-const formatDuration = (seconds: number) => {
-    if (!seconds || isNaN(seconds)) return "0:00";
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-};
+import { formatDuration } from "../../utils/format";
 
 interface TrackSliderProps {
     currentTime: number;

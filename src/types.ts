@@ -31,10 +31,12 @@ export interface Track {
 
 export type SortOrder = 'name' | 'artist' | 'album' | 'date' | 'duration' | 'manual';
 
+export type RepeatMode = 'none' | 'all' | 'one';
+
 export interface PlayerSettings {
     volume: number;
     isShuffle: boolean;
-    repeatMode: 'none' | 'all' | 'one';
+    repeatMode: RepeatMode;
     lastPath: string;
 }
 
