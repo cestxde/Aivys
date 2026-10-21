@@ -82,12 +82,22 @@ export const useAudioController = (
         }
     };
 
+    // Stop playback entirely and reset the position.
+    const stop = () => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
+        setCurrentTime(0);
+        setIsPlaying(false);
+    };
+
     return {
         isPlaying, setIsPlaying,
         volume: initialVolume,
         setVolume: onVolumeChange,
         currentTime, duration,
         audioRef,
-        playFile, loadFilePaused, togglePlay, seek
+        playFile, loadFilePaused, togglePlay, seek, stop
     };
 };

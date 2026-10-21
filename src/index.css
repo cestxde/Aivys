@@ -81,6 +81,25 @@ h3 {
   background: #3f3f46;
 }
 
+/* Themed logo: black on light, white on dark. */
+.logo-on-light {
+  display: block;
+}
+
+.logo-on-dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .logo-on-light {
+    display: none;
+  }
+
+  .logo-on-dark {
+    display: block;
+  }
+}
+
 /* Cover art: shared by the track list and the player bar. */
 .cover-art {
   flex-shrink: 0;

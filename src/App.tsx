@@ -1,29 +1,83 @@
 import "./App.css";
+import { useState, useEffect } from "react";
+import { FolderOpen } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
+import { usePlayerSettings } from "./hooks/usePlayerSettings";
 import { TrackList } from "./components/TrackList/TrackList";
 import { PlayerBar } from "./components/PlayerBar/PlayerBar";
 import { Toolbar } from "./components/ToolBar/ToolBar";
+import { LibraryPicker } from "./components/LibraryPicker/LibraryPicker";
+import { ThemedLogo } from "./components/ThemedLogo";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
+import { addRecentPath, removeRecentPath } from "./types";
 
-import logo from "./assets/logo-white-en.svg";
+type View = "loading" | "picker" | "library";
 
 function App() {
+	const { settings, updateSettings } = usePlayerSettings();
 	const library = useLibrary();
+	const [view, setView] = useState<View>("loading");
+	const [pickerError, setPickerError] = useState<string | null>(null);
 
 	const {
-		path, setPath, activePath, playTrack,
+		activePath, playTrack,
 		isPlaying, togglePlay, volume, setVolume,
-		currentTime, duration, seek,
+		currentTime, duration, seek, stop,
 		onNext, onPrev,
 		toggleShuffle, isShuffle,
 		repeatMode, toggleRepeatMode
-	} = useAudioPlayer(library.files);
+	} = useAudioPlayer(library.files, settings, updateSettings);
 
 	const files = library.files;
-	const handleScan = () => library.scan(path);
-
 	const currentTrack = files.find(f => f.path === activePath);
+
+	// Open a folder as the active library: validate it, remember it, scan it.
+	const openLibrary = async (path: string) => {
+		const valid = await library.validate(path);
+		if (!valid) {
+			setPickerError(`Folder not found: ${path}`);
+			return;
+		}
+		setPickerError(null);
+		stop();
+		updateSettings({
+			lastPath: path,
+			recentPaths: addRecentPath(settings.recentPaths, path),
+		});
+		setView("library");
+		await library.scan(path);
+	};
+
+	// Return to the library picker: stop playback and show the picker.
+	const goToPicker = () => {
+		stop();
+		setView("picker");
+	};
+
+	const handleRemoveRecent = (path: string) => {
+		updateSettings({ recentPaths: removeRecentPath(settings.recentPaths, path) });
+	};
+
+	// On startup: reopen the last folder if it still exists, otherwise stay on
+	// the picker (showing an error if a previously used folder disappeared).
+	useEffect(() => {
+		const last = settings.lastPath;
+		(async () => {
+			if (last) {
+				const valid = await library.validate(last);
+				if (valid) {
+					await library.scan(last);
+					setView("library");
+					return;
+				}
+				setPickerError(`Last folder is no longer available: ${last}`);
+			}
+			setView("picker");
+		})();
+		// Run once on mount.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	const {
 		searchQuery, setSearchQuery,
@@ -43,27 +97,47 @@ function App() {
 		}
 	};
 
+	if (view === "loading") {
+		return (
+			<main className="container loading-screen">
+				<ThemedLogo className="loading-logo" />
+			</main>
+		);
+	}
+
+	if (view === "picker") {
+		return (
+			<main className="container">
+				<header className="header">
+					<div className="logo-wrapper">
+						<ThemedLogo className="app-logo" />
+					</div>
+				</header>
+				<LibraryPicker
+					recentPaths={settings.recentPaths}
+					error={pickerError}
+					onOpen={openLibrary}
+					onRemoveRecent={handleRemoveRecent}
+				/>
+			</main>
+		);
+	}
+
 	return (
 		<>
 			<main className="container">
 				<header className="header">
 					<div className="logo-wrapper">
-						<img src={logo} alt="" className="app-logo" />
+						<ThemedLogo className="app-logo" />
 					</div>
-				</header>
-
-				<div className="scanner-container">
-					<input
-						className="path-input"
-						type="text"
-						placeholder="Enter path (e.g., D:/Music)"
-						value={path}
-						onChange={(e) => setPath(e.target.value)}
-					/>
-					<button className="scan-button" onClick={handleScan}>
-						Scan Directory
+					<button
+						className="change-library-btn"
+						onClick={goToPicker}
+						title="Change library folder"
+					>
+						<FolderOpen size={18} />
 					</button>
-				</div>
+				</header>
 
 				<Toolbar
 					searchQuery={searchQuery}

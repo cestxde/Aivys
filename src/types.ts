@@ -38,11 +38,28 @@ export interface PlayerSettings {
     isShuffle: boolean;
     repeatMode: RepeatMode;
     lastPath: string;
+    // Recently opened library folders, most recent first.
+    recentPaths: string[];
 }
 
 export const DEFAULT_SETTINGS: PlayerSettings = {
     volume: 0.5,
     isShuffle: false,
     repeatMode: 'none',
-    lastPath: ''
+    lastPath: '',
+    recentPaths: []
+};
+
+/** Maximum number of recent folders to remember. */
+export const MAX_RECENT_PATHS = 5;
+
+/** Push `path` to the front of the recent list (deduped, capped). */
+export const addRecentPath = (recent: string[], path: string): string[] => {
+    const rest = recent.filter(p => p !== path);
+    return [path, ...rest].slice(0, MAX_RECENT_PATHS);
+};
+
+/** Remove `path` from the recent list. */
+export const removeRecentPath = (recent: string[], path: string): string[] => {
+    return recent.filter(p => p !== path);
 };

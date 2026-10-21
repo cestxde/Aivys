@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAudioController } from "./useAudioController";
 import { useAudioQueue } from "./useAudioQueue";
-import type { Track } from "../types";
-import { usePlayerSettings } from "./usePlayerSettings";
+import type { Track, PlayerSettings } from "../types";
 import { nextRepeatMode } from "../constants";
 
-export const useAudioPlayer = (files: Track[]) => {
-    const { settings, updateSettings } = usePlayerSettings();
+export const useAudioPlayer = (
+    files: Track[],
+    settings: PlayerSettings,
+    updateSettings: (fields: Partial<PlayerSettings>) => void
+) => {
     const [activePath, setActivePath] = useState<string | null>(null);
 
     const audio = useAudioController(

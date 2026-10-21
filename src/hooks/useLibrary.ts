@@ -12,6 +12,15 @@ export const useLibrary = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    /** Check whether a folder still exists on disk. */
+    const validate = useCallback(async (path: string): Promise<boolean> => {
+        try {
+            return await invoke<boolean>("validate_directory", { path });
+        } catch {
+            return false;
+        }
+    }, []);
+
     const scan = useCallback(async (basePath: string): Promise<Track[] | null> => {
         if (!basePath) return null;
         setIsLoading(true);
@@ -29,5 +38,5 @@ export const useLibrary = () => {
         }
     }, []);
 
-    return { files, setFiles, isLoading, error, scan };
+    return { files, setFiles, isLoading, error, validate, scan };
 };

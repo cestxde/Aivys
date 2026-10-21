@@ -1,13 +1,71 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>aivys</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aivys</title>
+  <style>
+    /* Boot splash: rendered before any JS/CSS bundle loads so the window
+         never flashes white on startup. Mirrors the app theme. */
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #ffffff;
+    }
+
+    #boot-splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      z-index: 9999;
+    }
+
+    #boot-splash img {
+      height: 48px;
+      width: auto;
+      display: block;
+    }
+
+    #boot-splash .splash-on-dark {
+      display: none;
+    }
+
+    @media (prefers-color-scheme: dark) {
+
+      html,
+      body {
+        background: #101014;
+      }
+
+      #boot-splash {
+        background: #101014;
+      }
+
+      #boot-splash .splash-on-light {
+        display: none;
+      }
+
+      #boot-splash .splash-on-dark {
+        display: block;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="boot-splash">
+    <img class="splash-on-light" src="/src/assets/logo-black-en.svg" alt="" />
+    <img class="splash-on-dark" src="/src/assets/logo-white-en.svg" alt="" />
+  </div>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

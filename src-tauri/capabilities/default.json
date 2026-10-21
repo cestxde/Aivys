@@ -10,6 +10,7 @@
     "core:path:default",
     "core:webview:default",
     "log:default",
+    "dialog:default",
     "allow-scan-directory"
   ]
 }
