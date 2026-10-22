@@ -101,10 +101,19 @@ function App() {
 		}
 	};
 
-	if (view === "loading") {
+	// Show the loading screen while the initial folder is being resolved or a
+	// scan is in progress (startup or switching libraries). The track list is
+	// never shown during a scan.
+	if (view === "loading" || library.isLoading) {
 		return (
 			<main className="container loading-screen">
 				<ThemedLogo className="loading-logo" />
+				{library.isLoading && (
+					<div className="loading-status">
+						<div className="spinner" aria-hidden="true" />
+						<span>Indexing...</span>
+					</div>
+				)}
 			</main>
 		);
 	}

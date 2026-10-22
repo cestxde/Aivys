@@ -66,15 +66,18 @@ fn save_added_at(path: &Path, map: &HashMap<String, u64>) -> bool {
     std::fs::rename(&tmp, path).is_ok()
 }
 
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) fn scan_directory(app: tauri::AppHandle, base_path: String) -> Vec<Track> {
-    let covers_dir = app
-        .path()
+fn resolve_covers_dir(app: &tauri::AppHandle) -> PathBuf {
+    app.path()
         .app_data_dir()
         .map(|dir| dir.join("covers"))
-        .unwrap_or_else(|_| std::env::temp_dir().join("aivys-covers"));
+        .unwrap_or_else(|_| std::env::temp_dir().join("aivys-covers"))
+}
 
-    let base = Path::new(&base_path);
+/// The blocking part of a scan: walks the folder, reads tags and covers, and
+/// updates the "added-at" store. Kept synchronous so it can run on a blocking
+/// thread pool via [`scan_directory`], never on the UI thread.
+fn do_scan(base_path: &str, covers_dir: &Path) -> Vec<Track> {
+    let base = Path::new(base_path);
     let store_path = added_at_store_path(base);
 
     // A missing store means this is the first time the folder is scanned: seed
@@ -116,7 +119,7 @@ pub(crate) fn scan_directory(app: tauri::AppHandle, base_path: String) -> Vec<Tr
             }
         };
 
-        if let Some(track) = read_track(path, &covers_dir, date_created) {
+        if let Some(track) = read_track(path, covers_dir, date_created) {
             tracks.push(track);
         }
     }
@@ -126,6 +129,17 @@ pub(crate) fn scan_directory(app: tauri::AppHandle, base_path: String) -> Vec<Tr
     }
 
     tracks
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String) -> Vec<Track> {
+    let covers_dir = resolve_covers_dir(&app);
+
+    // Run the blocking filesystem/tag work off the UI thread so the webview
+    // stays responsive (spinner keeps animating) during a large scan.
+    tauri::async_runtime::spawn_blocking(move || do_scan(&base_path, &covers_dir))
+        .await
+        .unwrap_or_default()
 }
 
 /// Returns true if `path` exists and is a directory.
