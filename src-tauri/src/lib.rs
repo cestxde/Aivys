@@ -2,8 +2,9 @@ use lofty::file::{AudioFile as LoftyAudioFile, FileType, TaggedFileExt};
 use lofty::probe::Probe;
 use lofty::tag::{Accessor, ItemKey};
 use serde::Serialize;
-use std::path::Path;
-use std::time::UNIX_EPOCH;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 use walkdir::WalkDir;
 
@@ -139,7 +140,7 @@ fn extract_cover(tag: &lofty::tag::Tag, covers_dir: &Path) -> Option<String> {
     Some(file_path.to_string_lossy().into_owned())
 }
 
-fn read_track(path: &Path, covers_dir: &Path) -> Option<Track> {
+fn read_track(path: &Path, covers_dir: &Path, date_created: u64) -> Option<Track> {
     let probed = Probe::open(path).ok()?.read().ok()?;
 
     let duration = probed.properties().duration().as_secs() as u32;
@@ -226,13 +227,56 @@ fn read_track(path: &Path, covers_dir: &Path) -> Option<Track> {
         format,
         cover_path,
 
-        // On a first scan the file has no prior "date added" record yet, so we
-        // fall back to the file's mtime. A persistent store (see the roadmap)
-        // will later keep this stable across metadata edits.
-        date_created: file_mtime,
+        // `date_created` is resolved by the caller from the persistent
+        // "added-at" store, so it stays stable across metadata edits.
+        date_created,
         file_mtime,
         metadata_modified_at: 0,
     })
+}
+
+fn now_unix() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// The persistent "added-at" store lives next to the music, in
+/// `<base_path>/.aivys/index/added-at.json`, so it syncs with the library
+/// across devices (paths are stored relative to the library root).
+fn added_at_store_path(base_path: &Path) -> PathBuf {
+    base_path.join(".aivys").join("index").join("added-at.json")
+}
+
+/// Load the map of relative-path -> first-seen timestamp. Returns an empty map
+/// if the file is missing or unreadable.
+fn load_added_at(path: &Path) -> HashMap<String, u64> {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|contents| serde_json::from_str(&contents).ok())
+        .unwrap_or_default()
+}
+
+/// Write the store back to disk (atomically enough for our purposes: write to a
+/// temp file, then rename). Creates the parent directory if needed.
+fn save_added_at(path: &Path, map: &HashMap<String, u64>) -> bool {
+    let Some(parent) = path.parent() else {
+        return false;
+    };
+    if std::fs::create_dir_all(parent).is_err() {
+        return false;
+    }
+
+    let Ok(json) = serde_json::to_string_pretty(map) else {
+        return false;
+    };
+
+    let tmp = path.with_extension("json.tmp");
+    if std::fs::write(&tmp, json).is_err() {
+        return false;
+    }
+    std::fs::rename(&tmp, path).is_ok()
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -243,17 +287,57 @@ fn scan_directory(app: tauri::AppHandle, base_path: String) -> Vec<Track> {
         .map(|dir| dir.join("covers"))
         .unwrap_or_else(|_| std::env::temp_dir().join("aivys-covers"));
 
+    let base = Path::new(&base_path);
+    let store_path = added_at_store_path(base);
+
+    // A missing store means this is the first time the folder is scanned: seed
+    // `firstSeen` from each file's mtime so we don't lose the existing history.
+    // Once the store exists, files it doesn't know about are genuinely new, so
+    // we stamp them with `now()`. Either way, existing entries are never
+    // changed, so metadata edits (which touch mtime) don't move tracks around.
+    let store_exists = store_path.exists();
+    let mut added_at = load_added_at(&store_path);
+    let now = now_unix();
+    let mut changed = false;
+
     let mut tracks = Vec::new();
 
-    for entry in WalkDir::new(base_path).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(base).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
 
-        if path.is_file() && is_audio_file(path) {
-            if let Some(track) = read_track(path, &covers_dir) {
-                tracks.push(track);
+        if !path.is_file() || !is_audio_file(path) {
+            continue;
+        }
+
+        let file_mtime = read_modified(path);
+
+        // Store the key relative to the library root so it is stable across
+        // devices (absolute paths differ between machines).
+        let rel_key = path
+            .strip_prefix(base)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/");
+
+        let date_created = match added_at.get(&rel_key) {
+            Some(existing) => *existing,
+            None => {
+                let first_seen = if store_exists { now } else { file_mtime };
+                added_at.insert(rel_key, first_seen);
+                changed = true;
+                first_seen
             }
+        };
+
+        if let Some(track) = read_track(path, &covers_dir, date_created) {
+            tracks.push(track);
         }
     }
+
+    if changed || !store_exists {
+        save_added_at(&store_path, &added_at);
+    }
+
     tracks
 }
 
