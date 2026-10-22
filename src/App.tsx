@@ -1,6 +1,5 @@
 import "./App.css";
 import { useState, useEffect } from "react";
-import { FolderOpen } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
 import { usePlayerSettings } from "./hooks/usePlayerSettings";
@@ -9,6 +8,8 @@ import { PlayerBar } from "./components/PlayerBar/PlayerBar";
 import { Toolbar } from "./components/ToolBar/ToolBar";
 import { LibraryPicker } from "./components/LibraryPicker/LibraryPicker";
 import { ThemedLogo } from "./components/ThemedLogo";
+import { Sidebar } from "./components/Sidebar/Sidebar";
+import { TrackDetailPanel } from "./components/TrackDetailPanel/TrackDetailPanel";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
 import { addRecentPath, removeRecentPath } from "./types";
 
@@ -138,37 +139,33 @@ function App() {
 
 	return (
 		<>
-			<main className="container">
-				<header className="header">
-					<div className="logo-wrapper">
-						<ThemedLogo className="app-logo" />
-					</div>
-					<button
-						className="change-library-btn"
-						onClick={goToPicker}
-						title="Change library folder"
-					>
-						<FolderOpen size={18} />
-					</button>
-				</header>
-
-				<Toolbar
-					searchQuery={searchQuery}
-					onSearchChange={setSearchQuery}
-					sortOrder={sortOrder}
-					onSortChange={setSortOrder}
-					onShuffleAll={handleShuffleAll}
-					onPlayAll={handlePlayAll}
+			<div className="app-layout">
+				<Sidebar
+					libraryPath={settings.lastPath}
+					onChangeLibrary={goToPicker}
 				/>
 
-				<div className="track-list-wrapper">
-					<TrackList
-						files={displayFiles}
-						activePath={activePath}
-						onPlay={(track) => playTrack(track, displayFiles)}
+				<main className="container">
+					<Toolbar
+						searchQuery={searchQuery}
+						onSearchChange={setSearchQuery}
+						sortOrder={sortOrder}
+						onSortChange={setSortOrder}
+						onShuffleAll={handleShuffleAll}
+						onPlayAll={handlePlayAll}
 					/>
-				</div>
-			</main>
+
+					<div className="track-list-wrapper">
+						<TrackList
+							files={displayFiles}
+							activePath={activePath}
+							onPlay={(track) => playTrack(track, displayFiles)}
+						/>
+					</div>
+				</main>
+
+				<TrackDetailPanel track={currentTrack ?? null} />
+			</div>
 
 			<PlayerBar
 				currentTrack={currentTrack ?? null}

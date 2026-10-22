@@ -137,6 +137,24 @@
     z-index: 10;
 }
 
+/* Keep the transport controls from being squeezed on narrow windows: drop the
+   volume section first so prev/play/next stay readable. */
+@media (max-width: 640px) {
+    .volume-section {
+        display: none;
+    }
+
+    .player-bar-content {
+        grid-template-columns: 1fr auto;
+        padding: 0 1rem;
+        gap: 12px;
+    }
+
+    .playback-controls {
+        gap: 1rem;
+    }
+}
+
 .volume-section {
     display: flex;
     align-items: center;

@@ -45,9 +45,6 @@ html {
 
 #root {
   width: 100%;
-  max-width: 1126px;
-  margin: 0 auto;
-  border-inline: 1px solid var(--border);
   height: 100vh;
   display: flex;
   flex-direction: column;

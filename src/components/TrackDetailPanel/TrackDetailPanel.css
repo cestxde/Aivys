@@ -1,0 +1,168 @@
+.sidebar {
+    width: 180px;
+    flex: 0 0 180px;
+    border-right: 1px solid var(--border);
+    padding: 1rem 0.5rem;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    border-radius: 6px;
+    color: var(--text-h);
+    font-size: 0.9rem;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s;
+}
+
+.sidebar-item:hover:not(:disabled) {
+    background: var(--code-bg);
+}
+
+.sidebar-item:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.sidebar-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.sidebar-label {
+    white-space: nowrap;
+}
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    padding: 0 12px 0.75rem;
+}
+
+.sidebar-logo {
+    height: 28px;
+    width: auto;
+}
+
+.sidebar-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0.5rem 0;
+}
+
+.sidebar-library-btn {
+    align-items: flex-start;
+}
+
+.sidebar-library-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.sidebar-folder-name {
+    font-size: 0.75rem;
+    color: var(--text);
+    opacity: 0.6;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 130px;
+}
+
+.track-detail-panel {
+    width: 300px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border);
+    padding: 1.5rem;
+    box-sizing: border-box;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Hide the panel on narrow windows so it never overlaps the track list. */
+@media (max-width: 960px) {
+    .track-detail-panel {
+        display: none;
+    }
+}
+
+.detail-empty {
+    margin: auto;
+    color: var(--text);
+    opacity: 0.5;
+    font-size: 0.9rem;
+}
+
+.detail-cover-wrap {
+    display: flex;
+    justify-content: center;
+}
+
+.detail-cover {
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.detail-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    text-align: center;
+}
+
+.detail-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-h);
+    word-break: break-word;
+}
+
+.detail-artist {
+    font-size: 0.9rem;
+    color: var(--text);
+    opacity: 0.75;
+    word-break: break-word;
+}
+
+.detail-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+}
+
+.detail-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.detail-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    opacity: 0.5;
+}
+
+.detail-value {
+    font-size: 0.9rem;
+    color: var(--text-h);
+    word-break: break-word;
+}
