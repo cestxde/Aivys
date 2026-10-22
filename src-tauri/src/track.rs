@@ -1,0 +1,155 @@
+use crate::cover::extract_cover;
+use crate::text::{repair_mojibake, repair_opt};
+use lofty::file::{AudioFile as LoftyAudioFile, FileType, TaggedFileExt};
+use lofty::probe::Probe;
+use lofty::tag::{Accessor, ItemKey};
+use serde::Serialize;
+use std::path::Path;
+use std::time::UNIX_EPOCH;
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct Track {
+    pub(crate) name: String,
+    pub(crate) path: String,
+    pub(crate) duration: u32,
+
+    // Core musical metadata
+    pub(crate) title: Option<String>,
+    pub(crate) artists: Vec<String>,
+    pub(crate) album: Option<String>,
+    pub(crate) album_artist: Option<String>,
+    pub(crate) track_number: Option<u32>,
+    pub(crate) disc_number: Option<u32>,
+    pub(crate) year: Option<u32>,
+    pub(crate) genre: Vec<String>,
+
+    // Technical info
+    pub(crate) bitrate: Option<u32>,
+    pub(crate) sample_rate: Option<u32>,
+    pub(crate) format: Option<String>,
+
+    // Path to the extracted cover art file in the app data cache, if any.
+    pub(crate) cover_path: Option<String>,
+
+    // Timestamps (unix seconds)
+    pub(crate) date_created: u64,
+    pub(crate) file_mtime: u64,
+    pub(crate) metadata_modified_at: u64,
+}
+
+/// Collect all non-empty text values for a given key, splitting on embedded NUL
+/// characters (ID3v2.4 stores multi-value fields NUL-separated).
+fn collect_strings(tag: &lofty::tag::Tag, key: ItemKey) -> Vec<String> {
+    tag.get_strings(key)
+        .flat_map(|value| value.split('\u{0}'))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+/// Returns the file's modification time as unix seconds (0 if unavailable).
+pub(crate) fn read_modified(path: &Path) -> u64 {
+    std::fs::metadata(path)
+        .ok()
+        .and_then(|meta| meta.modified().ok())
+        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
+}
+
+pub(crate) fn read_track(path: &Path, covers_dir: &Path, date_created: u64) -> Option<Track> {
+    let probed = Probe::open(path).ok()?.read().ok()?;
+
+    let duration = probed.properties().duration().as_secs() as u32;
+    let bitrate = probed.properties().audio_bitrate();
+    let sample_rate = probed.properties().sample_rate();
+
+    let format =
+        FileType::from_path(path).map(|file_type| format!("{file_type:?}").to_ascii_lowercase());
+
+    let tag = probed.primary_tag().or_else(|| probed.first_tag());
+
+    let mut title = None;
+    let mut artists = Vec::new();
+    let mut album = None;
+    let mut album_artist = None;
+    let mut track_number = None;
+    let mut disc_number = None;
+    let mut year = None;
+    let mut genre = Vec::new();
+    let mut cover_path = None;
+
+    if let Some(tag) = tag {
+        cover_path = extract_cover(tag, covers_dir);
+
+        title = tag
+            .get_string(ItemKey::TrackTitle)
+            .map(str::to_owned)
+            .or_else(|| tag.title().map(|value| value.into_owned()));
+
+        // Multi-artist: gather every value from the multi-value keys first.
+        artists = collect_strings(tag, ItemKey::TrackArtist);
+        artists.extend(collect_strings(tag, ItemKey::TrackArtists));
+        if artists.is_empty() {
+            if let Some(single) = tag.artist() {
+                artists.push(single.into_owned());
+            }
+        }
+        artists.dedup();
+
+        album = tag
+            .get_string(ItemKey::AlbumTitle)
+            .map(str::to_owned)
+            .or_else(|| tag.album().map(|value| value.into_owned()));
+
+        album_artist = tag.get_string(ItemKey::AlbumArtist).map(str::to_owned);
+
+        track_number = tag
+            .get_string(ItemKey::TrackNumber)
+            .and_then(|value| value.trim().parse::<u32>().ok());
+
+        disc_number = tag
+            .get_string(ItemKey::DiscNumber)
+            .and_then(|value| value.trim().parse::<u32>().ok());
+
+        year = tag
+            .get_string(ItemKey::Year)
+            .or_else(|| tag.get_string(ItemKey::RecordingDate))
+            .and_then(|value| value.get(0..4))
+            .and_then(|value| value.trim().parse::<u32>().ok());
+
+        genre = collect_strings(tag, ItemKey::Genre);
+    }
+
+    let file_mtime = read_modified(path);
+
+    let name = repair_mojibake(&path.file_name()?.to_string_lossy());
+
+    Some(Track {
+        name,
+        path: path.to_string_lossy().into_owned(),
+        duration,
+
+        title: repair_opt(title),
+        artists: artists.iter().map(|a| repair_mojibake(a)).collect(),
+        album: repair_opt(album),
+        album_artist: repair_opt(album_artist),
+        track_number,
+        disc_number,
+        year,
+        genre: genre.iter().map(|g| repair_mojibake(g)).collect(),
+
+        bitrate,
+        sample_rate,
+        format,
+        cover_path,
+
+        // `date_created` is resolved by the caller from the persistent
+        // "added-at" store, so it stays stable across metadata edits.
+        date_created,
+        file_mtime,
+        metadata_modified_at: 0,
+    })
+}
