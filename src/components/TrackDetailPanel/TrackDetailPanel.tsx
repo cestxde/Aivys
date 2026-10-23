@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Heart, Star, Tag } from "lucide-react";
 import type { Track, TrackStats, UserTag } from "../../types";
 import { displayTitle } from "../../utils/track";
-import { formatDateTime, formatDuration } from "../../utils/format";
+import { formatDateTime, formatDuration, formatFileSize } from "../../utils/format";
 import { tagsOf } from "../../utils/tags";
 import { CoverArt } from "../CoverArt";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
@@ -145,6 +145,14 @@ export const TrackDetailPanel = ({
                     label="Last played"
                     value={stats?.lastPlayedAt ? formatDateTime(stats.lastPlayedAt) : null}
                 />
+            </div>
+
+            <div className="detail-rows detail-file">
+                <DetailRow label="Size" value={track.fileSize > 0 ? formatFileSize(track.fileSize) : null} />
+                <div className="detail-row">
+                    <span className="detail-label">Path</span>
+                    <span className="detail-value detail-path" title={track.path}>{track.path}</span>
+                </div>
             </div>
 
             {showCover && (

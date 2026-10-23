@@ -274,7 +274,7 @@ impl LibraryDb {
         let mut stmt = self.conn.prepare(
             "SELECT id, rel_path, name, duration, title, album, album_artist, track_number,
                     disc_number, year, bitrate, sample_rate, format, cover_path, added_at,
-                    file_mtime
+                    file_mtime, size
              FROM tracks
              ORDER BY rel_path COLLATE NOCASE",
         )?;
@@ -304,6 +304,7 @@ impl LibraryDb {
                 date_created: row.get(14)?,
                 file_mtime: row.get(15)?,
                 metadata_modified_at: 0,
+                file_size: row.get::<_, i64>(16)?.max(0) as u64,
             })
         })?;
         rows.collect()
@@ -401,6 +402,7 @@ mod tests {
                 date_created: 10,
                 file_mtime: 20,
                 metadata_modified_at: 0,
+                file_size: 0,
             },
             mtime_ns: 1,
             size: 2,

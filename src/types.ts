@@ -29,6 +29,8 @@ export interface Track {
     fileMtime: number;
     // When the user last changed metadata through the app (0 = never).
     metadataModifiedAt: number;
+    // File size in bytes.
+    fileSize: number;
 }
 
 /** Per-track state derived from the .aivys event journals (get_track_stats). */

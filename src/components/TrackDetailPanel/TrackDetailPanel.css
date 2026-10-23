@@ -232,3 +232,14 @@
     background: var(--code-bg);
     color: var(--text-h);
 }
+
+/* File facts sit at the bottom of the panel when there is room. */
+.detail-file {
+    margin-top: auto;
+}
+
+.detail-path {
+    font-size: 0.8rem;
+    word-break: break-all;
+    user-select: text;
+}

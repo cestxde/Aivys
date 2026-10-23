@@ -12,3 +12,13 @@ export const formatDateTime = (unixSeconds: number): string =>
         dateStyle: "medium",
         timeStyle: "short",
     });
+
+const SIZE_UNITS = ["B", "KB", "MB", "GB", "TB"];
+
+/** Format a byte count the way file managers do, e.g. "8.4 MB" (1 KB = 1024 B). */
+export const formatFileSize = (bytes: number): string => {
+    if (!bytes || bytes < 0) return "0 B";
+    const unit = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), SIZE_UNITS.length - 1);
+    const value = bytes / 1024 ** unit;
+    return `${unit === 0 ? value : value.toFixed(value < 10 ? 1 : 0)} ${SIZE_UNITS[unit]}`;
+};

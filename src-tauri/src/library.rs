@@ -113,6 +113,7 @@ fn find_files(base: &Path) -> Vec<FoundFile> {
 fn read_found(file: &FoundFile, covers_dir: &Path) -> Option<Track> {
     let mut track = read_track(&file.path, covers_dir, file.date_created)?;
     track.rel_path = file.rel_key.clone();
+    track.file_size = file.size as u64;
     Some(track)
 }
 

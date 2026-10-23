@@ -291,6 +291,7 @@ mod tests {
                 date_created: added_at,
                 file_mtime: 0,
                 metadata_modified_at: 0,
+                file_size: 0,
             },
             mtime_ns: 0,
             size: 0,

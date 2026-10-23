@@ -39,6 +39,9 @@ pub(crate) struct Track {
     pub(crate) date_created: u64,
     pub(crate) file_mtime: u64,
     pub(crate) metadata_modified_at: u64,
+
+    // File size in bytes.
+    pub(crate) file_size: u64,
 }
 
 /// Collect all non-empty text values for a given key, splitting on embedded NUL
@@ -155,5 +158,6 @@ pub(crate) fn read_track(path: &Path, covers_dir: &Path, date_created: u64) -> O
         date_created,
         file_mtime,
         metadata_modified_at: 0,
+        file_size: std::fs::metadata(path).map_or(0, |meta| meta.len()),
     })
 }
