@@ -1,0 +1,107 @@
+.playlist-header {
+    display: flex;
+    align-items: flex-end;
+    gap: 1.25rem;
+    flex-shrink: 0;
+}
+
+.playlist-header-cover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.playlist-back {
+    align-self: flex-start;
+    display: flex;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text-h);
+    cursor: pointer;
+}
+
+.playlist-back:hover {
+    background: var(--code-bg);
+}
+
+.playlist-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.playlist-kind {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    opacity: 0.7;
+}
+
+.playlist-name {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text-h);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.playlist-name.editable {
+    cursor: text;
+}
+
+.playlist-name-input {
+    font: inherit;
+    font-size: 1.6rem;
+    font-weight: 700;
+    padding: 0 6px;
+    margin-left: -7px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    background: var(--code-bg);
+    color: var(--text-h);
+    outline: none;
+    min-width: 0;
+}
+
+.playlist-summary {
+    font-size: 0.85rem;
+    color: var(--text);
+    opacity: 0.75;
+}
+
+.playlist-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 0.25rem;
+}
+
+.playlist-action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text-h);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.playlist-action:hover {
+    background: var(--code-bg);
+}
+
+.playlist-action.danger {
+    color: #dc2626;
+}

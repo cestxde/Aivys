@@ -60,8 +60,62 @@ export interface SearchHit {
     kind: MatchKind;
 }
 
+/** Built-in list views. */
+export type SystemView = 'library' | 'favorites' | 'recentlyPlayed' | 'mostPlayed';
+
 /** What the main track list shows. */
-export type LibraryView = 'library' | 'favorites' | 'recentlyPlayed' | 'mostPlayed';
+export type View =
+    | { kind: 'system'; id: SystemView }
+    | { kind: 'playlists' }
+    | { kind: 'playlist'; id: string };
+
+export interface SortSpec {
+    field: string;
+    dir: 'asc' | 'desc';
+}
+
+export interface PlaylistItem {
+    id: string;
+    path: string;
+    addedAt: number;
+}
+
+/** Smart-playlist condition (see docs/aivys-format.md §8.4.3). */
+export interface Condition {
+    field: string;
+    op: string;
+    value: string | number | boolean | (string | number)[];
+}
+
+export interface SmartRules {
+    match: 'all' | 'any';
+    conditions: Condition[];
+    sort?: SortSpec;
+    limit?: number | null;
+}
+
+/** A playlist as returned by the backend (removed items already hidden). */
+export interface Playlist {
+    id: string;
+    name: string;
+    type: 'manual' | 'smart';
+    sort?: SortSpec;
+    items?: PlaylistItem[];
+    rules?: SmartRules;
+    createdAt: number;
+    updatedAt: number;
+    // Written by a newer app version: show, but do not edit.
+    readOnly: boolean;
+    // Absolute path of the custom cover image, if any.
+    coverPath: string | null;
+}
+
+/** One row of the track list; `itemId` is set for manual-playlist entries. */
+export interface ListRow {
+    key: string;
+    track: Track;
+    itemId?: string;
+}
 
 export type SortOrder = 'name' | 'artist' | 'album' | 'date' | 'duration' | 'manual';
 

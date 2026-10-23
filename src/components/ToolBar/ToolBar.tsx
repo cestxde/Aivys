@@ -4,10 +4,12 @@ import type { SortOrder } from "../../types";
 interface ToolbarProps {
     searchQuery: string;
     onSearchChange: (value: string) => void;
-    sortOrder: SortOrder;
+    /** Null for views with their own order (favorites, history, smart playlists). */
+    sortOrder: SortOrder | null;
     onSortChange: (order: SortOrder) => void;
-    /** Views with their own order (favorites, history) cannot be re-sorted. */
     sortDisabled?: boolean;
+    /** Offer "Playlist order" (manual playlists). */
+    showManualOrder?: boolean;
     onShuffleAll: () => void;
     onPlayAll: () => void;
 }
@@ -18,6 +20,7 @@ export const Toolbar = ({
     sortOrder,
     onSortChange,
     sortDisabled = false,
+    showManualOrder = false,
     onShuffleAll,
     onPlayAll
 }: ToolbarProps) => {
@@ -25,11 +28,13 @@ export const Toolbar = ({
         <div className="toolbar">
             <div className="toolbar-section left">
                 <select
-                    value={sortOrder}
+                    value={sortOrder ?? ""}
                     onChange={(e) => onSortChange(e.target.value as SortOrder)}
                     className="sort-select"
-                    disabled={sortDisabled}
+                    disabled={sortDisabled || sortOrder === null}
                 >
+                    {sortOrder === null && <option value="">Default order</option>}
+                    {showManualOrder && <option value="manual">Playlist order</option>}
                     <option value="date">Newest</option>
                     <option value="name">Title</option>
                     <option value="artist">Artist</option>

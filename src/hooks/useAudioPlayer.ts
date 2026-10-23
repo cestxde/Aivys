@@ -127,6 +127,25 @@ export const useAudioPlayer = (
         }
     };
 
+    // With nothing playing, both just start the given tracks.
+    const playNext = (tracks: Track[]) => {
+        if (tracks.length === 0) return;
+        if (!activePath) {
+            playTrack(tracks[0], tracks);
+            return;
+        }
+        q.insertNext(activePath, tracks);
+    };
+
+    const addToQueue = (tracks: Track[]) => {
+        if (tracks.length === 0) return;
+        if (!activePath) {
+            playTrack(tracks[0], tracks);
+            return;
+        }
+        q.append(tracks);
+    };
+
     const toggleRepeatMode = () => {
         q.setRepeatMode(nextRepeatMode(q.repeatMode));
     };
@@ -136,6 +155,7 @@ export const useAudioPlayer = (
         setPath: (val: string) => updateSettings({ lastPath: val }),
         activePath,
         playTrack, onNext, onPrev,
+        playNext, addToQueue,
         toggleShuffle, isShuffle: q.isShuffle,
         repeatMode: q.repeatMode, setRepeatMode: q.setRepeatMode,
         toggleRepeatMode,

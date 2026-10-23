@@ -1,0 +1,20 @@
+.playlist-cover {
+    flex-shrink: 0;
+    border-radius: 8px;
+}
+
+.playlist-mosaic {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: hidden;
+    background: var(--code-bg);
+}
+
+.playlist-mosaic .cover-art {
+    border: none;
+    border-radius: 0;
+}
+
+.playlist-cover-icon {
+    opacity: 0.7;
+}

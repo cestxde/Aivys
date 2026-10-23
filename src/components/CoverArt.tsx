@@ -10,13 +10,15 @@ interface CoverArtProps {
     className?: string;
     /** If set, the cover becomes clickable (e.g. to open a large view). */
     onClick?: () => void;
+    /** Changes when the file at `path` is replaced, so the image reloads. */
+    version?: number;
 }
 
 /**
  * Square cover art with a rounded placeholder (music note icon) when no cover
  * is available. Uses the Tauri asset protocol to load the cached image.
  */
-export const CoverArt = ({ path, size, className, onClick }: CoverArtProps) => {
+export const CoverArt = ({ path, size, className, onClick, version }: CoverArtProps) => {
     const style = { width: size, height: size };
     const clickable = typeof onClick === "function";
 
@@ -31,7 +33,7 @@ export const CoverArt = ({ path, size, className, onClick }: CoverArtProps) => {
         >
             {path ? (
                 // eslint-disable-next-line jsx-a11y/alt-text
-                <img src={convertFileSrc(path)} alt="" loading="lazy" />
+                <img src={convertFileSrc(path) + (version ? `?v=${version}` : "")} alt="" loading="lazy" draggable={false} />
             ) : (
                 <Music size={Math.round(size * 0.5)} />
             )}

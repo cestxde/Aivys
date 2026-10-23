@@ -6,6 +6,7 @@
 export interface Notice {
     id: number;
     message: string;
+    kind: 'error' | 'info';
 }
 
 /** How long a notice stays before it hides itself. */
@@ -22,20 +23,23 @@ export const dismissNotice = (id: number) => {
     emit();
 };
 
-/**
- * Show an error to the user (and log it). Repeats of a message that is
- * already on screen are dropped.
- */
+const show = (message: string, kind: Notice['kind'], durationMs: number) => {
+    // Repeats of a message that is already on screen are dropped.
+    if (notices.some(notice => notice.message === message)) return;
+    const id = nextId++;
+    notices = [...notices, { id, message, kind }];
+    emit();
+    setTimeout(() => dismissNotice(id), durationMs);
+};
+
+/** Show an error to the user (and log it). */
 export const notifyError = (message: string, error?: unknown) => {
     if (error !== undefined) console.error(message, error);
-    const text = error !== undefined ? `${message}: ${String(error)}` : message;
-    if (notices.some(notice => notice.message === text)) return;
-
-    const id = nextId++;
-    notices = [...notices, { id, message: text }];
-    emit();
-    setTimeout(() => dismissNotice(id), NOTICE_MS);
+    show(error !== undefined ? `${message}: ${String(error)}` : message, 'error', NOTICE_MS);
 };
+
+/** Confirm a completed action that has no other visible effect. */
+export const notifyInfo = (message: string) => show(message, 'info', 2500);
 
 export const subscribeNotices = (listener: () => void) => {
     listeners.add(listener);

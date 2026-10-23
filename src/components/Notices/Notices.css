@@ -24,6 +24,15 @@
     animation: notice-in 0.15s ease-out;
 }
 
+.notice-info {
+    border-color: var(--border);
+    border-left-color: #16a34a;
+}
+
+.notice-info .notice-icon {
+    color: #16a34a;
+}
+
 .notice-icon {
     flex-shrink: 0;
     margin-top: 1px;

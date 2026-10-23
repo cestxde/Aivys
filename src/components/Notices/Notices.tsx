@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from "react";
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, X } from "lucide-react";
 import { dismissNotice, getNotices, subscribeNotices } from "../../utils/notify";
 import "./Notices.css";
 
-/** Error notices in the bottom-right corner, above the player bar. */
+/** Notices in the bottom-right corner, above the player bar. */
 export const Notices = () => {
     const notices = useSyncExternalStore(subscribeNotices, getNotices);
     if (notices.length === 0) return null;
@@ -11,8 +11,10 @@ export const Notices = () => {
     return (
         <div className="notices" role="status" aria-live="polite">
             {notices.map(notice => (
-                <div key={notice.id} className="notice">
-                    <AlertCircle size={16} className="notice-icon" />
+                <div key={notice.id} className={`notice notice-${notice.kind}`}>
+                    {notice.kind === "error"
+                        ? <AlertCircle size={16} className="notice-icon" />
+                        : <CheckCircle2 size={16} className="notice-icon" />}
                     <span className="notice-message">{notice.message}</span>
                     <button
                         className="notice-close"

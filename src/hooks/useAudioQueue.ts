@@ -45,8 +45,20 @@ export const useAudioQueue = (
         return idx === 0 ? queue[queue.length - 1] : queue[idx - 1];
     };
 
+    /** Insert `tracks` right after the current track (or at the end). */
+    const insertNext = (currentPath: string | null, tracks: Track[]) => {
+        setQueue(prev => {
+            const idx = currentPath ? prev.findIndex(f => f.path === currentPath) : -1;
+            if (idx === -1) return [...prev, ...tracks];
+            return [...prev.slice(0, idx + 1), ...tracks, ...prev.slice(idx + 1)];
+        });
+    };
+
+    const append = (tracks: Track[]) => setQueue(prev => [...prev, ...tracks]);
+
     return {
         queue, setQueue,
+        insertNext, append,
         isShuffle, setIsShuffle,
         repeatMode, setRepeatMode,
         buildQueue,

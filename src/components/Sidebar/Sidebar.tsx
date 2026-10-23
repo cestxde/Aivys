@@ -1,22 +1,22 @@
 import type { ReactNode } from "react";
 import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp } from "lucide-react";
 import { ThemedLogo } from "../ThemedLogo";
-import type { LibraryView } from "../../types";
+import type { View } from "../../types";
 import "./Sidebar.css";
 
 interface SidebarItem {
     label: string;
     icon: ReactNode;
     /** The view the item opens; items without one are not implemented yet. */
-    view?: LibraryView;
+    view?: View;
 }
 
 const ITEMS: SidebarItem[] = [
-    { label: "Library", icon: <Library size={18} />, view: "library" },
-    { label: "Favorites", icon: <Heart size={18} />, view: "favorites" },
-    { label: "Recently played", icon: <History size={18} />, view: "recentlyPlayed" },
-    { label: "Most played", icon: <TrendingUp size={18} />, view: "mostPlayed" },
-    { label: "Playlists", icon: <ListMusic size={18} /> },
+    { label: "Library", icon: <Library size={18} />, view: { kind: "system", id: "library" } },
+    { label: "Favorites", icon: <Heart size={18} />, view: { kind: "system", id: "favorites" } },
+    { label: "Recently played", icon: <History size={18} />, view: { kind: "system", id: "recentlyPlayed" } },
+    { label: "Most played", icon: <TrendingUp size={18} />, view: { kind: "system", id: "mostPlayed" } },
+    { label: "Playlists", icon: <ListMusic size={18} />, view: { kind: "playlists" } },
     { label: "Tags", icon: <Tag size={18} /> },
 ];
 
@@ -25,9 +25,16 @@ interface SidebarProps {
     libraryPath: string;
     /** Called when the user wants to switch to another folder. */
     onChangeLibrary: () => void;
-    view: LibraryView;
-    onViewChange: (view: LibraryView) => void;
+    view: View;
+    onViewChange: (view: View) => void;
 }
+
+/** Whether a sidebar item is the current one (a playlist counts as "Playlists"). */
+const isCurrent = (item: View | undefined, view: View): boolean => {
+    if (!item) return false;
+    if (item.kind === "playlists") return view.kind === "playlists" || view.kind === "playlist";
+    return item.kind === "system" && view.kind === "system" && item.id === view.id;
+};
 
 /** Last path segment, falling back to the full path. */
 const folderName = (path: string): string => {
@@ -66,10 +73,10 @@ export const Sidebar = ({ libraryPath, onChangeLibrary, view, onViewChange }: Si
             {ITEMS.map((item) => (
                 <button
                     key={item.label}
-                    className={`sidebar-item ${item.view === view ? "active" : ""}`}
+                    className={`sidebar-item ${isCurrent(item.view, view) ? "active" : ""}`}
                     disabled={!item.view}
                     title={item.view ? item.label : `${item.label} (coming soon)`}
-                    aria-current={item.view === view ? "page" : undefined}
+                    aria-current={isCurrent(item.view, view) ? "page" : undefined}
                     onClick={() => item.view && onViewChange(item.view)}
                 >
                     <span className="sidebar-icon">{item.icon}</span>
