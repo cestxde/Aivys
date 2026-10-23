@@ -2,7 +2,9 @@ import "./App.css";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { Heart, ListPlus, ListX, Play, Trash2, FolderOpen, Tag, Pencil, X } from "lucide-react";
+import {
+	Heart, ListPlus, ListX, Play, Trash2, FolderOpen, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
+} from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
 import { usePlayerSettings } from "./hooks/usePlayerSettings";
@@ -16,6 +18,7 @@ import { TrackDetailPanel } from "./components/TrackDetailPanel/TrackDetailPanel
 import { Notices } from "./components/Notices/Notices";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
 import { useSearchScroll } from "./hooks/useSearchScroll";
+import { usePageLayouts } from "./hooks/usePageLayouts";
 import { useTrackStats } from "./hooks/useTrackStats";
 import { usePlayTracking } from "./hooks/usePlayTracking";
 import { usePlaylists } from "./hooks/usePlaylists";
@@ -24,13 +27,18 @@ import { useViewRows } from "./hooks/useViewRows";
 import { PlaylistHeader } from "./components/PlaylistHeader/PlaylistHeader";
 import { ContextMenu, type MenuEntry } from "./components/ContextMenu/ContextMenu";
 import { SmartPlaylistEditor } from "./components/SmartPlaylistEditor/SmartPlaylistEditor";
-import { PlaylistsPage, type PlaylistsLayout } from "./components/PlaylistsPage/PlaylistsPage";
+import { PlaylistsPage, type PinnedPlaylist } from "./components/PlaylistsPage/PlaylistsPage";
+import { CollectionPage } from "./components/CollectionPage/CollectionPage";
+import { FolderGrid, GroupHeader, type Crumb } from "./components/GroupHeader/GroupHeader";
 import { AddToDialog } from "./components/AddToDialog/AddToDialog";
 import { TagsPage } from "./components/TagsPage/TagsPage";
 import { TagHeader } from "./components/TagHeader/TagHeader";
 import { TagDialog } from "./components/TagDialog/TagDialog";
 import { TagPicker } from "./components/TagPicker/TagPicker";
-import { sortSpecOf, tagTracks } from "./utils/views";
+import { sortSpecOf, systemViewTracks, tagTracks } from "./utils/views";
+import {
+	folderTracks, groupAlbums, groupArtists, groupCovers, hasFolders, subfolders, type TrackGroup,
+} from "./utils/groups";
 import { nextTagColor } from "./utils/tags";
 import { notifyError, notifyInfo } from "./utils/notify";
 import { displayTitle } from "./utils/track";
@@ -49,16 +57,17 @@ const EMPTY_TEXT: Record<SystemView, string> = {
 const LIBRARY_VIEW: View = { kind: "system", id: "library" };
 const PLAYLISTS_VIEW: View = { kind: "playlists" };
 const TAGS_VIEW: View = { kind: "tags" };
+const ARTISTS_VIEW: View = { kind: "artists" };
+const ALBUMS_VIEW: View = { kind: "albums" };
+const ROOT_FOLDER_VIEW: View = { kind: "folder", id: "" };
 
-// Device-local view preference; a failing storage just means no memory.
-const LAYOUT_KEY = "aivys.playlistsLayout";
-const loadLayout = (): PlaylistsLayout => {
-	try {
-		return localStorage.getItem(LAYOUT_KEY) === "list" ? "list" : "grid";
-	} catch {
-		return "grid";
-	}
+/** Last segment of a "/"- or "\\"-separated path. */
+const lastSegment = (path: string): string => {
+	const parts = path.split(/[\\/]/).filter(Boolean);
+	return parts.length ? parts[parts.length - 1] : path;
 };
+
+const countTracks = (count: number) => `${count} ${count === 1 ? "track" : "tracks"}`;
 
 type Screen = "loading" | "picker" | "library";
 
@@ -87,7 +96,7 @@ function App() {
 	const [tagDialog, setTagDialog] = useState<TagDialogState | null>(null);
 	// Tracks the tag picker is open for.
 	const [tagPicker, setTagPicker] = useState<Track[] | null>(null);
-	const [playlistsLayout, setPlaylistsLayout] = useState<PlaylistsLayout>(loadLayout);
+	const { layouts, setLayout } = usePageLayouts();
 
 	const {
 		activePath, playTrack,
@@ -109,14 +118,56 @@ function App() {
 
 	const playlists = usePlaylists(files);
 	const tags = useTags(files);
-	// A playlist or tag that is gone (deleted, other library) falls back to the list.
+
+	const artists = useMemo(() => groupArtists(files), [files]);
+	const albums = useMemo(() => groupAlbums(files), [files]);
+	const artistsByKey = useMemo(() => new Map(artists.map(g => [g.key, g])), [artists]);
+	const albumsByKey = useMemo(() => new Map(albums.map(g => [g.key, g])), [albums]);
+	const showFolders = useMemo(() => hasFolders(files), [files]);
+
+	// Something that is gone (deleted, renamed tags, other library) falls back to its list.
 	const listView: View =
 		requestedView.kind === "playlist" && !playlists.playlists.some(p => p.id === requestedView.id) ? PLAYLISTS_VIEW
 		: requestedView.kind === "tag" && !tags.byId.has(requestedView.id) ? TAGS_VIEW
+		: requestedView.kind === "artist" && !artistsByKey.has(requestedView.id) ? ARTISTS_VIEW
+		: requestedView.kind === "album" && !albumsByKey.has(requestedView.id) ? ALBUMS_VIEW
+		: requestedView.kind === "folder" && requestedView.id
+			&& !files.some(f => f.relPath.startsWith(`${requestedView.id}/`)) ? ROOT_FOLDER_VIEW
 		: requestedView;
 	const currentTag = listView.kind === "tag" ? tags.byId.get(listView.id) ?? null : null;
+
+	// The artist, album or folder on screen.
+	const currentGroup = useMemo((): TrackGroup | null => {
+		switch (listView.kind) {
+			case "artist": return artistsByKey.get(listView.id) ?? null;
+			case "album": return albumsByKey.get(listView.id) ?? null;
+			case "folder": return {
+				key: listView.id,
+				name: listView.id ? lastSegment(listView.id) : lastSegment(settings.lastPath),
+				subtitle: null,
+				year: null,
+				tracks: folderTracks(files, listView.id),
+			};
+			default: return null;
+		}
+	}, [listView, artistsByKey, albumsByKey, files, settings.lastPath]);
+	const currentSubfolders = useMemo(
+		() => (listView.kind === "folder" ? subfolders(files, listView.id) : []),
+		[listView, files],
+	);
+
 	const { rows: viewRows, missingCount, playlist, sortOrder, setLibrarySort } =
-		useViewRows(listView, files, trackStats.stats, playlists.playlists);
+		useViewRows(listView, files, trackStats.stats, playlists.playlists, currentGroup?.tracks ?? null);
+
+	// Built-in playlists pinned on the playlists page.
+	const pinned = useMemo((): PinnedPlaylist[] => {
+		const count = (id: SystemView) => systemViewTracks(files, id, trackStats.stats, "date").length;
+		return [
+			{ id: "favorites", name: "Favorites", icon: Heart, color: "#e11d48", count: count("favorites") },
+			{ id: "mostPlayed", name: "Most played", icon: TrendingUp, color: "#f59e0b", count: count("mostPlayed") },
+			{ id: "recentlyPlayed", name: "Recently played", icon: History, color: "#3b82f6", count: count("recentlyPlayed") },
+		];
+	}, [files, trackStats.stats]);
 
 	// Tagged library tracks per tag id.
 	const tagCounts = useMemo(() => {
@@ -197,15 +248,6 @@ function App() {
 		else if (manualPlaylist) playlists.setSort(manualPlaylist.id, sortSpecOf(order));
 	};
 
-	const changeLayout = (layout: PlaylistsLayout) => {
-		setPlaylistsLayout(layout);
-		try {
-			localStorage.setItem(LAYOUT_KEY, layout);
-		} catch {
-			// Not remembered; fine.
-		}
-	};
-
 	// Navigating always leaves the search, even to the view already open.
 	const showView = (next: View) => {
 		setRenamingId(null);
@@ -267,6 +309,13 @@ function App() {
 			return [];
 		}
 	};
+
+	/** Play `tracks` from the first one (cards' play buttons and menus). */
+	const playTracks = (tracks: Track[]) => {
+		if (tracks.length > 0) playTrack(tracks[0], tracks);
+	};
+
+	const playPlaylist = async (target: Playlist) => playTracks(await tracksOf(target));
 
 	const saveTag = async (name: string, color: string) => {
 		const edited = tagDialog?.tag;
@@ -375,10 +424,7 @@ function App() {
 			kind: "item",
 			label: "Play",
 			icon: <Play size={16} />,
-			onSelect: async () => {
-				const tracks = await tracksOf(target);
-				if (tracks.length > 0) playTrack(tracks[0], tracks);
-			},
+			onSelect: () => playPlaylist(target),
 		},
 		{
 			kind: "item",
@@ -401,16 +447,34 @@ function App() {
 		]),
 	];
 
+	/** Menu of an artist or album card. */
+	const groupMenu = (group: TrackGroup, open: View): MenuEntry[] => [
+		{ kind: "item", label: "Open", icon: <FolderOpen size={16} />, onSelect: () => showView(open) },
+		{ kind: "item", label: "Play", icon: <Play size={16} />, onSelect: () => playTracks(group.tracks) },
+		{ kind: "separator" },
+		{ kind: "item", label: "Add to…", icon: <ListPlus size={16} />, onSelect: () => setAddTo(group.tracks) },
+		{ kind: "item", label: "Tags…", icon: <Tag size={16} />, onSelect: () => setTagPicker(group.tracks) },
+	];
+
+	/** The folder path as breadcrumbs, from the library root. */
+	const folderCrumbs = (folder: string): Crumb[] => {
+		const parts = folder ? folder.split("/") : [];
+		return [
+			{ label: lastSegment(settings.lastPath), onClick: () => showView(ROOT_FOLDER_VIEW) },
+			...parts.map((part, index) => ({
+				label: part,
+				onClick: () => showView({ kind: "folder", id: parts.slice(0, index + 1).join("/") }),
+			})),
+		];
+	};
+
 	const tagMenu = (target: UserTag): MenuEntry[] => [
 		{ kind: "item", label: "Open", icon: <FolderOpen size={16} />, onSelect: () => showView({ kind: "tag", id: target.id }) },
 		{
 			kind: "item",
 			label: "Play",
 			icon: <Play size={16} />,
-			onSelect: () => {
-				const tracks = tracksOfTag(target);
-				if (tracks.length > 0) playTrack(tracks[0], tracks);
-			},
+			onSelect: () => playTracks(tracksOfTag(target)),
 		},
 		{
 			kind: "item",
@@ -432,6 +496,8 @@ function App() {
 			? EMPTY_TEXT[listView.id]
 			: listView.kind === "tag"
 				? "No tracks have this tag yet. Use \u201cTags\u2026\u201d in a track's menu (right click or \u22ee) to add it."
+				: currentGroup
+				? "No tracks here."
 				: playlist?.type === "smart"
 				? "No tracks match these rules."
 				: "This playlist is empty. Use \u201cAdd to\u2026\u201d in a track's menu (right click or \u22ee) to add tracks.";
@@ -488,16 +554,21 @@ function App() {
 					onChangeLibrary={goToPicker}
 					view={listView}
 					onViewChange={showView}
+					showFolders={showFolders}
 				/>
 
 				<main className="container">
 					{listView.kind === "playlists" ? (
 						<PlaylistsPage
+							pinned={pinned}
+							onOpenPinned={(id) => showView({ kind: "system", id })}
+							onPlayPinned={(id) => playTracks(systemViewTracks(files, id, trackStats.stats, "date"))}
 							playlists={playlists.playlists}
 							tracksByPath={tracksByPath}
-							layout={playlistsLayout}
-							onLayoutChange={changeLayout}
+							layout={layouts.playlists}
+							onLayoutChange={(layout) => setLayout("playlists", layout)}
 							onOpen={(target) => showView({ kind: "playlist", id: target.id })}
+							onPlay={playPlaylist}
 							onOpenMenu={(target, x, y) => setMenu({ x, y, entries: playlistMenu(target) })}
 							onCreate={createPlaylist}
 							onCreateSmart={() => openEditor(null)}
@@ -507,8 +578,38 @@ function App() {
 							tags={tags.tags}
 							counts={tagCounts}
 							onOpen={(target) => showView({ kind: "tag", id: target.id })}
+							onPlay={(target) => playTracks(tracksOfTag(target))}
 							onOpenMenu={(target, x, y) => setMenu({ x, y, entries: tagMenu(target) })}
 							onCreate={() => setTagDialog({ tag: null })}
+						/>
+					) : listView.kind === "artists" ? (
+						<CollectionPage
+							title="Artists"
+							groups={artists}
+							icon={MicVocal}
+							round
+							describe={(group) => [countTracks(group.tracks.length), group.subtitle].filter(Boolean).join(" · ")}
+							emptyText="No artists: the tracks have no artist tags."
+							layout={layouts.artists}
+							onLayoutChange={(layout) => setLayout("artists", layout)}
+							onOpen={(group) => showView({ kind: "artist", id: group.key })}
+							onPlay={(group) => playTracks(group.tracks)}
+							onOpenMenu={(group, x, y) =>
+								setMenu({ x, y, entries: groupMenu(group, { kind: "artist", id: group.key }) })}
+						/>
+					) : listView.kind === "albums" ? (
+						<CollectionPage
+							title="Albums"
+							groups={albums}
+							icon={Disc3}
+							describe={(group) => [group.subtitle ?? "Unknown artist", group.year].filter(Boolean).join(" · ")}
+							emptyText="No albums: the tracks have no album tags."
+							layout={layouts.albums}
+							onLayoutChange={(layout) => setLayout("albums", layout)}
+							onOpen={(group) => showView({ kind: "album", id: group.key })}
+							onPlay={(group) => playTracks(group.tracks)}
+							onOpenMenu={(group, x, y) =>
+								setMenu({ x, y, entries: groupMenu(group, { kind: "album", id: group.key }) })}
 						/>
 					) : (
 						<>
@@ -519,6 +620,46 @@ function App() {
 									onBack={() => showView(TAGS_VIEW)}
 									onEdit={() => setTagDialog({ tag: currentTag })}
 									onDelete={() => deleteTag(currentTag)}
+								/>
+							)}
+
+							{currentGroup && listView.kind === "artist" && (
+								<GroupHeader
+									kind="Artist"
+									icon={MicVocal}
+									round
+									title={currentGroup.name}
+									details={[currentGroup.subtitle]}
+									covers={groupCovers(currentGroup, 1)}
+									rows={viewRows}
+									backTitle="All artists"
+									onBack={() => showView(ARTISTS_VIEW)}
+								/>
+							)}
+							{currentGroup && listView.kind === "album" && (
+								<GroupHeader
+									kind="Album"
+									icon={Disc3}
+									title={currentGroup.name}
+									details={[currentGroup.subtitle, currentGroup.year != null ? String(currentGroup.year) : null]}
+									covers={groupCovers(currentGroup, 1)}
+									rows={viewRows}
+									backTitle="All albums"
+									onBack={() => showView(ALBUMS_VIEW)}
+								/>
+							)}
+							{currentGroup && listView.kind === "folder" && (
+								<GroupHeader
+									kind="Folder"
+									icon={Folder}
+									title={currentGroup.name}
+									covers={groupCovers(currentGroup)}
+									rows={viewRows}
+									crumbs={listView.id ? folderCrumbs(listView.id).slice(0, -1) : undefined}
+									backTitle="Parent folder"
+									onBack={listView.id
+										? () => showView({ kind: "folder", id: listView.id.split("/").slice(0, -1).join("/") })
+										: undefined}
 								/>
 							)}
 
@@ -553,6 +694,21 @@ function App() {
 							/>
 
 							<div className="track-list-wrapper" ref={listRef} onScroll={onListScroll}>
+								{!isSearching && currentSubfolders.length > 0 && (
+									<FolderGrid
+										folders={currentSubfolders}
+										onOpen={(folder) => showView({ kind: "folder", id: folder.key })}
+										onPlay={(folder) => playTracks(folderTracks(files, folder.key))}
+										onOpenMenu={(folder, x, y) => setMenu({
+											x,
+											y,
+											entries: groupMenu(
+												{ ...folder, tracks: folderTracks(files, folder.key) },
+												{ kind: "folder", id: folder.key },
+											),
+										})}
+									/>
+								)}
 								<TrackList
 									rows={displayRows}
 									activePath={activePath}

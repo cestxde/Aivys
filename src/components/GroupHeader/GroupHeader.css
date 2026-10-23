@@ -1,0 +1,87 @@
+.group-header-round .playlist-header-cover {
+    border-radius: 50%;
+}
+
+.group-crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.75rem;
+    color: var(--text);
+}
+
+.group-crumb {
+    padding: 1px 4px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.group-crumb:hover {
+    background: var(--code-bg);
+    color: var(--text-h);
+    opacity: 1;
+}
+
+/* Subfolders of the open folder, above its tracks. */
+.folder-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 6px;
+    margin-bottom: 0.75rem;
+}
+
+.folder-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 8px 6px 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text-h);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.folder-card:hover {
+    background: var(--code-bg);
+}
+
+.folder-card-icon {
+    flex-shrink: 0;
+    color: var(--text);
+    opacity: 0.7;
+}
+
+.folder-card-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.folder-card:hover .playlists-menu-button {
+    opacity: 0.7;
+}
+
+.folder-card-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.folder-card-meta {
+    font-size: 0.72rem;
+    color: var(--text);
+    opacity: 0.7;
+}

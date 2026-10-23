@@ -33,14 +33,16 @@ const rowsOf = (tracks: Track[]): ListRow[] => tracks.map(track => ({ key: track
 
 /**
  * The rows the track list shows for `view`, in the view's order, plus how the
- * view can be sorted: the library and tags by a local choice, a manual playlist by its
- * persisted sort, a smart playlist only through its rules.
+ * view can be sorted: the library and tags by a local choice, a manual
+ * playlist by its persisted sort, a smart playlist only through its rules.
+ * Artists, albums and folders show `groupTracks` in their own order.
  */
 export const useViewRows = (
     view: View,
     files: Track[],
     stats: Record<string, TrackStats>,
-    playlists: Playlist[]
+    playlists: Playlist[],
+    groupTracks: Track[] | null
 ) => {
     const [librarySort, setLibrarySort] = useState<SortOrder>('date');
     const playlist = view.kind === 'playlist'
@@ -58,6 +60,9 @@ export const useViewRows = (
     const { rows, missingCount } = useMemo(() => {
         if (view.kind === 'system') {
             return { rows: rowsOf(systemViewTracks(files, view.id, stats, librarySort)), missingCount: 0 };
+        }
+        if (view.kind === 'artist' || view.kind === 'album' || view.kind === 'folder') {
+            return { rows: rowsOf(groupTracks ?? []), missingCount: 0 };
         }
         if (view.kind === 'tag') {
             return { rows: rowsOf(tagTracks(files, view.id, stats, librarySort)), missingCount: 0 };
@@ -84,7 +89,7 @@ export const useViewRows = (
             rows.sort((a, b) => compare(a.track, b.track));
         }
         return { rows, missingCount: missing };
-    }, [view, files, stats, librarySort, playlist, smartPaths, byRelPath]);
+    }, [view, files, stats, librarySort, playlist, smartPaths, byRelPath, groupTracks]);
 
     return { rows, missingCount, playlist, sortOrder, setLibrarySort };
 };

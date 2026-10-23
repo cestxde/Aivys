@@ -79,7 +79,16 @@ export type View =
     | { kind: 'playlists' }
     | { kind: 'playlist'; id: string }
     | { kind: 'tags' }
-    | { kind: 'tag'; id: string };
+    | { kind: 'tag'; id: string }
+    | { kind: 'artists' }
+    | { kind: 'artist'; id: string }
+    | { kind: 'albums' }
+    | { kind: 'album'; id: string }
+    // `id` is the "/"-separated folder path, "" for the library root.
+    | { kind: 'folder'; id: string };
+
+/** Views that list the tracks of an artist, album or folder. */
+export type GroupView = Extract<View, { kind: 'artist' | 'album' | 'folder' }>;
 
 export interface SortSpec {
     field: string;

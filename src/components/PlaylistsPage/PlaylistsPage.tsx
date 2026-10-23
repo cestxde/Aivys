@@ -1,18 +1,33 @@
-import { useState } from "react";
+import { useState, type ComponentType, type CSSProperties } from "react";
 import { LayoutGrid, List, MoreVertical, Plus, Sparkles } from "lucide-react";
-import type { Playlist, Track } from "../../types";
+import type { Playlist, SystemView, Track } from "../../types";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
+import { CardPlayButton } from "../CardPlayButton/CardPlayButton";
 import "./PlaylistsPage.css";
 
 export type PlaylistsLayout = "grid" | "list";
 
+/** A built-in playlist pinned above the user's playlists. */
+export interface PinnedPlaylist {
+    id: SystemView;
+    name: string;
+    icon: ComponentType<{ size?: number }>;
+    /** Tile color. */
+    color: string;
+    count: number;
+}
+
 interface PlaylistsPageProps {
+    pinned: PinnedPlaylist[];
     playlists: Playlist[];
     /** Library tracks by relative path, for member covers and counts. */
     tracksByPath: Map<string, Track>;
     layout: PlaylistsLayout;
     onLayoutChange: (layout: PlaylistsLayout) => void;
+    onOpenPinned: (id: SystemView) => void;
+    onPlayPinned: (id: SystemView) => void;
     onOpen: (playlist: Playlist) => void;
+    onPlay: (playlist: Playlist) => void;
     onOpenMenu: (playlist: Playlist, x: number, y: number) => void;
     onCreate: () => void;
     onCreateSmart: () => void;
@@ -21,28 +36,75 @@ interface PlaylistsPageProps {
 const memberCovers = (playlist: Playlist, tracksByPath: Map<string, Track>): string[] =>
     (playlist.items ?? []).flatMap(item => tracksByPath.get(item.path)?.coverPath ?? []);
 
-const describe = (playlist: Playlist): string => {
-    if (playlist.type === "smart") return "Smart playlist";
-    const count = playlist.items?.length ?? 0;
-    return `${count} ${count === 1 ? "track" : "tracks"}`;
+const trackCount = (count: number) => `${count} ${count === 1 ? "track" : "tracks"}`;
+
+const describe = (playlist: Playlist): string =>
+    playlist.type === "smart" ? "Smart playlist" : trackCount(playlist.items?.length ?? 0);
+
+/** Grid / list switch shared by the collection pages. */
+export const LayoutToggle = ({ layout, onChange }: { layout: PlaylistsLayout; onChange: (layout: PlaylistsLayout) => void }) => (
+    <div className="playlists-layout" role="group" aria-label="Layout">
+        <button
+            className={layout === "grid" ? "active" : ""}
+            title="Grid"
+            aria-pressed={layout === "grid"}
+            onClick={() => onChange("grid")}
+        >
+            <LayoutGrid size={16} />
+        </button>
+        <button
+            className={layout === "list" ? "active" : ""}
+            title="List"
+            aria-pressed={layout === "list"}
+            onClick={() => onChange("list")}
+        >
+            <List size={16} />
+        </button>
+    </div>
+);
+
+/** Icon tile of a pinned playlist. */
+const PinnedCover = ({ item, size }: { item: PinnedPlaylist; size?: number }) => {
+    const Icon = item.icon;
+    return (
+        <div
+            className="pinned-cover"
+            style={{ "--pinned-color": item.color, width: size, height: size } as CSSProperties}
+        >
+            <Icon size={size ? Math.round(size * 0.45) : 36} />
+        </div>
+    );
 };
 
-/** All playlists of the library, as a grid of cards or a list. */
+/** All playlists of the library, as a grid of cards or a list, built-in ones first. */
 export const PlaylistsPage = ({
+    pinned,
     playlists,
     tracksByPath,
     layout,
     onLayoutChange,
+    onOpenPinned,
+    onPlayPinned,
     onOpen,
+    onPlay,
     onOpenMenu,
     onCreate,
     onCreateSmart,
 }: PlaylistsPageProps) => {
     const [filter, setFilter] = useState("");
     const query = filter.trim().toLowerCase();
+    const matches = (name: string) => !query || name.toLowerCase().includes(query);
+    const shownPinned = pinned.filter(item => matches(item.name));
     const shown = [...playlists]
-        .filter(p => !query || p.name.toLowerCase().includes(query))
+        .filter(p => matches(p.name))
         .sort((a, b) => a.name.localeCompare(b.name));
+
+    const actions = (playlist: Playlist) => (
+        <>
+            <CardPlayButton onPlay={() => onPlay(playlist)} />
+            {menuButton(playlist)}
+        </>
+    );
 
     const menuButton = (playlist: Playlist) => (
         <button
@@ -59,6 +121,43 @@ export const PlaylistsPage = ({
         </button>
     );
 
+    const pinnedSection = shownPinned.length > 0 && (layout === "grid" ? (
+        <div className="pinned-grid">
+            {shownPinned.map(item => (
+                <div
+                    key={item.id}
+                    className="playlist-card pinned-card card-hover"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onOpenPinned(item.id)}
+                    onKeyDown={(e) => e.key === "Enter" && onOpenPinned(item.id)}
+                >
+                    <PinnedCover item={item} />
+                    <div className="playlist-card-footer">
+                        <div className="playlist-card-text">
+                            <span className="playlist-card-name">{item.name}</span>
+                            <span className="playlist-card-meta">{trackCount(item.count)}</span>
+                        </div>
+                        {item.count > 0 && <CardPlayButton onPlay={() => onPlayPinned(item.id)} />}
+                    </div>
+                </div>
+            ))}
+        </div>
+    ) : (
+        <div className="music-grid playlists-list">
+            {shownPinned.map(item => (
+                <div key={item.id} className="audio-item playlist-row card-hover" onClick={() => onOpenPinned(item.id)}>
+                    <PinnedCover item={item} size={48} />
+                    <div className="track-main-info">
+                        <span className="track-title">{item.name}</span>
+                        <span className="track-artist">{trackCount(item.count)}</span>
+                    </div>
+                    {item.count > 0 && <CardPlayButton onPlay={() => onPlayPinned(item.id)} />}
+                </div>
+            ))}
+        </div>
+    ));
+
     return (
         <div className="playlists-page">
             <div className="playlists-toolbar">
@@ -69,24 +168,7 @@ export const PlaylistsPage = ({
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                 />
-                <div className="playlists-layout" role="group" aria-label="Layout">
-                    <button
-                        className={layout === "grid" ? "active" : ""}
-                        title="Grid"
-                        aria-pressed={layout === "grid"}
-                        onClick={() => onLayoutChange("grid")}
-                    >
-                        <LayoutGrid size={16} />
-                    </button>
-                    <button
-                        className={layout === "list" ? "active" : ""}
-                        title="List"
-                        aria-pressed={layout === "list"}
-                        onClick={() => onLayoutChange("list")}
-                    >
-                        <List size={16} />
-                    </button>
-                </div>
+                <LayoutToggle layout={layout} onChange={onLayoutChange} />
                 <button className="toolbar-button shuffle-button playlists-create" onClick={onCreateSmart}>
                     <Sparkles size={14} /> Smart playlist
                 </button>
@@ -94,6 +176,10 @@ export const PlaylistsPage = ({
                     <Plus size={14} /> New playlist
                 </button>
             </div>
+
+            {pinnedSection}
+
+            {shownPinned.length > 0 && <div className="playlists-section-label">Your playlists</div>}
 
             {shown.length === 0 ? (
                 <div className="playlists-empty">
@@ -106,7 +192,7 @@ export const PlaylistsPage = ({
                     {shown.map(playlist => (
                         <div
                             key={playlist.id}
-                            className="playlist-card"
+                            className="playlist-card card-hover"
                             role="button"
                             tabIndex={0}
                             onClick={() => onOpen(playlist)}
@@ -127,7 +213,7 @@ export const PlaylistsPage = ({
                                     <span className="playlist-card-name">{playlist.name}</span>
                                     <span className="playlist-card-meta">{describe(playlist)}</span>
                                 </div>
-                                {menuButton(playlist)}
+                                {actions(playlist)}
                             </div>
                         </div>
                     ))}
@@ -137,7 +223,7 @@ export const PlaylistsPage = ({
                     {shown.map(playlist => (
                         <div
                             key={playlist.id}
-                            className="audio-item playlist-row"
+                            className="audio-item playlist-row card-hover"
                             onClick={() => onOpen(playlist)}
                             onContextMenu={(e) => {
                                 e.preventDefault();
@@ -147,13 +233,13 @@ export const PlaylistsPage = ({
                             <PlaylistCover
                                 playlist={playlist}
                                 memberCovers={memberCovers(playlist, tracksByPath)}
-                                size={36}
+                                size={48}
                             />
                             <div className="track-main-info">
                                 <span className="track-title">{playlist.name}</span>
                                 <span className="track-artist">{describe(playlist)}</span>
                             </div>
-                            {menuButton(playlist)}
+                            {actions(playlist)}
                         </div>
                     ))}
                 </div>

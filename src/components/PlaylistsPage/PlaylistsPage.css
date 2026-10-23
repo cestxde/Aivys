@@ -6,6 +6,12 @@
     overflow-y: auto;
 }
 
+/* The page scrolls; its sections keep their full height instead of shrinking
+   to fit (a list with overflow: hidden would otherwise be cut off). */
+.playlists-page > * {
+    flex-shrink: 0;
+}
+
 .playlists-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -97,7 +103,7 @@
 
 .playlist-card-footer {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 4px;
     min-width: 0;
 }
@@ -144,7 +150,55 @@
     opacity: 0.7;
 }
 
+/* No hover on touch screens: keep the ⋮ button visible. */
+@media (hover: none) {
+    .playlists-menu-button {
+        opacity: 0.7;
+    }
+}
+
 .playlists-menu-button:hover {
     opacity: 1 !important;
     background: var(--border);
+}
+
+/* List rows are taller than track rows, with bigger covers. */
+.playlist-row {
+    height: 64px;
+}
+
+.playlists-section-label {
+    margin-top: 0.25rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    opacity: 0.7;
+}
+
+/* Built-in playlists: a row of smaller cards above the user's playlists. */
+.pinned-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+}
+
+.pinned-card {
+    gap: 0.4rem;
+}
+
+.pinned-cover {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    background: linear-gradient(
+        135deg,
+        var(--pinned-color),
+        color-mix(in srgb, var(--pinned-color) 55%, #000)
+    );
+    color: #fff;
 }

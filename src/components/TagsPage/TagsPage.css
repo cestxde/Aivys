@@ -6,6 +6,11 @@
     overflow-y: auto;
 }
 
+/* The page scrolls; its sections keep their full height. */
+.tags-page > * {
+    flex-shrink: 0;
+}
+
 .tags-toolbar {
     display: flex;
     flex-wrap: wrap;

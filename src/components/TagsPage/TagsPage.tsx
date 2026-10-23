@@ -2,6 +2,7 @@ import { useState, type CSSProperties } from "react";
 import { MoreVertical, Plus, Tag } from "lucide-react";
 import type { UserTag } from "../../types";
 import { TagDot } from "../TagChip/TagChip";
+import { CardPlayButton } from "../CardPlayButton/CardPlayButton";
 import "./TagsPage.css";
 
 interface TagsPageProps {
@@ -10,6 +11,7 @@ interface TagsPageProps {
     /** Tagged library tracks per tag id. */
     counts: Map<string, number>;
     onOpen: (tag: UserTag) => void;
+    onPlay: (tag: UserTag) => void;
     onOpenMenu: (tag: UserTag, x: number, y: number) => void;
     onCreate: () => void;
 }
@@ -17,7 +19,7 @@ interface TagsPageProps {
 const describe = (count: number) => `${count} ${count === 1 ? "track" : "tracks"}`;
 
 /** All user tags of the library with their track counts. */
-export const TagsPage = ({ tags, counts, onOpen, onOpenMenu, onCreate }: TagsPageProps) => {
+export const TagsPage = ({ tags, counts, onOpen, onPlay, onOpenMenu, onCreate }: TagsPageProps) => {
     const [filter, setFilter] = useState("");
     const query = filter.trim().toLowerCase();
     const shown = tags.filter(tag => !query || tag.name.toLowerCase().includes(query));
@@ -54,7 +56,7 @@ export const TagsPage = ({ tags, counts, onOpen, onOpenMenu, onCreate }: TagsPag
                     {shown.map(tag => (
                         <div
                             key={tag.id}
-                            className="tag-card"
+                            className="tag-card card-hover"
                             role="button"
                             tabIndex={0}
                             style={{ "--tag-color": tag.color } as CSSProperties}
@@ -70,6 +72,7 @@ export const TagsPage = ({ tags, counts, onOpen, onOpenMenu, onCreate }: TagsPag
                                 <span className="tag-card-name">{tag.name}</span>
                                 <span className="tag-card-meta">{describe(counts.get(tag.id) ?? 0)}</span>
                             </div>
+                            {(counts.get(tag.id) ?? 0) > 0 && <CardPlayButton onPlay={() => onPlay(tag)} />}
                             <button
                                 className="tag-card-menu"
                                 title="More"

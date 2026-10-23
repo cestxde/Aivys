@@ -1,0 +1,36 @@
+.card-play-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-text);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.1s, transform 0.1s;
+}
+
+/* The play triangle looks centered when nudged right. */
+.card-play-button svg {
+    margin-left: 2px;
+}
+
+.card-hover:hover .card-play-button,
+.card-play-button:focus-visible {
+    opacity: 1;
+}
+
+.card-play-button:hover {
+    transform: scale(1.08);
+}
+
+@media (hover: none) {
+    .card-play-button {
+        opacity: 1;
+    }
+}
