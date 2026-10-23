@@ -93,7 +93,7 @@
     background: var(--code-bg);
 }
 
-/* Row actions are shown on hover; favorites always show their heart. */
+/* Row actions are shown on hover. */
 .row-button {
     display: flex;
     align-items: center;
@@ -117,11 +117,6 @@
 .row-button:hover {
     opacity: 1 !important;
     color: var(--text-h);
-}
-
-.favorite-button.is-favorite {
-    opacity: 1;
-    color: #e11d48;
 }
 
 .menu-button {
@@ -156,18 +151,4 @@
 
 .audio-item.drop-after {
     box-shadow: inset 0 -2px 0 var(--accent);
-}
-
-.track-tags {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    flex-shrink: 0;
-}
-
-.track-tags-more {
-    margin-left: 2px;
-    font-size: 0.7rem;
-    color: var(--text);
-    opacity: 0.7;
 }

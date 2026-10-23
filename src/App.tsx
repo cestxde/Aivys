@@ -39,7 +39,7 @@ import {
 
 const EMPTY_TEXT: Record<SystemView, string> = {
 	library: "No tracks found. Scan a directory to start.",
-	favorites: "No favorites yet. Use the heart next to a track to add it.",
+	favorites: "No favorites yet. Use the heart in the track panel or “Add to favorites” in a track's menu.",
 	recentlyPlayed: "Nothing played yet.",
 	mostPlayed: "Nothing played yet.",
 };
@@ -526,12 +526,9 @@ function App() {
 								<TrackList
 									rows={displayRows}
 									activePath={activePath}
-									stats={trackStats.stats}
-									tagsById={tags.byId}
 									looseFromIndex={looseFromIndex}
 									emptyText={emptyText}
 									onPlay={(track) => playTrack(track, displayFiles)}
-									onToggleFavorite={trackStats.toggleFavorite}
 									onOpenMenu={(row, x, y) => setMenu({ x, y, entries: trackMenu(row) })}
 									onReorder={manualPlaylist && sortOrder === "manual" && !isSearching
 										? (itemIds) => playlists.reorder(manualPlaylist.id, itemIds)

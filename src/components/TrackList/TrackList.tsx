@@ -1,25 +1,19 @@
 import "./TrackList.css";
 import { Fragment, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { GripVertical, Heart, MoreVertical } from "lucide-react";
-import type { ListRow, Track, TrackStats, UserTag } from "../../types";
+import { GripVertical, MoreVertical } from "lucide-react";
+import type { ListRow, Track } from "../../types";
 import { displayTitle } from "../../utils/track";
 import { formatDuration } from "../../utils/format";
-import { tagsOf } from "../../utils/tags";
 import { CoverArt } from "../CoverArt";
-import { TagDot } from "../TagChip/TagChip";
 
 interface TrackListProps {
     rows: ListRow[];
     activePath: string | null;
-    stats: Record<string, TrackStats>;
-    /** Live user tags by id; assigned ones show as color dots. */
-    tagsById?: Map<string, UserTag>;
     /** Index from which results are loose search matches (-1: none). */
     looseFromIndex?: number;
     emptyText?: string;
 
     onPlay: (track: Track) => void;
-    onToggleFavorite: (track: Track) => void;
     /** Open the track menu at a viewport position (right click or the ⋮ button). */
     onOpenMenu?: (row: ListRow, x: number, y: number) => void;
     /** Rows can be dragged into a new order (manual playlist, manual sort). */
@@ -40,21 +34,15 @@ const moveItem = (ids: string[], moved: string, target: string, after: boolean):
     return rest;
 };
 
-/** Tag dots shown per row before "+N". */
-const MAX_DOTS = 4;
-
 /** Distance from the scroll container's edge that scrolls while dragging. */
 const AUTOSCROLL_EDGE = 48;
 
 export const TrackList = ({
     rows,
     activePath,
-    stats,
-    tagsById,
     looseFromIndex = -1,
     emptyText = "No tracks found. Scan a directory to start.",
     onPlay,
-    onToggleFavorite,
     onOpenMenu,
     onReorder,
 }: TrackListProps) => {
@@ -120,8 +108,6 @@ export const TrackList = ({
                     const artist = file.artists.length > 0
                         ? file.artists.join(", ")
                         : "Unknown artist";
-                    const favorite = stats[file.relPath]?.favorite ?? false;
-                    const tags = tagsById ? tagsOf(stats[file.relPath]?.tags, tagsById) : [];
                     const drop = dropTarget?.key === row.key && dragging !== row.key
                         ? (dropTarget.after ? "drop-after" : "drop-before")
                         : "";
@@ -157,25 +143,6 @@ export const TrackList = ({
                                     <span className="track-title">{title}</span>
                                     <span className="track-artist">{artist}</span>
                                 </div>
-                                {tags.length > 0 && (
-                                    <span className="track-tags" title={tags.map(t => t.name).join(", ")}>
-                                        {tags.slice(0, MAX_DOTS).map(tag => (
-                                            <TagDot key={tag.id} color={tag.color} size={8} />
-                                        ))}
-                                        {tags.length > MAX_DOTS && <span className="track-tags-more">+{tags.length - MAX_DOTS}</span>}
-                                    </span>
-                                )}
-                                <button
-                                    className={`row-button favorite-button ${favorite ? 'is-favorite' : ''}`}
-                                    title={favorite ? "Remove from favorites" : "Add to favorites"}
-                                    aria-pressed={favorite}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onToggleFavorite(file);
-                                    }}
-                                >
-                                    <Heart size={16} fill={favorite ? "currentColor" : "none"} />
-                                </button>
                                 <span className="duration-tag">
                                     {formatDuration(file.duration)}
                                 </span>
