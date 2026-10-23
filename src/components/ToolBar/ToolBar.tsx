@@ -1,4 +1,5 @@
 import "./ToolBar.css"
+import { Play, Shuffle } from "lucide-react";
 import type { SortOrder } from "../../types";
 
 interface ToolbarProps {
@@ -54,11 +55,21 @@ export const Toolbar = ({
             </div>
 
             <div className="toolbar-section right">
-                <button onClick={onShuffleAll} className="toolbar-button shuffle-button">
-                    Shuffle
+                <button
+                    onClick={onShuffleAll}
+                    className="toolbar-button toolbar-icon-button shuffle-button"
+                    title="Shuffle all"
+                    aria-label="Shuffle all"
+                >
+                    <Shuffle size={18} />
                 </button>
-                <button onClick={onPlayAll} className="toolbar-button play-button">
-                    Play All
+                <button
+                    onClick={onPlayAll}
+                    className="toolbar-button toolbar-icon-button play-button"
+                    title="Play all"
+                    aria-label="Play all"
+                >
+                    <Play size={18} fill="currentColor" />
                 </button>
             </div>
         </div>
