@@ -10,6 +10,7 @@ import { LibraryPicker } from "./components/LibraryPicker/LibraryPicker";
 import { ThemedLogo } from "./components/ThemedLogo";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { TrackDetailPanel } from "./components/TrackDetailPanel/TrackDetailPanel";
+import { Notices } from "./components/Notices/Notices";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
 import { useTrackStats } from "./hooks/useTrackStats";
 import { usePlayTracking } from "./hooks/usePlayTracking";
@@ -131,6 +132,7 @@ function App() {
 						<span>Indexing...</span>
 					</div>
 				)}
+				<Notices />
 			</main>
 		);
 	}
@@ -149,6 +151,7 @@ function App() {
 					onOpen={openLibrary}
 					onRemoveRecent={handleRemoveRecent}
 				/>
+				<Notices />
 			</main>
 		);
 	}
@@ -211,6 +214,8 @@ function App() {
 				onToggleShuffle={() => toggleShuffle(displayFiles)}
 				onToggleRepeat={toggleRepeatMode}
 			/>
+
+			<Notices />
 		</>
 	);
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { SearchHit } from "../types";
+import { notifyError } from "../utils/notify";
 
 /** Wait this long after the last keystroke before searching. */
 const DEBOUNCE_MS = 120;
@@ -32,7 +33,7 @@ export const useSearch = (query: string) => {
                 const hits = await invoke<SearchHit[]>("search_tracks", { query, limit: SEARCH_LIMIT });
                 if (!cancelled) setState({ query, hits, failed: false });
             } catch (e) {
-                console.error("Search failed:", e);
+                notifyError("Search index unavailable, using simple search", e);
                 if (!cancelled) setState({ query, hits: null, failed: true });
             }
         }, DEBOUNCE_MS);

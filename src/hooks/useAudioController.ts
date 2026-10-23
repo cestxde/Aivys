@@ -1,5 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { notifyError } from "../utils/notify";
+
+// An AbortError only means a newer load interrupted play(): not worth a notice.
+const reportPlaybackError = (e: unknown) => {
+    if (e instanceof DOMException && e.name === "AbortError") return;
+    notifyError("Playback failed", e);
+};
 
 export const useAudioController = (
     initialVolume: number,
@@ -56,7 +63,7 @@ export const useAudioController = (
     const playFile = (filePath: string) => {
         const audio = loadSource(filePath);
         setIsPlaying(true);
-        audio.play().catch(e => console.error("Playback error:", e));
+        audio.play().catch(reportPlaybackError);
     };
 
     // Load a track without starting playback (paused, position at 0).
@@ -70,7 +77,7 @@ export const useAudioController = (
         if (isPlaying) {
             audioRef.current.pause();
         } else {
-            audioRef.current.play().catch(e => console.error("Playback error:", e));
+            audioRef.current.play().catch(reportPlaybackError);
         }
         setIsPlaying(!isPlaying);
     };

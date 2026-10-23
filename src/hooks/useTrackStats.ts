@@ -1,8 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { EMPTY_STATS, type Track, type TrackStats } from "../types";
+import { notifyError } from "../utils/notify";
 
 type StatsMap = Record<string, TrackStats>;
+
+/** What the user tried to do, per command, for error notices. */
+const FAILED_MESSAGES: Record<string, string> = {
+    set_favorite: "Could not save favorite",
+    set_rating: "Could not save rating",
+    record_play: "Could not record the play",
+    record_complete: "Could not record the play",
+};
 
 const nowUnix = () => Math.floor(Date.now() / 1000);
 
@@ -23,7 +32,7 @@ export const useTrackStats = (files: Track[]) => {
         try {
             setStats(await invoke<StatsMap>("get_track_stats"));
         } catch (e) {
-            console.error("Failed to load track stats:", e);
+            notifyError("Could not load favorites and play history", e);
         }
     }, []);
 
@@ -35,7 +44,7 @@ export const useTrackStats = (files: Track[]) => {
             .then(loaded => {
                 if (!cancelled) setStats(loaded);
             })
-            .catch(e => console.error("Failed to load track stats:", e));
+            .catch(e => notifyError("Could not load favorites and play history", e));
         return () => {
             cancelled = true;
         };
@@ -53,7 +62,7 @@ export const useTrackStats = (files: Track[]) => {
         try {
             await invoke(command, args);
         } catch (e) {
-            console.error(`${command} failed:`, e);
+            notifyError(FAILED_MESSAGES[command] ?? "Could not save the change", e);
             reload();
         }
     }, [reload]);
