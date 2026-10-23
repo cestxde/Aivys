@@ -99,12 +99,21 @@ export const useAudioController = (
         setIsPlaying(false);
     };
 
+    // Stop and let go of the file (Windows cannot move a file that is open).
+    const unload = () => {
+        stop();
+        if (audioRef.current) {
+            audioRef.current.removeAttribute("src");
+            audioRef.current.load();
+        }
+    };
+
     return {
         isPlaying, setIsPlaying,
         volume: initialVolume,
         setVolume: onVolumeChange,
         currentTime, duration,
         audioRef, element,
-        playFile, loadFilePaused, togglePlay, seek, stop
+        playFile, loadFilePaused, togglePlay, seek, stop, unload
     };
 };

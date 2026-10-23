@@ -146,6 +146,16 @@ export const useAudioPlayer = (
         q.append(tracks);
     };
 
+    /** Drop tracks (files about to be deleted) from the queue; the current one is unloaded. */
+    const forgetTracks = (tracks: Track[]) => {
+        const paths = new Set(tracks.map(t => t.path));
+        q.setQueue(prev => prev.filter(f => !paths.has(f.path)));
+        if (activePath && paths.has(activePath)) {
+            audio.unload();
+            setActivePath(null);
+        }
+    };
+
     const toggleRepeatMode = () => {
         q.setRepeatMode(nextRepeatMode(q.repeatMode));
     };
@@ -155,7 +165,7 @@ export const useAudioPlayer = (
         setPath: (val: string) => updateSettings({ lastPath: val }),
         activePath,
         playTrack, onNext, onPrev,
-        playNext, addToQueue,
+        playNext, addToQueue, forgetTracks,
         toggleShuffle, isShuffle: q.isShuffle,
         repeatMode: q.repeatMode, setRepeatMode: q.setRepeatMode,
         toggleRepeatMode,

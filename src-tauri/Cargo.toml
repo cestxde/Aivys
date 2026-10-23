@@ -31,3 +31,6 @@ blake3 = "1.5"
 uuid = { version = "1", features = ["v4"] }
 rusqlite = { version = "0.40", features = ["bundled", "fallible_uint", "functions"] }
 deunicode = "1.6.2"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+trash = "5.2"

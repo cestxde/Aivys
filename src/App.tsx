@@ -2,7 +2,7 @@ import "./App.css";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { Heart, ListPlus, Play, Trash2, FolderOpen, Tag, Pencil, X } from "lucide-react";
+import { Heart, ListPlus, ListX, Play, Trash2, FolderOpen, Tag, Pencil, X } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
 import { usePlayerSettings } from "./hooks/usePlayerSettings";
@@ -31,7 +31,8 @@ import { TagDialog } from "./components/TagDialog/TagDialog";
 import { TagPicker } from "./components/TagPicker/TagPicker";
 import { sortSpecOf, tagTracks } from "./utils/views";
 import { nextTagColor } from "./utils/tags";
-import { notifyInfo } from "./utils/notify";
+import { notifyError, notifyInfo } from "./utils/notify";
+import { displayTitle } from "./utils/track";
 import {
 	addRecentPath, removeRecentPath,
 	type ListRow, type Playlist, type SmartRules, type SortOrder, type SystemView, type Track, type UserTag, type View,
@@ -92,7 +93,7 @@ function App() {
 		isPlaying, togglePlay, volume, setVolume,
 		currentTime, duration, seek, stop,
 		onNext, onPrev,
-		playNext, addToQueue,
+		playNext, addToQueue, forgetTracks,
 		toggleShuffle, isShuffle,
 		repeatMode, toggleRepeatMode,
 		element
@@ -294,6 +295,26 @@ function App() {
 		if (created) trackStats.setTrackTag(tracks, created.id, true);
 	};
 
+	/** Move track files to the trash (after confirming) and drop them from the library. */
+	const deleteTracks = async (tracks: Track[]) => {
+		const subject = tracks.length === 1 ? `"${displayTitle(tracks[0])}"` : `${tracks.length} tracks`;
+		const confirmed = await ask(
+			`Move ${subject} to the trash? ${tracks.length === 1 ? "The file is" : "The files are"} deleted from the library folder; you can restore ${tracks.length === 1 ? "it" : "them"} from the trash.`,
+			{ title: "Delete from disk", kind: "warning", okLabel: "Move to trash" },
+		);
+		if (!confirmed) return;
+		forgetTracks(tracks);
+		try {
+			await invoke("delete_tracks", { paths: tracks.map(t => t.relPath) });
+		} catch (e) {
+			notifyError("Could not delete the file", e);
+			return;
+		}
+		const gone = new Set(tracks.map(t => t.path));
+		library.setFiles(prev => prev.filter(f => !gone.has(f.path)));
+		notifyInfo(tracks.length === 1 ? "Moved to the trash" : `Moved ${tracks.length} tracks to the trash`);
+	};
+
 	const tracksOfTag = (target: UserTag): Track[] => tagTracks(files, target.id, trackStats.stats, "date");
 
 	const closeMenu = useCallback(() => setMenu(null), []);
@@ -302,40 +323,45 @@ function App() {
 		const favorite = trackStats.stats[row.track.relPath]?.favorite ?? false;
 		const entries: MenuEntry[] = [
 			{ kind: "item", label: "Play", icon: <Play size={16} />, onSelect: () => playTrack(row.track, displayFiles) },
-			{ kind: "item", label: "Add to…", icon: <ListPlus size={16} />, onSelect: () => setAddTo([row.track]) },
-			{ kind: "item", label: "Tags…", icon: <Tag size={16} />, onSelect: () => setTagPicker([row.track]) },
+			{ kind: "separator" },
 			{
 				kind: "item",
 				label: favorite ? "Remove from favorites" : "Add to favorites",
 				icon: <Heart size={16} fill={favorite ? "currentColor" : "none"} />,
 				onSelect: () => trackStats.toggleFavorite(row.track),
 			},
+			{ kind: "item", label: "Add to…", icon: <ListPlus size={16} />, onSelect: () => setAddTo([row.track]) },
+			{ kind: "item", label: "Tags…", icon: <Tag size={16} />, onSelect: () => setTagPicker([row.track]) },
+			{ kind: "separator" },
 		];
+		// Danger zone: removals, then the file itself.
 		if (currentTag) {
 			const tag = currentTag;
-			entries.push(
-				{ kind: "separator" },
-				{
-					kind: "item",
-					label: `Remove tag "${tag.name}"`,
-					icon: <X size={16} />,
-					onSelect: () => trackStats.setTrackTag([row.track], tag.id, false),
-				},
-			);
+			entries.push({
+				kind: "item",
+				label: `Remove tag "${tag.name}"`,
+				icon: <X size={16} />,
+				danger: true,
+				onSelect: () => trackStats.setTrackTag([row.track], tag.id, false),
+			});
 		}
 		if (manualPlaylist && row.itemId) {
 			const itemId = row.itemId;
-			entries.push(
-				{ kind: "separator" },
-				{
-					kind: "item",
-					label: "Remove from this playlist",
-					icon: <Trash2 size={16} />,
-					danger: true,
-					onSelect: () => playlists.removeItems(manualPlaylist.id, [itemId]),
-				},
-			);
+			entries.push({
+				kind: "item",
+				label: "Remove from this playlist",
+				icon: <ListX size={16} />,
+				danger: true,
+				onSelect: () => playlists.removeItems(manualPlaylist.id, [itemId]),
+			});
 		}
+		entries.push({
+			kind: "item",
+			label: "Delete from disk…",
+			icon: <Trash2 size={16} />,
+			danger: true,
+			onSelect: () => deleteTracks([row.track]),
+		});
 		return entries;
 	};
 

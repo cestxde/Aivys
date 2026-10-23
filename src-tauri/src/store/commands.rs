@@ -195,6 +195,37 @@ pub(crate) async fn get_system_playlist(
     })
 }
 
+// ---- Track files ----
+
+/// Move track files to the system trash. Their `.aivys` data is kept: playlist
+/// entries show as missing, and everything is back if a file is restored.
+#[tauri::command]
+pub(crate) async fn delete_tracks(state: State<'_, StoreState>, paths: Vec<String>) -> Result<(), StoreError> {
+    with_store(&state, |store| {
+        let mut files = Vec::with_capacity(paths.len());
+        for path in &paths {
+            let key = store.track_key(path)?;
+            // Native separators: the Windows shell rejects "/" in paths.
+            let file = key.split('/').fold(store.root().to_path_buf(), |dir, part| dir.join(part));
+            if !file.is_file() {
+                return Err(StoreError::NotFound(format!("track {key}")));
+            }
+            files.push(file);
+        }
+        move_to_trash(&files)
+    })
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn move_to_trash(files: &[std::path::PathBuf]) -> Result<(), StoreError> {
+    trash::delete_all(files).map_err(|err| StoreError::Invalid(format!("cannot move to the trash: {err}")))
+}
+
+#[cfg(any(target_os = "android", target_os = "ios"))]
+fn move_to_trash(_files: &[std::path::PathBuf]) -> Result<(), StoreError> {
+    Err(StoreError::Invalid("deleting tracks is not supported on this platform yet".to_owned()))
+}
+
 // ---- User tags ----
 
 #[tauri::command]
