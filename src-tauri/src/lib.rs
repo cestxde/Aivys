@@ -1,4 +1,5 @@
 mod cover;
+mod db;
 mod library;
 mod store;
 mod text;
