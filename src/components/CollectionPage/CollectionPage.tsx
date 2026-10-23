@@ -125,7 +125,7 @@ export const CollectionPage = ({
                             <div className="playlist-card-footer">
                                 <div className="playlist-card-text">
                                     <span className="playlist-card-name" title={group.name}>{group.name}</span>
-                                    <span className="playlist-card-meta">{describe(group)}</span>
+                                    <span className="playlist-card-meta" title={describe(group)}>{describe(group)}</span>
                                 </div>
                                 {actions(group)}
                             </div>
@@ -139,7 +139,7 @@ export const CollectionPage = ({
                             <CoverMosaic covers={groupCovers(group, round ? 1 : 4)} size={48} icon={icon} />
                             <div className="track-main-info">
                                 <span className="track-title">{group.name}</span>
-                                <span className="track-artist">{describe(group)}</span>
+                                <span className="track-artist" title={describe(group)}>{describe(group)}</span>
                             </div>
                             {actions(group)}
                         </div>
