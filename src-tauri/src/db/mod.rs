@@ -164,6 +164,9 @@ fn remove_db_files(path: &Path) {
 
 fn connect(path: &Path) -> rusqlite::Result<Connection> {
     let conn = Connection::open(path)?;
+    // The scan and the store each hold a connection; wait for the other's
+    // write to finish instead of failing with "database is locked".
+    conn.busy_timeout(std::time::Duration::from_secs(10))?;
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "synchronous", "NORMAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;

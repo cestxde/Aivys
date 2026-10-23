@@ -4,6 +4,7 @@ use crate::store::fsio::now_unix;
 use crate::store::index::{added_at_path, load_added_at, save_added_at};
 use crate::track::{read_modified, read_track, Track};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::UNIX_EPOCH;
 use tauri::Manager;
 use walkdir::WalkDir;
@@ -196,6 +197,11 @@ pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String) -> 
     // Run the blocking filesystem/tag work off the UI thread so the webview
     // stays responsive (spinner keeps animating) during a large scan.
     tauri::async_runtime::spawn_blocking(move || {
+        // One scan at a time: two at once would race on the index and the
+        // added-at store (e.g. a rescan requested while one is running).
+        static SCAN: Mutex<()> = Mutex::new(());
+        let _scanning = SCAN.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+
         // Open `.aivys/` first: it merges sync conflicts (including
         // added-at.json) before the scan reads them.
         if let Err(err) = open_store(&app, Path::new(&base_path)) {

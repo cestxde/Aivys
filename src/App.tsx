@@ -1,5 +1,5 @@
 import "./App.css";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import {
@@ -260,7 +260,12 @@ function App() {
 
 	// On startup: reopen the last folder if it still exists, otherwise stay on
 	// the picker (showing an error if a previously used folder disappeared).
+	// Once only: StrictMode mounts twice in development, and a second scan would
+	// redo the whole work.
+	const started = useRef(false);
 	useEffect(() => {
+		if (started.current) return;
+		started.current = true;
 		const last = settings.lastPath;
 		(async () => {
 			if (last) {
