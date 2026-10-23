@@ -58,7 +58,7 @@
 }
 
 .change-library-btn:hover {
-  background: var(--code-bg);
+  background: var(--surface);
   opacity: 1;
 }
 
@@ -89,12 +89,6 @@
   border-top-color: var(--text-h);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .track-list-wrapper {

@@ -23,7 +23,7 @@
 }
 
 .group-crumb:hover {
-    background: var(--code-bg);
+    background: var(--surface);
     color: var(--text-h);
     opacity: 1;
 }
@@ -52,7 +52,7 @@
 }
 
 .folder-card:hover {
-    background: var(--code-bg);
+    background: var(--surface);
 }
 
 .folder-card-icon {

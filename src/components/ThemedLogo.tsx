@@ -7,8 +7,9 @@ interface ThemedLogoProps {
 
 /**
  * Shows the white logo on dark themes (where it is visible) and the black logo
- * on light themes. Selection is done in CSS via prefers-color-scheme, so no JS
- * runs before paint. `className` is applied to both images (sizing).
+ * on light themes. Selection is done in CSS by the `data-theme` of <html>, so
+ * it switches with the theme without a re-render. `className` is applied to
+ * both images (sizing).
  */
 export const ThemedLogo = ({ className }: ThemedLogoProps) => {
     const extra = className ? ` ${className}` : "";

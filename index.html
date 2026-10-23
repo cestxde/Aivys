@@ -6,6 +6,19 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>aivys</title>
+  <script>
+    // Pick the theme before anything paints (see src/utils/theme.ts, same key),
+    // so a dark theme on a light system never flashes white.
+    (function () {
+      var preference = null;
+      try {
+        preference = localStorage.getItem("aivys.theme");
+      } catch (e) { }
+      var dark = preference === "dark"
+        || (preference !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    })();
+  </script>
   <style>
     /* Boot splash: rendered before any JS/CSS bundle loads so the window
          never flashes white on startup. Mirrors the app theme. */
@@ -37,24 +50,19 @@
       display: none;
     }
 
-    @media (prefers-color-scheme: dark) {
+    /* Matches --bg of the dark theme in src/index.css. */
+    [data-theme="dark"],
+    [data-theme="dark"] body,
+    [data-theme="dark"] #boot-splash {
+      background: #101014;
+    }
 
-      html,
-      body {
-        background: #101014;
-      }
+    [data-theme="dark"] #boot-splash .splash-on-light {
+      display: none;
+    }
 
-      #boot-splash {
-        background: #101014;
-      }
-
-      #boot-splash .splash-on-light {
-        display: none;
-      }
-
-      #boot-splash .splash-on-dark {
-        display: block;
-      }
+    [data-theme="dark"] #boot-splash .splash-on-dark {
+      display: block;
     }
   </style>
 </head>

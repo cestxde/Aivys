@@ -19,6 +19,7 @@ import { Notices } from "./components/Notices/Notices";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
 import { useSearchScroll } from "./hooks/useSearchScroll";
 import { usePageLayouts } from "./hooks/usePageLayouts";
+import { useTheme } from "./hooks/useTheme";
 import { sortScopeOf, useViewSorts } from "./hooks/useViewSorts";
 import { useTrackStats } from "./hooks/useTrackStats";
 import { usePlayTracking } from "./hooks/usePlayTracking";
@@ -102,6 +103,7 @@ interface TagDialogState {
 
 function App() {
 	const { settings, updateSettings } = usePlayerSettings();
+	const { theme, setTheme } = useTheme();
 	const library = useLibrary();
 	const [view, setView] = useState<Screen>("loading");
 	const [pickerError, setPickerError] = useState<string | null>(null);
@@ -650,6 +652,8 @@ function App() {
 						/>
 					) : listView.kind === "settings" ? (
 						<SettingsPage
+							theme={theme}
+							onThemeChange={setTheme}
 							libraryPath={settings.lastPath}
 							otherRecentCount={settings.recentPaths.filter(p => p !== settings.lastPath).length}
 							onChangeFolder={goToPicker}

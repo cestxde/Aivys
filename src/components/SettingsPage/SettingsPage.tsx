@@ -1,9 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { FolderOpen, Info, Palette, RefreshCw, Library, Share2 } from "lucide-react";
+import type { ThemePreference } from "../../utils/theme";
 import "./SettingsPage.css";
 
 interface SettingsPageProps {
+    theme: ThemePreference;
+    onThemeChange: (theme: ThemePreference) => void;
     libraryPath: string;
     /** Remembered folders other than the open one. */
     otherRecentCount: number;
@@ -66,6 +69,8 @@ const Segmented = <T extends string>({ options, value, onChange, disabled }: {
 
 /** App and library settings, in sections. */
 export const SettingsPage = ({
+    theme,
+    onThemeChange,
     libraryPath,
     otherRecentCount,
     onChangeFolder,
@@ -94,16 +99,15 @@ export const SettingsPage = ({
             <h1 className="settings-title">Settings</h1>
 
             <Section icon={<Palette size={16} />} title="Appearance">
-                <Row title="Theme" description="Follow the system, or always use a light or dark look." soon>
-                    <Segmented
+                <Row title="Theme" description="Follow the system, or always use a light or dark look.">
+                    <Segmented<ThemePreference>
                         options={[
                             { value: "system", label: "System" },
                             { value: "light", label: "Light" },
                             { value: "dark", label: "Dark" },
                         ]}
-                        value="system"
-                        onChange={() => {}}
-                        disabled
+                        value={theme}
+                        onChange={onThemeChange}
                     />
                 </Row>
                 <Row title="Language" description="Language of the player's interface." soon>

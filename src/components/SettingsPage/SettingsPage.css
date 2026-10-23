@@ -98,7 +98,7 @@
 .settings-soon {
     padding: 1px 6px;
     border-radius: 999px;
-    background: var(--code-bg);
+    background: var(--surface);
     font-size: 0.65rem;
     font-weight: 500;
     color: var(--text);
@@ -124,7 +124,7 @@
 }
 
 .settings-button:hover:not(:disabled) {
-    background: var(--code-bg);
+    background: var(--surface);
 }
 
 .settings-button:disabled {
@@ -154,7 +154,7 @@
 }
 
 .settings-segmented button.active {
-    background: var(--code-bg);
+    background: var(--surface);
     color: var(--text-h);
     font-weight: 600;
 }
@@ -164,13 +164,7 @@
 }
 
 .settings-spin {
-    animation: settings-spin 0.8s linear infinite;
-}
-
-@keyframes settings-spin {
-    to {
-        transform: rotate(360deg);
-    }
+    animation: spin 0.8s linear infinite;
 }
 
 /* Narrow windows: controls go under their text. */

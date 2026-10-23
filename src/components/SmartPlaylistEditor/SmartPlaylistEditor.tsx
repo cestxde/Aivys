@@ -211,7 +211,7 @@ export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, on
     const count = preview && preview.key === rulesKey ? preview.count : null;
 
     return (
-        <div className="editor-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
+        <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
             <div className="editor" role="dialog" aria-label={title}>
                 <h2 className="editor-title">{title}</h2>
 

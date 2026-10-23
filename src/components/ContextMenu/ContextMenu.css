@@ -9,7 +9,7 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--bg);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-popup);
     display: flex;
     flex-direction: column;
 }
@@ -45,7 +45,7 @@
 }
 
 .context-menu-item:hover:not(:disabled) {
-    background: var(--code-bg);
+    background: var(--surface);
 }
 
 .context-menu-item:disabled {
@@ -54,7 +54,7 @@
 }
 
 .context-menu-item.danger {
-    color: #dc2626;
+    color: var(--danger);
 }
 
 .context-menu-label {

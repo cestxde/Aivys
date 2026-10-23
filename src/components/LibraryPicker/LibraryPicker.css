@@ -50,7 +50,7 @@
 }
 
 .library-picker-error {
-    color: #ef4444;
+    color: var(--danger);
     font-size: 13px;
     text-align: center;
     max-width: 100%;
@@ -105,7 +105,7 @@
 }
 
 .library-recent-item:hover {
-    background: var(--code-bg);
+    background: var(--surface);
 }
 
 .library-recent-name {
@@ -142,7 +142,7 @@
 }
 
 .library-recent-remove:hover {
-    background: var(--code-bg);
+    background: var(--surface);
     opacity: 1;
-    color: #ef4444;
+    color: var(--danger);
 }

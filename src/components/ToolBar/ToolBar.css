@@ -29,7 +29,7 @@
     padding: 8px 12px;
     border-radius: 6px;
     border: 1px solid var(--border);
-    background: var(--code-bg);
+    background: var(--surface);
     color: var(--text-h);
     outline: none;
     transition: border-color 0.2s;
@@ -46,7 +46,7 @@
     height: 36px;
     padding: 0 10px;
     border-radius: 6px;
-    background: var(--code-bg);
+    background: var(--surface);
     color: var(--text-h);
     border: 1px solid var(--border);
     font: inherit;

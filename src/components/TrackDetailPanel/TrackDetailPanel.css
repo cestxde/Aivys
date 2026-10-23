@@ -27,7 +27,7 @@
 }
 
 .sidebar-item:hover:not(:disabled) {
-    background: var(--code-bg);
+    background: var(--surface);
 }
 
 .sidebar-item:disabled {
@@ -115,7 +115,7 @@
 
 .detail-cover {
     border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-cover);
 }
 
 .detail-heading {
@@ -192,7 +192,7 @@
 }
 
 .detail-favorite.is-favorite {
-    color: #e11d48;
+    color: var(--favorite);
     opacity: 1;
 }
 
@@ -202,7 +202,7 @@
 }
 
 .rating-star.is-on {
-    color: #f59e0b;
+    color: var(--rating);
     opacity: 1;
 }
 
@@ -229,7 +229,7 @@
 }
 
 .detail-tags-edit:hover {
-    background: var(--code-bg);
+    background: var(--surface);
     color: var(--text-h);
 }
 

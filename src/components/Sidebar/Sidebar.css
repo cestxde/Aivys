@@ -27,7 +27,7 @@
 }
 
 .sidebar-item:hover:not(:disabled) {
-    background: var(--code-bg);
+    background: var(--surface);
 }
 
 .sidebar-item.active {

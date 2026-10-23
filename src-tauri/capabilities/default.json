@@ -9,6 +9,7 @@
     "core:default",
     "core:path:default",
     "core:webview:default",
+    "core:window:allow-set-theme",
     "log:default",
     "dialog:default",
     "allow-scan-directory",

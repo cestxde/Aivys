@@ -7,7 +7,7 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     overflow: hidden;
-    background: var(--code-bg);
+    background: var(--surface);
 }
 
 .playlist-mosaic .cover-art {

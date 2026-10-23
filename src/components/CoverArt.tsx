@@ -32,7 +32,6 @@ export const CoverArt = ({ path, size, className, onClick, version }: CoverArtPr
             onKeyDown={clickable ? (e) => { if (e.key === "Enter" || e.key === " ") onClick?.(); } : undefined}
         >
             {path ? (
-                // eslint-disable-next-line jsx-a11y/alt-text
                 <img src={convertFileSrc(path) + (version ? `?v=${version}` : "")} alt="" loading="lazy" draggable={false} />
             ) : (
                 <Music size={Math.round(size * 0.5)} />

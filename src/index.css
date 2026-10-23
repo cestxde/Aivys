@@ -1,12 +1,39 @@
+/*
+ * Design tokens. The theme is chosen by `data-theme` on <html>: "light" or
+ * "dark", set before the first paint by the script in index.html and kept up
+ * to date by src/utils/theme.ts. Components use only these variables, so a
+ * theme is just a different set of values.
+ */
 :root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --bg: #ffffff;
+  --surface: #f3f4f6;
+  --border: #e5e7eb;
+
+  /* Text: body and strong (titles, primary labels) */
   --text: #374151;
   --text-h: #111827;
-  --bg: #ffffff;
-  --border: #e5e7eb;
-  --code-bg: #f3f4f6;
+
+  /* Accent: primary buttons, selection, focus */
   --accent: #000000;
   --accent-text: #ffffff;
   --accent-bg: rgba(0, 0, 0, 0.05);
+  --accent-border: rgba(0, 0, 0, 0.15);
+
+  /* Meaning */
+  --danger: #dc2626;
+  --success: #16a34a;
+  --favorite: #e11d48;
+  --rating: #f59e0b;
+
+  /* Depth */
+  --backdrop: rgba(0, 0, 0, 0.45);
+  --shadow-cover: 0 8px 24px rgba(0, 0, 0, 0.15);
+  --shadow-popup: 0 10px 30px rgba(0, 0, 0, 0.2);
+  --shadow-dialog: 0 20px 50px rgba(0, 0, 0, 0.3);
+  --scrollbar-hover: #d1d5db;
 
   --sans: 'Inter', system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -16,22 +43,32 @@
   color: var(--text);
 }
 
-/* Deep Charcoal Dark Theme */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #a1a1aa;
-    --text-h: #f4f4f5;
-    --bg: #101014;
-    --border: #27272a;
-    --code-bg: #18181b;
+/* Deep charcoal */
+:root[data-theme="dark"] {
+  color-scheme: dark;
 
-    --accent: #d4d4d8;
-    --accent-text: #09090b;
-    --accent-bg: rgba(212, 212, 216, 0.05);
-    --accent-border: rgba(212, 212, 216, 0.2);
+  --bg: #101014;
+  --surface: #18181b;
+  --border: #27272a;
 
-    --shadow: rgba(0, 0, 0, 0.6) 0 20px 25px -5px;
-  }
+  --text: #a1a1aa;
+  --text-h: #f4f4f5;
+
+  --accent: #d4d4d8;
+  --accent-text: #09090b;
+  --accent-bg: rgba(212, 212, 216, 0.05);
+  --accent-border: rgba(212, 212, 216, 0.2);
+
+  --danger: #ef4444;
+  --success: #22c55e;
+  --favorite: #f43f5e;
+  --rating: #fbbf24;
+
+  --backdrop: rgba(0, 0, 0, 0.6);
+  --shadow-cover: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-popup: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-dialog: 0 20px 50px rgba(0, 0, 0, 0.6);
+  --scrollbar-hover: #3f3f46;
 }
 
 body,
@@ -75,7 +112,13 @@ h3 {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: var(--scrollbar-hover);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Themed logo: black on light, white on dark. */
@@ -87,14 +130,24 @@ h3 {
   display: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  .logo-on-light {
-    display: none;
-  }
+[data-theme="dark"] .logo-on-light {
+  display: none;
+}
 
-  .logo-on-dark {
-    display: block;
-  }
+[data-theme="dark"] .logo-on-dark {
+  display: block;
+}
+
+/* Modal dialogs: a dimmed backdrop that centers its dialog. */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5vmin;
+  background: var(--backdrop);
 }
 
 /* Cover art: shared by the track list and the player bar. */
@@ -102,7 +155,7 @@ h3 {
   flex-shrink: 0;
   border-radius: 4px;
   overflow: hidden;
-  background: var(--code-bg);
+  background: var(--surface);
   border: 1px solid var(--border);
   display: flex;
   align-items: center;

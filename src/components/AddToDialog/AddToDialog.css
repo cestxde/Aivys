@@ -1,14 +1,3 @@
-.dialog-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1050;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 5vmin;
-    background: rgba(0, 0, 0, 0.45);
-}
-
 .add-to-dialog {
     display: flex;
     flex-direction: column;
@@ -20,7 +9,7 @@
     border-radius: 10px;
     background: var(--bg);
     color: var(--text-h);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-dialog);
 }
 
 .add-to-header {
@@ -60,7 +49,7 @@
 }
 
 .add-to-close:hover {
-    background: var(--code-bg);
+    background: var(--surface);
 }
 
 .add-to-section-label {
@@ -93,7 +82,7 @@
 }
 
 .add-to-option:hover {
-    background: var(--code-bg);
+    background: var(--surface);
 }
 
 .add-to-list {
@@ -120,7 +109,7 @@
 }
 
 button.add-to-row:hover {
-    background: var(--code-bg);
+    background: var(--surface);
 }
 
 .add-to-row-icon {
@@ -136,8 +125,8 @@ button.add-to-row:hover {
 
 .add-to-favorites-icon {
     border: none;
-    background: color-mix(in srgb, #e11d48 14%, transparent);
-    color: #e11d48;
+    background: color-mix(in srgb, var(--favorite) 14%, transparent);
+    color: var(--favorite);
 }
 
 .add-to-row-text {
@@ -166,7 +155,7 @@ button.add-to-row:hover {
     align-items: center;
     gap: 4px;
     font-size: 0.75rem;
-    color: #16a34a;
+    color: var(--success);
 }
 
 .add-to-new {
