@@ -1,5 +1,7 @@
 export interface Track {
     path: string;
+    // Path relative to the library root ("/"-separated); the key for .aivys data
+    relPath: string;
     // Display name (file name), kept for backwards compatibility with existing UI
     name: string;
     // Core musical metadata read from the file tags

@@ -1,7 +1,8 @@
+use crate::store::commands::open_store;
+use crate::store::fsio::now_unix;
+use crate::store::index::{added_at_path, load_added_at, save_added_at};
 use crate::track::{read_modified, read_track, Track};
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 use walkdir::WalkDir;
 
@@ -22,50 +23,6 @@ fn is_audio_file(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-fn now_unix() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}
-
-/// The persistent "added-at" store lives next to the music, in
-/// `<base_path>/.aivys/index/added-at.json`, so it syncs with the library
-/// across devices (paths are stored relative to the library root).
-fn added_at_store_path(base_path: &Path) -> PathBuf {
-    base_path.join(".aivys").join("index").join("added-at.json")
-}
-
-/// Load the map of relative-path -> first-seen timestamp. Returns an empty map
-/// if the file is missing or unreadable.
-fn load_added_at(path: &Path) -> HashMap<String, u64> {
-    std::fs::read_to_string(path)
-        .ok()
-        .and_then(|contents| serde_json::from_str(&contents).ok())
-        .unwrap_or_default()
-}
-
-/// Write the store back to disk (atomically enough for our purposes: write to a
-/// temp file, then rename). Creates the parent directory if needed.
-fn save_added_at(path: &Path, map: &HashMap<String, u64>) -> bool {
-    let Some(parent) = path.parent() else {
-        return false;
-    };
-    if std::fs::create_dir_all(parent).is_err() {
-        return false;
-    }
-
-    let Ok(json) = serde_json::to_string_pretty(map) else {
-        return false;
-    };
-
-    let tmp = path.with_extension("json.tmp");
-    if std::fs::write(&tmp, json).is_err() {
-        return false;
-    }
-    std::fs::rename(&tmp, path).is_ok()
-}
-
 fn resolve_covers_dir(app: &tauri::AppHandle) -> PathBuf {
     app.path()
         .app_data_dir()
@@ -78,7 +35,7 @@ fn resolve_covers_dir(app: &tauri::AppHandle) -> PathBuf {
 /// thread pool via [`scan_directory`], never on the UI thread.
 fn do_scan(base_path: &str, covers_dir: &Path) -> Vec<Track> {
     let base = Path::new(base_path);
-    let store_path = added_at_store_path(base);
+    let store_path = added_at_path(base);
 
     // A missing store means this is the first time the folder is scanned: seed
     // `firstSeen` from each file's mtime so we don't lose the existing history.
@@ -113,13 +70,14 @@ fn do_scan(base_path: &str, covers_dir: &Path) -> Vec<Track> {
             Some(existing) => *existing,
             None => {
                 let first_seen = if store_exists { now } else { file_mtime };
-                added_at.insert(rel_key, first_seen);
+                added_at.insert(rel_key.clone(), first_seen);
                 changed = true;
                 first_seen
             }
         };
 
-        if let Some(track) = read_track(path, covers_dir, date_created) {
+        if let Some(mut track) = read_track(path, covers_dir, date_created) {
+            track.rel_path = rel_key;
             tracks.push(track);
         }
     }
@@ -137,9 +95,16 @@ pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String) -> 
 
     // Run the blocking filesystem/tag work off the UI thread so the webview
     // stays responsive (spinner keeps animating) during a large scan.
-    tauri::async_runtime::spawn_blocking(move || do_scan(&base_path, &covers_dir))
-        .await
-        .unwrap_or_default()
+    tauri::async_runtime::spawn_blocking(move || {
+        // Open `.aivys/` first: it merges sync conflicts (including
+        // added-at.json) before the scan reads them.
+        if let Err(err) = open_store(&app, Path::new(&base_path)) {
+            log::warn!("cannot open .aivys store: {err}");
+        }
+        do_scan(&base_path, &covers_dir)
+    })
+    .await
+    .unwrap_or_default()
 }
 
 /// Returns true if `path` exists and is a directory.

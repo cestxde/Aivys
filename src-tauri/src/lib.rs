@@ -1,9 +1,11 @@
 mod cover;
 mod library;
+mod store;
 mod text;
 mod track;
 
 use library::{scan_directory, validate_directory};
+use store::commands::*;
 use tauri::Manager;
 
 /// Show the main window. It starts hidden (see tauri.conf.json) so the user
@@ -18,10 +20,38 @@ fn show_main_window(window: tauri::Window) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .manage(StoreState::default())
         .invoke_handler(tauri::generate_handler![
             scan_directory,
             validate_directory,
-            show_main_window
+            show_main_window,
+            get_library_settings,
+            set_visible_system_playlists,
+            resolve_conflicts,
+            record_play,
+            record_complete,
+            set_rating,
+            set_favorite,
+            set_track_tag,
+            get_track_stats,
+            get_system_playlist,
+            list_tags,
+            create_tag,
+            update_tag,
+            delete_tag,
+            list_playlists,
+            get_playlist,
+            create_manual_playlist,
+            create_smart_playlist,
+            rename_playlist,
+            set_playlist_sort,
+            set_playlist_rules,
+            add_to_playlist,
+            remove_from_playlist,
+            reorder_playlist,
+            delete_playlist,
+            set_playlist_cover,
+            clear_playlist_cover
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

@@ -12,6 +12,9 @@ use std::time::UNIX_EPOCH;
 pub(crate) struct Track {
     pub(crate) name: String,
     pub(crate) path: String,
+    // Path relative to the library root with `/` separators: the key used by
+    // everything stored in `.aivys/`. Filled in by the scan.
+    pub(crate) rel_path: String,
     pub(crate) duration: u32,
 
     // Core musical metadata
@@ -130,6 +133,7 @@ pub(crate) fn read_track(path: &Path, covers_dir: &Path, date_created: u64) -> O
     Some(Track {
         name,
         path: path.to_string_lossy().into_owned(),
+        rel_path: String::new(),
         duration,
 
         title: repair_opt(title),
