@@ -16,6 +16,13 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
+    /* Stays on top while the page scrolls, like the track list toolbar. */
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding-bottom: 0.5rem;
+    margin-bottom: -0.5rem;
+    background: var(--bg);
 }
 
 .tags-title {
