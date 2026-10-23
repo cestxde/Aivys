@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { ListRow, Playlist, Track, TrackStats, View } from "../types";
 import { systemViewTracks, tagTracks } from "../utils/views";
 import { notifyError } from "../utils/notify";
+import { t } from "../i18n";
 
 /**
  * Current track paths of a smart playlist, re-evaluated when its rules change
@@ -20,7 +21,7 @@ const useSmartPaths = (playlist: Playlist | null, stats: Record<string, TrackSta
             .then(paths => {
                 if (!cancelled) setResult({ id, paths });
             })
-            .catch(e => notifyError("Could not evaluate the smart playlist", e));
+            .catch(e => notifyError(t("error.evaluateSmart"), e));
         return () => {
             cancelled = true;
         };

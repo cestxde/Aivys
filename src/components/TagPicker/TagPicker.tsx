@@ -3,6 +3,7 @@ import { Check, Minus, Plus, X } from "lucide-react";
 import type { Track, TrackStats, UserTag } from "../../types";
 import { displayTitle } from "../../utils/track";
 import { TagDot } from "../TagChip/TagChip";
+import { t } from "../../i18n";
 import "./TagPicker.css";
 
 interface TagPickerProps {
@@ -40,7 +41,7 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
     const countOf = (tag: UserTag) =>
         tracks.filter(track => stats[track.relPath]?.tags.includes(tag.id)).length;
 
-    const subject = tracks.length === 1 ? displayTitle(tracks[0]) : `${tracks.length} tracks`;
+    const subject = tracks.length === 1 ? displayTitle(tracks[0]) : t("common.tracks", { count: tracks.length });
 
     const create = () => {
         if (!canCreate) return;
@@ -50,20 +51,20 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
 
     return (
         <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-            <div className="add-to-dialog" role="dialog" aria-label="Tags">
+            <div className="add-to-dialog" role="dialog" aria-label={t("tagPicker.title")}>
                 <div className="add-to-header">
                     <div className="add-to-heading">
-                        <h2>Tags</h2>
+                        <h2>{t("tagPicker.title")}</h2>
                         <span className="add-to-subject">{subject}</span>
                     </div>
-                    <button className="add-to-close" title="Close" onClick={onClose}>
+                    <button className="add-to-close" title={t("common.close")} onClick={onClose}>
                         <X size={18} />
                     </button>
                 </div>
 
                 <input
                     className="search-input"
-                    placeholder={tags.length > 0 ? "Find or create a tag..." : "Name a new tag..."}
+                    placeholder={tags.length > 0 ? t("tagPicker.find") : t("tagPicker.nameNew")}
                     value={filter}
                     autoFocus
                     onChange={(e) => setFilter(e.target.value)}
@@ -78,7 +79,7 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
                     {canCreate && (
                         <button className="add-to-row tag-picker-row" onClick={create}>
                             <span className="tag-picker-check"><Plus size={14} /></span>
-                            <span className="add-to-row-name">Create tag “{query}”</span>
+                            <span className="add-to-row-name">{t("tagPicker.create", { name: query })}</span>
                         </button>
                     )}
 
@@ -101,22 +102,22 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
                                 <TagDot color={tag.color} size={12} />
                                 <span className="add-to-row-name">{tag.name}</span>
                                 {state === "mixed" && (
-                                    <span className="add-to-row-meta">{count} of {tracks.length}</span>
+                                    <span className="add-to-row-meta">{t("tagPicker.partial", { count, total: tracks.length })}</span>
                                 )}
                             </button>
                         );
                     })}
 
                     {tags.length === 0 && !canCreate && (
-                        <div className="add-to-empty">No tags yet. Type a name to create one.</div>
+                        <div className="add-to-empty">{t("tagPicker.empty")}</div>
                     )}
                     {tags.length > 0 && shown.length === 0 && !canCreate && (
-                        <div className="add-to-empty">No tags match.</div>
+                        <div className="add-to-empty">{t("tagPicker.noMatch")}</div>
                     )}
                 </div>
 
                 <div className="tag-picker-footer">
-                    <button className="editor-button primary" onClick={onClose}>Done</button>
+                    <button className="editor-button primary" onClick={onClose}>{t("common.done")}</button>
                 </div>
             </div>
         </div>

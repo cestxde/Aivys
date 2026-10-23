@@ -7,6 +7,7 @@ import { tagsOf } from "../../utils/tags";
 import { CoverArt } from "../CoverArt";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { TagChip } from "../TagChip/TagChip";
+import { t } from "../../i18n";
 import "./TrackDetailPanel.css";
 
 interface TrackDetailPanelProps {
@@ -43,7 +44,7 @@ const RatingStars = ({ rating, onChange }: { rating: number; onChange: (rating: 
                 <button
                     key={value}
                     className={`rating-star ${value <= shown ? "is-on" : ""}`}
-                    title={value === rating ? "Clear rating" : `Rate ${value}`}
+                    title={value === rating ? t("detail.clearRating") : t("detail.rate", { value })}
                     onMouseEnter={() => setHover(value)}
                     onClick={() => onChange(value === rating ? 0 : value)}
                 >
@@ -74,7 +75,7 @@ export const TrackDetailPanel = ({
     if (!track) {
         return (
             <aside className="track-detail-panel">
-                <div className="detail-empty">Nothing playing</div>
+                <div className="detail-empty">{t("detail.nothingPlaying")}</div>
             </aside>
         );
     }
@@ -83,13 +84,13 @@ export const TrackDetailPanel = ({
     const artists = track.artists.length ? track.artists.join(", ") : null;
     const technical = [
         track.format?.toUpperCase() ?? null,
-        track.bitrate ? `${Math.round(track.bitrate / 1000)} kbps` : null,
-        track.sampleRate ? `${(track.sampleRate / 1000).toFixed(1)} kHz` : null,
+        track.bitrate ? t("detail.kbps", { value: Math.round(track.bitrate / 1000) }) : null,
+        track.sampleRate ? t("detail.khz", { value: (track.sampleRate / 1000).toFixed(1) }) : null,
     ].filter(Boolean).join(" · ");
 
     const trackDisc = [
-        track.trackNumber != null ? `Track ${track.trackNumber}` : null,
-        track.discNumber != null ? `Disc ${track.discNumber}` : null,
+        track.trackNumber != null ? t("detail.track", { number: track.trackNumber }) : null,
+        track.discNumber != null ? t("detail.disc", { number: track.discNumber }) : null,
     ].filter(Boolean).join(" · ");
 
     return (
@@ -111,7 +112,7 @@ export const TrackDetailPanel = ({
             <div className="detail-actions">
                 <button
                     className={`detail-favorite ${stats?.favorite ? "is-favorite" : ""}`}
-                    title={stats?.favorite ? "Remove from favorites" : "Add to favorites"}
+                    title={stats?.favorite ? t("common.removeFromFavorites") : t("common.addToFavorites")}
                     aria-pressed={stats?.favorite ?? false}
                     onClick={() => onToggleFavorite(track)}
                 >
@@ -128,29 +129,29 @@ export const TrackDetailPanel = ({
                     <TagChip key={tag.id} tag={tag} onClick={() => onOpenTag(tag)} />
                 ))}
                 <button className="detail-tags-edit" onClick={() => onEditTags(track)}>
-                    <Tag size={13} /> {tags.length > 0 ? "Edit tags" : "Add tags"}
+                    <Tag size={13} /> {tags.length > 0 ? t("detail.editTags") : t("detail.addTags")}
                 </button>
             </div>
 
             <div className="detail-rows">
-                <DetailRow label="Album" value={track.album} />
-                <DetailRow label="Album artist" value={track.albumArtist} />
-                <DetailRow label="Year" value={track.year != null ? String(track.year) : null} />
-                <DetailRow label="Track / Disc" value={trackDisc || null} />
-                <DetailRow label="Genre" value={track.genre.length ? track.genre.join(", ") : null} />
-                <DetailRow label="Duration" value={formatDuration(track.duration)} />
-                <DetailRow label="Format" value={technical || null} />
-                <DetailRow label="Plays" value={String(stats?.playCount ?? 0)} />
+                <DetailRow label={t("detail.album")} value={track.album} />
+                <DetailRow label={t("detail.albumArtist")} value={track.albumArtist} />
+                <DetailRow label={t("detail.year")} value={track.year != null ? String(track.year) : null} />
+                <DetailRow label={t("detail.trackDisc")} value={trackDisc || null} />
+                <DetailRow label={t("detail.genre")} value={track.genre.length ? track.genre.join(", ") : null} />
+                <DetailRow label={t("detail.duration")} value={formatDuration(track.duration)} />
+                <DetailRow label={t("detail.format")} value={technical || null} />
+                <DetailRow label={t("detail.plays")} value={String(stats?.playCount ?? 0)} />
                 <DetailRow
-                    label="Last played"
+                    label={t("detail.lastPlayed")}
                     value={stats?.lastPlayedAt ? formatDateTime(stats.lastPlayedAt) : null}
                 />
             </div>
 
             <div className="detail-rows detail-file">
-                <DetailRow label="Size" value={track.fileSize > 0 ? formatFileSize(track.fileSize) : null} />
+                <DetailRow label={t("detail.size")} value={track.fileSize > 0 ? formatFileSize(track.fileSize) : null} />
                 <div className="detail-row">
-                    <span className="detail-label">Path</span>
+                    <span className="detail-label">{t("detail.path")}</span>
                     <span className="detail-value detail-path" title={track.path}>{track.path}</span>
                 </div>
             </div>

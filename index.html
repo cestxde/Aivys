@@ -7,16 +7,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>aivys</title>
   <script>
-    // Pick the theme before anything paints (see src/utils/theme.ts, same key),
-    // so a dark theme on a light system never flashes white.
+    // Pick the theme and the logo before anything paints, with the same keys as
+    // src/utils/theme.ts and src/i18n: a dark theme on a light system never
+    // flashes white, and the boot logo is already the chosen one.
     (function () {
-      var preference = null;
-      try {
-        preference = localStorage.getItem("aivys.theme");
-      } catch (e) { }
-      var dark = preference === "dark"
-        || (preference !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-      document.documentElement.dataset.theme = dark ? "dark" : "light";
+      function read(key) {
+        try {
+          return localStorage.getItem(key);
+        } catch (e) {
+          return null;
+        }
+      }
+      var root = document.documentElement;
+      var theme = read("aivys.theme");
+      var dark = theme === "dark"
+        || (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      root.dataset.theme = dark ? "dark" : "light";
+
+      var language = read("aivys.language")
+        || (navigator.language.toLowerCase().indexOf("ru") === 0 ? "ru" : "en");
+      root.lang = language;
+      root.dataset.logo = read("aivys.logo") || language;
     })();
   </script>
   <style>
@@ -40,14 +51,18 @@
       z-index: 9999;
     }
 
+    /* One of four logos: theme × logo language. */
     #boot-splash img {
       height: 48px;
       width: auto;
-      display: block;
+      display: none;
     }
 
-    #boot-splash .splash-on-dark {
-      display: none;
+    [data-theme="light"][data-logo="en"] #boot-splash .splash-light.splash-en,
+    [data-theme="light"][data-logo="ru"] #boot-splash .splash-light.splash-ru,
+    [data-theme="dark"][data-logo="en"] #boot-splash .splash-dark.splash-en,
+    [data-theme="dark"][data-logo="ru"] #boot-splash .splash-dark.splash-ru {
+      display: block;
     }
 
     /* Matches --bg of the dark theme in src/index.css. */
@@ -56,21 +71,15 @@
     [data-theme="dark"] #boot-splash {
       background: #101014;
     }
-
-    [data-theme="dark"] #boot-splash .splash-on-light {
-      display: none;
-    }
-
-    [data-theme="dark"] #boot-splash .splash-on-dark {
-      display: block;
-    }
   </style>
 </head>
 
 <body>
   <div id="boot-splash">
-    <img class="splash-on-light" src="/src/assets/logo-black-en.svg" alt="" />
-    <img class="splash-on-dark" src="/src/assets/logo-white-en.svg" alt="" />
+    <img class="splash-light splash-en" src="/src/assets/logo-black-en.svg" alt="" />
+    <img class="splash-dark splash-en" src="/src/assets/logo-white-en.svg" alt="" />
+    <img class="splash-light splash-ru" src="/src/assets/logo-black-ru.svg" alt="" />
+    <img class="splash-dark splash-ru" src="/src/assets/logo-white-ru.svg" alt="" />
   </div>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>

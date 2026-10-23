@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { Music, X } from "lucide-react";
+import { t } from "../../i18n";
 import "./CoverViewer.css";
 
 interface CoverViewerProps {
@@ -22,7 +23,7 @@ export const CoverViewer = ({ path, onClose }: CoverViewerProps) => {
 
     return (
         <div className="cover-viewer-backdrop" onClick={onClose}>
-            <button className="cover-viewer-close" onClick={onClose} aria-label="Close">
+            <button className="cover-viewer-close" onClick={onClose} title={t("common.close")} aria-label={t("common.close")}>
                 <X size={22} />
             </button>
             <div className="cover-viewer-image" onClick={(e) => e.stopPropagation()}>

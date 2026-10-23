@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Playlist, SmartRules, SortSpec, Track } from "../types";
 import { notifyError } from "../utils/notify";
+import { t, type MessageKey } from "../i18n";
 
 /**
  * The library's playlists (`.aivys/playlists/`). Reloaded after every scan;
@@ -18,7 +19,7 @@ export const usePlaylists = (files: Track[]) => {
             .then(loaded => {
                 if (!cancelled) setPlaylists(loaded);
             })
-            .catch(e => notifyError("Could not load playlists", e));
+            .catch(e => notifyError(t("error.loadPlaylists"), e));
         return () => {
             cancelled = true;
         };
@@ -34,44 +35,44 @@ export const usePlaylists = (files: Track[]) => {
     const change = useCallback(async (
         command: string,
         args: Record<string, unknown>,
-        failure: string
+        failure: MessageKey
     ): Promise<Playlist | null> => {
         try {
             const playlist = await invoke<Playlist>(command, args);
             upsert(playlist);
             return playlist;
         } catch (e) {
-            notifyError(failure, e);
+            notifyError(t(failure), e);
             return null;
         }
     }, [upsert]);
 
     const createManual = useCallback((name: string) =>
-        change("create_manual_playlist", { name }, "Could not create the playlist"), [change]);
+        change("create_manual_playlist", { name }, "error.createPlaylist"), [change]);
 
     const createSmart = useCallback((name: string, rules: SmartRules) =>
-        change("create_smart_playlist", { name, rules }, "Could not create the smart playlist"), [change]);
+        change("create_smart_playlist", { name, rules }, "error.createSmart"), [change]);
 
     const rename = useCallback((id: string, name: string) =>
-        change("rename_playlist", { id, name }, "Could not rename the playlist"), [change]);
+        change("rename_playlist", { id, name }, "error.renamePlaylist"), [change]);
 
     const setSort = useCallback((id: string, sort: SortSpec) =>
-        change("set_playlist_sort", { id, sort }, "Could not save the playlist order"), [change]);
+        change("set_playlist_sort", { id, sort }, "error.savePlaylistSort"), [change]);
 
     const setRules = useCallback((id: string, rules: SmartRules) =>
-        change("set_playlist_rules", { id, rules }, "Could not save the rules"), [change]);
+        change("set_playlist_rules", { id, rules }, "error.saveRules"), [change]);
 
     const addTracks = useCallback((id: string, paths: string[]) =>
-        change("add_to_playlist", { id, paths }, "Could not add to the playlist"), [change]);
+        change("add_to_playlist", { id, paths }, "error.addToPlaylist"), [change]);
 
     const removeItems = useCallback((id: string, itemIds: string[]) =>
-        change("remove_from_playlist", { id, itemIds }, "Could not remove from the playlist"), [change]);
+        change("remove_from_playlist", { id, itemIds }, "error.removeFromPlaylist"), [change]);
 
     const setCover = useCallback((id: string, sourcePath: string) =>
-        change("set_playlist_cover", { id, sourcePath }, "Could not set the cover"), [change]);
+        change("set_playlist_cover", { id, sourcePath }, "error.setCover"), [change]);
 
     const clearCover = useCallback((id: string) =>
-        change("clear_playlist_cover", { id }, "Could not remove the cover"), [change]);
+        change("clear_playlist_cover", { id }, "error.removeCover"), [change]);
 
     /** Reorder immediately, then persist (restoring the old order on failure). */
     const reorder = useCallback(async (id: string, itemIds: string[]) => {
@@ -83,7 +84,7 @@ export const usePlaylists = (files: Track[]) => {
             const items = itemIds.flatMap(itemId => byId.get(itemId) ?? []);
             return { ...p, items };
         }));
-        const saved = await change("reorder_playlist", { id, itemIds }, "Could not save the new order");
+        const saved = await change("reorder_playlist", { id, itemIds }, "error.saveOrder");
         if (!saved && previous) upsert(previous);
     }, [change, upsert]);
 
@@ -93,7 +94,7 @@ export const usePlaylists = (files: Track[]) => {
             setPlaylists(prev => prev.filter(p => p.id !== id));
             return true;
         } catch (e) {
-            notifyError("Could not delete the playlist", e);
+            notifyError(t("error.deletePlaylist"), e);
             return false;
         }
     }, []);

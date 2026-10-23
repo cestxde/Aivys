@@ -7,6 +7,7 @@ import { ContextMenu, type MenuEntry } from "../ContextMenu/ContextMenu";
 import {
     SORT_FIELDS, directionLabel, sortBy, sortLabel, type ListDisplay, type SortField, type ViewSort,
 } from "../../utils/sort";
+import { t } from "../../i18n";
 
 interface ToolbarProps {
     searchQuery: string;
@@ -65,13 +66,13 @@ export const Toolbar = ({
     };
 
     const entries: MenuEntry[] = [
-        { kind: "label", label: "Sort by" },
+        { kind: "label", label: t("toolbar.sortBy") },
         ...(defaultLabel ? [option("default", defaultLabel)] : []),
-        ...SORT_FIELDS.map(info => option(info.field, info.label)),
+        ...SORT_FIELDS.map(info => option(info.field, t(info.label))),
         { kind: "separator" },
         {
             kind: "item",
-            label: "Group into sections",
+            label: t("toolbar.groupSections"),
             icon: check(display === "sections"),
             onSelect: () => onDisplayChange(display === "sections" ? "inline" : "sections"),
         },
@@ -85,7 +86,7 @@ export const Toolbar = ({
                     className="sort-button"
                     disabled={sortDisabled}
                     aria-haspopup="menu"
-                    title={sortDisabled ? "Search results are sorted by relevance" : "Sort and display"}
+                    title={sortDisabled ? t("toolbar.relevanceHint") : t("toolbar.sortAndDisplay")}
                     // The open menu closes on outside presses; let this click toggle it instead.
                     onPointerDown={(e) => menuAt && e.stopPropagation()}
                     onClick={(e) => {
@@ -95,15 +96,15 @@ export const Toolbar = ({
                 >
                     <ArrowUpDown size={15} />
                     <span className="sort-button-label">
-                        {sortDisabled ? "Relevance" : sortLabel(sort, defaultLabel ?? "")}
+                        {sortDisabled ? t("toolbar.relevance") : sortLabel(sort, defaultLabel ?? "")}
                     </span>
                     <ChevronDown size={14} />
                 </button>
                 <button
                     className="sort-button sort-direction"
                     disabled={sortDisabled}
-                    title={sortDisabled ? undefined : `${direction} (click to reverse)`}
-                    aria-label={`Sort direction: ${direction}`}
+                    title={sortDisabled ? undefined : t("toolbar.reverseHint", { direction })}
+                    aria-label={t("toolbar.direction", { direction })}
                     onClick={reverse}
                 >
                     <DirectionIcon sort={sort} />
@@ -113,7 +114,7 @@ export const Toolbar = ({
             <div className="toolbar-section center">
                 <input
                     type="text"
-                    placeholder="Search tracks..."
+                    placeholder={t("toolbar.search")}
                     className="search-input"
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
@@ -124,16 +125,16 @@ export const Toolbar = ({
                 <button
                     onClick={onShuffleAll}
                     className="toolbar-button toolbar-icon-button shuffle-button"
-                    title="Shuffle all"
-                    aria-label="Shuffle all"
+                    title={t("toolbar.shuffleAll")}
+                    aria-label={t("toolbar.shuffleAll")}
                 >
                     <Shuffle size={18} />
                 </button>
                 <button
                     onClick={onPlayAll}
                     className="toolbar-button toolbar-icon-button play-button"
-                    title="Play all"
-                    aria-label="Play all"
+                    title={t("common.playAll")}
+                    aria-label={t("common.playAll")}
                 >
                     <Play size={18} fill="currentColor" />
                 </button>

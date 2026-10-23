@@ -1,5 +1,6 @@
 import type { Track } from "../types";
 import { displayTitle } from "./track";
+import { compareText, t } from "../i18n";
 
 /** Tracks grouped under one artist, album or folder. */
 export interface TrackGroup {
@@ -12,10 +13,10 @@ export interface TrackGroup {
     tracks: Track[];
 }
 
-const UNKNOWN_ARTIST = "Unknown artist";
+// Tracks without an artist; a fixed key, so an open view survives a language change.
+const UNKNOWN_ARTIST_KEY = "\u0000unknown";
 
-const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
-const byName = (a: TrackGroup, b: TrackGroup) => collator.compare(a.name, b.name);
+const byName = (a: TrackGroup, b: TrackGroup) => compareText(a.name, b.name);
 
 /** Covers of the group's tracks, distinct, in track order (for mosaics). */
 export const groupCovers = (group: TrackGroup, max = 4): string[] =>
@@ -31,11 +32,11 @@ export const folderOf = (relPath: string): string => {
 export const compareAlbumOrder = (a: Track, b: Track): number =>
     (a.discNumber ?? 0) - (b.discNumber ?? 0) ||
     (a.trackNumber ?? 0) - (b.trackNumber ?? 0) ||
-    collator.compare(displayTitle(a), displayTitle(b));
+    compareText(displayTitle(a), displayTitle(b));
 
 /** Library order of an artist's or a folder's tracks: by album, then album order. */
 export const compareByAlbum = (a: Track, b: Track): number =>
-    collator.compare(a.album ?? "", b.album ?? "") || compareAlbumOrder(a, b);
+    compareText(a.album ?? "", b.album ?? "") || compareAlbumOrder(a, b);
 
 const artistKey = (name: string) => name.trim().toLowerCase();
 
@@ -43,11 +44,12 @@ const artistKey = (name: string) => name.trim().toLowerCase();
 export const groupArtists = (files: Track[]): TrackGroup[] => {
     const groups = new Map<string, TrackGroup>();
     for (const track of files) {
-        const names = track.artists.length > 0 ? track.artists : [UNKNOWN_ARTIST];
+        const names = track.artists.length > 0 ? track.artists : [null];
         for (const name of names) {
-            const key = artistKey(name);
+            const key = name === null ? UNKNOWN_ARTIST_KEY : artistKey(name);
             if (!key) continue;
-            const group = groups.get(key) ?? { key, name: name.trim(), subtitle: null, year: null, tracks: [] };
+            const group = groups.get(key)
+                ?? { key, name: name?.trim() ?? t("common.unknownArtist"), subtitle: null, year: null, tracks: [] };
             group.tracks.push(track);
             groups.set(key, group);
         }
@@ -55,7 +57,7 @@ export const groupArtists = (files: Track[]): TrackGroup[] => {
     for (const group of groups.values()) {
         group.tracks.sort(compareByAlbum);
         const albums = new Set(group.tracks.flatMap(t => t.album ? [t.album.toLowerCase()] : [])).size;
-        group.subtitle = albums > 0 ? `${albums} ${albums === 1 ? "album" : "albums"}` : null;
+        group.subtitle = albums > 0 ? t("common.albums", { count: albums }) : null;
     }
     return [...groups.values()].sort(byName);
 };
@@ -86,7 +88,7 @@ export const groupAlbums = (files: Track[]): TrackGroup[] => {
         // Lead artists only: a guest on one track does not make it "Various artists".
         const artists = new Set(group.tracks.flatMap(t => t.artists.length > 0 ? [artistKey(t.artists[0])] : []));
         group.subtitle = first.albumArtist?.trim()
-            || (artists.size === 1 ? first.artists[0] ?? null : artists.size > 1 ? "Various artists" : null);
+            || (artists.size === 1 ? first.artists[0] ?? null : artists.size > 1 ? t("common.variousArtists") : null);
         group.year = group.tracks.find(t => t.year != null)?.year ?? null;
     }
     return [...groups.values()].sort(byName);
@@ -100,7 +102,7 @@ export const folderTracks = (files: Track[], folder: string): Track[] => {
     const prefix = folder ? `${folder}/` : "";
     return files
         .filter(f => f.relPath.startsWith(prefix))
-        .sort((a, b) => collator.compare(a.relPath, b.relPath));
+        .sort((a, b) => compareText(a.relPath, b.relPath));
 };
 
 /** Direct subfolders of `folder` that contain tracks, with all tracks below each. */

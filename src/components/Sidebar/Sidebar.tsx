@@ -2,34 +2,35 @@ import { Fragment, type ReactNode } from "react";
 import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Settings } from "lucide-react";
 import { ThemedLogo } from "../ThemedLogo";
 import type { View } from "../../types";
+import { t, type MessageKey } from "../../i18n";
 import "./Sidebar.css";
 
 interface SidebarItem {
-    label: string;
+    label: MessageKey;
     icon: ReactNode;
     view: View;
 }
 
-const SETTINGS: SidebarItem = { label: "Settings", icon: <Settings size={18} />, view: { kind: "settings" } };
+const SETTINGS: SidebarItem = { label: "nav.settings", icon: <Settings size={18} />, view: { kind: "settings" } };
 
-const FOLDERS: SidebarItem = { label: "Folders", icon: <Folder size={18} />, view: { kind: "folder", id: "" } };
+const FOLDERS: SidebarItem = { label: "nav.folders", icon: <Folder size={18} />, view: { kind: "folder", id: "" } };
 
 /** Groups of items, separated by dividers. */
 const SECTIONS: SidebarItem[][] = [
     [
-        { label: "Library", icon: <Library size={18} />, view: { kind: "system", id: "library" } },
-        { label: "Favorites", icon: <Heart size={18} />, view: { kind: "system", id: "favorites" } },
+        { label: "nav.library", icon: <Library size={18} />, view: { kind: "system", id: "library" } },
+        { label: "nav.favorites", icon: <Heart size={18} />, view: { kind: "system", id: "favorites" } },
     ],
     [
-        { label: "Playlists", icon: <ListMusic size={18} />, view: { kind: "playlists" } },
-        { label: "Artists", icon: <MicVocal size={18} />, view: { kind: "artists" } },
-        { label: "Albums", icon: <Disc3 size={18} />, view: { kind: "albums" } },
-        { label: "Tags", icon: <Tag size={18} />, view: { kind: "tags" } },
+        { label: "nav.playlists", icon: <ListMusic size={18} />, view: { kind: "playlists" } },
+        { label: "nav.artists", icon: <MicVocal size={18} />, view: { kind: "artists" } },
+        { label: "nav.albums", icon: <Disc3 size={18} />, view: { kind: "albums" } },
+        { label: "nav.tags", icon: <Tag size={18} />, view: { kind: "tags" } },
         FOLDERS,
     ],
     [
-        { label: "Most played", icon: <TrendingUp size={18} />, view: { kind: "system", id: "mostPlayed" } },
-        { label: "Recently played", icon: <History size={18} />, view: { kind: "system", id: "recentlyPlayed" } },
+        { label: "nav.mostPlayed", icon: <TrendingUp size={18} />, view: { kind: "system", id: "mostPlayed" } },
+        { label: "nav.recentlyPlayed", icon: <History size={18} />, view: { kind: "system", id: "recentlyPlayed" } },
     ],
 ];
 
@@ -74,12 +75,12 @@ export const Sidebar = ({ libraryPath, onChangeLibrary, view, onViewChange, show
         <button
             key={item.label}
             className={`sidebar-item ${isCurrent(item.view, view) ? "active" : ""}`}
-            title={item.label}
+            title={t(item.label)}
             aria-current={isCurrent(item.view, view) ? "page" : undefined}
             onClick={() => onViewChange(item.view)}
         >
             <span className="sidebar-icon">{item.icon}</span>
-            <span className="sidebar-label">{item.label}</span>
+            <span className="sidebar-label">{t(item.label)}</span>
         </button>
     );
 
@@ -96,7 +97,7 @@ export const Sidebar = ({ libraryPath, onChangeLibrary, view, onViewChange, show
             >
                 <span className="sidebar-icon"><FolderOpen size={18} /></span>
                 <span className="sidebar-library-text">
-                    <span className="sidebar-label">Change folder</span>
+                    <span className="sidebar-label">{t("nav.changeFolder")}</span>
                     {libraryPath && (
                         <span className="sidebar-folder-name">{folderName(libraryPath)}</span>
                     )}

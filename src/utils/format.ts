@@ -1,3 +1,5 @@
+import { getLanguage } from "../i18n";
+
 /** Format a number of seconds as "m:ss" (or "0:00" for invalid input). */
 export const formatDuration = (seconds: number): string => {
     if (!seconds || isNaN(seconds) || seconds < 0) return "0:00";
@@ -8,14 +10,14 @@ export const formatDuration = (seconds: number): string => {
 
 /** Format a unix timestamp (seconds) as a short local date and time. */
 export const formatDateTime = (unixSeconds: number): string =>
-    new Date(unixSeconds * 1000).toLocaleString(undefined, {
+    new Date(unixSeconds * 1000).toLocaleString(getLanguage(), {
         dateStyle: "medium",
         timeStyle: "short",
     });
 
 /** Format a unix timestamp (seconds) as a short local date. */
 export const formatDate = (unixSeconds: number): string =>
-    new Date(unixSeconds * 1000).toLocaleDateString(undefined, { dateStyle: "medium" });
+    new Date(unixSeconds * 1000).toLocaleDateString(getLanguage(), { dateStyle: "medium" });
 
 const SIZE_UNITS = ["B", "KB", "MB", "GB", "TB"];
 

@@ -3,6 +3,7 @@ import { Check, Pipette, X } from "lucide-react";
 import type { UserTag } from "../../types";
 import { TAG_COLORS } from "../../utils/tags";
 import { TagChip } from "../TagChip/TagChip";
+import { t } from "../../i18n";
 import "./TagDialog.css";
 
 interface TagDialogProps {
@@ -40,31 +41,31 @@ export const TagDialog = ({ tag, initialColor, tags, onSave, onClose }: TagDialo
 
     return (
         <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-            <div className="tag-dialog" role="dialog" aria-label={tag ? "Edit tag" : "New tag"}>
+            <div className="tag-dialog" role="dialog" aria-label={tag ? t("tagDialog.edit") : t("tagDialog.new")}>
                 <div className="tag-dialog-header">
-                    <h2>{tag ? "Edit tag" : "New tag"}</h2>
-                    <button className="add-to-close" title="Close" onClick={onClose}>
+                    <h2>{tag ? t("tagDialog.edit") : t("tagDialog.new")}</h2>
+                    <button className="add-to-close" title={t("common.close")} onClick={onClose}>
                         <X size={18} />
                     </button>
                 </div>
 
                 <label className="editor-field">
-                    Name
+                    {t("tagDialog.name")}
                     <input
                         className="rule-input editor-name"
                         value={name}
                         autoFocus
-                        placeholder="e.g. Chill"
+                        placeholder={t("tagDialog.namePlaceholder")}
                         onFocus={(e) => e.currentTarget.select()}
                         onChange={(e) => setName(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && save()}
                     />
-                    {taken && <span className="tag-dialog-error">A tag with this name already exists.</span>}
+                    {taken && <span className="tag-dialog-error">{t("tagDialog.nameTaken")}</span>}
                 </label>
 
                 <div className="editor-field">
-                    Color
-                    <div className="tag-swatches" role="radiogroup" aria-label="Color">
+                    {t("tagDialog.color")}
+                    <div className="tag-swatches" role="radiogroup" aria-label={t("tagDialog.color")}>
                         {TAG_COLORS.map(preset => (
                             <button
                                 key={preset}
@@ -81,7 +82,7 @@ export const TagDialog = ({ tag, initialColor, tags, onSave, onClose }: TagDialo
                         <label
                             className={`tag-swatch tag-swatch-custom ${custom ? "selected" : ""}`}
                             style={custom ? { "--tag-color": color } as CSSProperties : undefined}
-                            title="Custom color"
+                            title={t("tagDialog.customColor")}
                         >
                             {custom ? <Check size={14} /> : <Pipette size={14} />}
                             <input
@@ -94,14 +95,14 @@ export const TagDialog = ({ tag, initialColor, tags, onSave, onClose }: TagDialo
                 </div>
 
                 <div className="tag-dialog-preview">
-                    <TagChip tag={{ id: "", name: trimmed || "Tag", color, createdAt: 0, updatedAt: 0 }} />
+                    <TagChip tag={{ id: "", name: trimmed || t("tagDialog.previewName"), color, createdAt: 0, updatedAt: 0 }} />
                 </div>
 
                 <div className="editor-footer">
                     <span className="editor-preview" />
-                    <button className="editor-button" onClick={onClose}>Cancel</button>
+                    <button className="editor-button" onClick={onClose}>{t("common.cancel")}</button>
                     <button className="editor-button primary" disabled={!valid} onClick={save}>
-                        {tag ? "Save" : "Create"}
+                        {tag ? t("common.save") : t("common.create")}
                     </button>
                 </div>
             </div>

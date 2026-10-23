@@ -5,6 +5,7 @@ import { groupCovers } from "../../utils/groups";
 import { CoverMosaic } from "../PlaylistCover/PlaylistCover";
 import { CardPlayButton } from "../CardPlayButton/CardPlayButton";
 import { LayoutToggle, type PlaylistsLayout } from "../PlaylistsPage/PlaylistsPage";
+import { t } from "../../i18n";
 import "../PlaylistsPage/PlaylistsPage.css";
 import "./CollectionPage.css";
 
@@ -17,6 +18,8 @@ interface CollectionPageProps {
     round?: boolean;
     describe: (group: TrackGroup) => string;
     emptyText: string;
+    filterPlaceholder: string;
+    noMatchText: string;
     layout: PlaylistsLayout;
     onLayoutChange: (layout: PlaylistsLayout) => void;
     onOpen: (group: TrackGroup) => void;
@@ -35,6 +38,8 @@ export const CollectionPage = ({
     round = false,
     describe,
     emptyText,
+    filterPlaceholder,
+    noMatchText,
     layout,
     onLayoutChange,
     onOpen,
@@ -68,7 +73,7 @@ export const CollectionPage = ({
     const menuButton = (group: TrackGroup) => (
         <button
             className="playlists-menu-button"
-            title="More"
+            title={t("common.more")}
             aria-haspopup="menu"
             onClick={(e) => {
                 e.stopPropagation();
@@ -86,7 +91,7 @@ export const CollectionPage = ({
                 <h1 className="playlists-title">{title}</h1>
                 <input
                     className="search-input playlists-filter"
-                    placeholder={`Filter ${title.toLowerCase()}...`}
+                    placeholder={filterPlaceholder}
                     value={filter}
                     onChange={(e) => {
                         setFilter(e.target.value);
@@ -98,7 +103,7 @@ export const CollectionPage = ({
 
             {shown.length === 0 ? (
                 <div className="playlists-empty">
-                    {groups.length === 0 ? emptyText : `No ${title.toLowerCase()} match the filter.`}
+                    {groups.length === 0 ? emptyText : noMatchText}
                 </div>
             ) : layout === "grid" ? (
                 <div className="playlists-grid">
@@ -144,7 +149,7 @@ export const CollectionPage = ({
 
             {matching.length > shown.length && (
                 <button className="collection-more" onClick={() => setLimit(l => l + PAGE)}>
-                    Show more ({matching.length - shown.length})
+                    {t("collection.showMore", { count: matching.length - shown.length })}
                 </button>
             )}
         </div>

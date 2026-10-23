@@ -3,6 +3,7 @@ import { LayoutGrid, List, MoreVertical, Plus, Sparkles } from "lucide-react";
 import type { Playlist, SystemView, Track } from "../../types";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
 import { CardPlayButton } from "../CardPlayButton/CardPlayButton";
+import { t } from "../../i18n";
 import "./PlaylistsPage.css";
 
 export type PlaylistsLayout = "grid" | "list";
@@ -36,17 +37,17 @@ interface PlaylistsPageProps {
 const memberCovers = (playlist: Playlist, tracksByPath: Map<string, Track>): string[] =>
     (playlist.items ?? []).flatMap(item => tracksByPath.get(item.path)?.coverPath ?? []);
 
-const trackCount = (count: number) => `${count} ${count === 1 ? "track" : "tracks"}`;
+const trackCount = (count: number) => t("common.tracks", { count });
 
 const describe = (playlist: Playlist): string =>
-    playlist.type === "smart" ? "Smart playlist" : trackCount(playlist.items?.length ?? 0);
+    playlist.type === "smart" ? t("playlist.kindSmart") : trackCount(playlist.items?.length ?? 0);
 
 /** Grid / list switch shared by the collection pages. */
 export const LayoutToggle = ({ layout, onChange }: { layout: PlaylistsLayout; onChange: (layout: PlaylistsLayout) => void }) => (
-    <div className="playlists-layout" role="group" aria-label="Layout">
+    <div className="playlists-layout" role="group" aria-label={t("common.layout")}>
         <button
             className={layout === "grid" ? "active" : ""}
-            title="Grid"
+            title={t("common.grid")}
             aria-pressed={layout === "grid"}
             onClick={() => onChange("grid")}
         >
@@ -54,7 +55,7 @@ export const LayoutToggle = ({ layout, onChange }: { layout: PlaylistsLayout; on
         </button>
         <button
             className={layout === "list" ? "active" : ""}
-            title="List"
+            title={t("common.list")}
             aria-pressed={layout === "list"}
             onClick={() => onChange("list")}
         >
@@ -109,7 +110,7 @@ export const PlaylistsPage = ({
     const menuButton = (playlist: Playlist) => (
         <button
             className="playlists-menu-button"
-            title="More"
+            title={t("common.more")}
             aria-haspopup="menu"
             onClick={(e) => {
                 e.stopPropagation();
@@ -161,31 +162,31 @@ export const PlaylistsPage = ({
     return (
         <div className="playlists-page">
             <div className="playlists-toolbar">
-                <h1 className="playlists-title">Playlists</h1>
+                <h1 className="playlists-title">{t("nav.playlists")}</h1>
                 <input
                     className="search-input playlists-filter"
-                    placeholder="Filter playlists..."
+                    placeholder={t("playlists.filter")}
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                 />
                 <LayoutToggle layout={layout} onChange={onLayoutChange} />
                 <button className="toolbar-button shuffle-button playlists-create" onClick={onCreateSmart}>
-                    <Sparkles size={14} /> Smart playlist
+                    <Sparkles size={14} /> {t("playlists.newSmart")}
                 </button>
                 <button className="toolbar-button play-button playlists-create" onClick={onCreate}>
-                    <Plus size={14} /> New playlist
+                    <Plus size={14} /> {t("playlists.new")}
                 </button>
             </div>
 
             {pinnedSection}
 
-            {shownPinned.length > 0 && <div className="playlists-section-label">Your playlists</div>}
+            {shownPinned.length > 0 && <div className="playlists-section-label">{t("playlists.yours")}</div>}
 
             {shown.length === 0 ? (
                 <div className="playlists-empty">
                     {playlists.length === 0
-                        ? "No playlists yet. Create one, or right-click a track and choose \"Add to…\"."
-                        : "No playlists match the filter."}
+                        ? t("playlists.empty")
+                        : t("playlists.noMatch")}
                 </div>
             ) : layout === "grid" ? (
                 <div className="playlists-grid">

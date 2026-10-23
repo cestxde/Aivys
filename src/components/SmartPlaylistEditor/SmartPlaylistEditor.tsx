@@ -2,69 +2,70 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Plus, X } from "lucide-react";
 import type { Condition, SmartRules, SortSpec } from "../../types";
+import { t, type MessageKey } from "../../i18n";
 import "./SmartPlaylistEditor.css";
 
 type FieldType = "text" | "number" | "date" | "boolean" | "tag";
 
 interface FieldDef {
     id: string;
-    label: string;
+    label: MessageKey;
     type: FieldType;
 }
 
 /** Rule fields (docs/aivys-format.md §8.4.3) in the order offered. */
 const FIELDS: FieldDef[] = [
-    { id: "title", label: "Title", type: "text" },
-    { id: "artist", label: "Artist", type: "text" },
-    { id: "album", label: "Album", type: "text" },
-    { id: "albumArtist", label: "Album artist", type: "text" },
-    { id: "genre", label: "Genre", type: "text" },
-    { id: "year", label: "Year", type: "number" },
-    { id: "rating", label: "Rating", type: "number" },
-    { id: "playCount", label: "Play count", type: "number" },
-    { id: "duration", label: "Duration (seconds)", type: "number" },
-    { id: "addedAt", label: "Date added", type: "date" },
-    { id: "lastPlayedAt", label: "Last played", type: "date" },
-    { id: "favorite", label: "Favorite", type: "boolean" },
-    { id: "format", label: "Format", type: "text" },
-    { id: "tag", label: "Tag", type: "tag" },
+    { id: "title", label: "smart.field.title", type: "text" },
+    { id: "artist", label: "smart.field.artist", type: "text" },
+    { id: "album", label: "smart.field.album", type: "text" },
+    { id: "albumArtist", label: "smart.field.albumArtist", type: "text" },
+    { id: "genre", label: "smart.field.genre", type: "text" },
+    { id: "year", label: "smart.field.year", type: "number" },
+    { id: "rating", label: "smart.field.rating", type: "number" },
+    { id: "playCount", label: "smart.field.playCount", type: "number" },
+    { id: "duration", label: "smart.field.durationSeconds", type: "number" },
+    { id: "addedAt", label: "smart.field.addedAt", type: "date" },
+    { id: "lastPlayedAt", label: "smart.field.lastPlayedAt", type: "date" },
+    { id: "favorite", label: "smart.field.favorite", type: "boolean" },
+    { id: "format", label: "smart.field.format", type: "text" },
+    { id: "tag", label: "smart.field.tag", type: "tag" },
 ];
 
-const OPS: Record<FieldType, { id: string; label: string }[]> = {
+const OPS: Record<FieldType, { id: string; label: MessageKey }[]> = {
     text: [
-        { id: "contains", label: "contains" },
-        { id: "eq", label: "is" },
-        { id: "neq", label: "is not" },
+        { id: "contains", label: "smart.op.contains" },
+        { id: "eq", label: "smart.op.is" },
+        { id: "neq", label: "smart.op.isNot" },
     ],
     number: [
-        { id: "gte", label: "at least" },
-        { id: "lte", label: "at most" },
-        { id: "eq", label: "is" },
-        { id: "neq", label: "is not" },
-        { id: "gt", label: "more than" },
-        { id: "lt", label: "less than" },
+        { id: "gte", label: "smart.op.atLeast" },
+        { id: "lte", label: "smart.op.atMost" },
+        { id: "eq", label: "smart.op.is" },
+        { id: "neq", label: "smart.op.isNot" },
+        { id: "gt", label: "smart.op.moreThan" },
+        { id: "lt", label: "smart.op.lessThan" },
     ],
     date: [
-        { id: "gte", label: "on or after" },
-        { id: "lt", label: "before" },
+        { id: "gte", label: "smart.op.onOrAfter" },
+        { id: "lt", label: "smart.op.before" },
     ],
-    boolean: [{ id: "eq", label: "is" }],
+    boolean: [{ id: "eq", label: "smart.op.is" }],
     tag: [
-        { id: "eq", label: "has" },
-        { id: "neq", label: "does not have" },
+        { id: "eq", label: "smart.op.has" },
+        { id: "neq", label: "smart.op.hasNot" },
     ],
 };
 
-const SORT_FIELDS = [
-    { id: "addedAt", label: "Date added" },
-    { id: "title", label: "Title" },
-    { id: "artist", label: "Artist" },
-    { id: "album", label: "Album" },
-    { id: "year", label: "Year" },
-    { id: "rating", label: "Rating" },
-    { id: "playCount", label: "Play count" },
-    { id: "lastPlayedAt", label: "Last played" },
-    { id: "duration", label: "Duration" },
+const SORT_FIELDS: { id: string; label: MessageKey }[] = [
+    { id: "addedAt", label: "smart.field.addedAt" },
+    { id: "title", label: "smart.field.title" },
+    { id: "artist", label: "smart.field.artist" },
+    { id: "album", label: "smart.field.album" },
+    { id: "year", label: "smart.field.year" },
+    { id: "rating", label: "smart.field.rating" },
+    { id: "playCount", label: "smart.field.playCount" },
+    { id: "lastPlayedAt", label: "smart.field.lastPlayedAt" },
+    { id: "duration", label: "smart.field.duration" },
 ];
 
 const fieldDef = (id: string): FieldDef => FIELDS.find(f => f.id === id) ?? FIELDS[0];
@@ -179,8 +180,8 @@ export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, on
                         value={condition.value ? "yes" : "no"}
                         onChange={(e) => updateCondition(index, { value: e.target.value === "yes" })}
                     >
-                        <option value="yes">yes</option>
-                        <option value="no">no</option>
+                        <option value="yes">{t("smart.yes")}</option>
+                        <option value="no">{t("smart.no")}</option>
                     </select>
                 );
             case "tag":
@@ -190,7 +191,7 @@ export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, on
                         value={String(condition.value)}
                         onChange={(e) => updateCondition(index, { value: e.target.value })}
                     >
-                        {tags.length === 0 && <option value="">No tags yet</option>}
+                        {tags.length === 0 && <option value="">{t("smart.noTags")}</option>}
                         {tags.map(tag => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
                     </select>
                 );
@@ -200,7 +201,7 @@ export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, on
                         type="text"
                         className="rule-input"
                         value={String(condition.value)}
-                        placeholder="text"
+                        placeholder={t("smart.textPlaceholder")}
                         onChange={(e) => updateCondition(index, { value: e.target.value })}
                     />
                 );
@@ -216,7 +217,7 @@ export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, on
                 <h2 className="editor-title">{title}</h2>
 
                 <label className="editor-field">
-                    <span>Name</span>
+                    <span>{t("smart.name")}</span>
                     <input
                         className="rule-input editor-name"
                         value={name}
@@ -226,12 +227,12 @@ export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, on
                 </label>
 
                 <div className="editor-match">
-                    Match
+                    {t("smart.match")}
                     <select className="rule-input" value={match} onChange={(e) => setMatch(e.target.value as SmartRules["match"])}>
-                        <option value="all">all</option>
-                        <option value="any">any</option>
+                        <option value="all">{t("smart.all")}</option>
+                        <option value="any">{t("smart.any")}</option>
                     </select>
-                    of the following rules:
+                    {t("smart.ofRules")}
                 </div>
 
                 <div className="editor-rules">
@@ -242,7 +243,7 @@ export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, on
                                 value={condition.field}
                                 onChange={(e) => changeField(index, e.target.value)}
                             >
-                                {FIELDS.map(field => <option key={field.id} value={field.id}>{field.label}</option>)}
+                                {FIELDS.map(field => <option key={field.id} value={field.id}>{t(field.label)}</option>)}
                             </select>
                             <select
                                 className="rule-input"
@@ -250,36 +251,36 @@ export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, on
                                 onChange={(e) => updateCondition(index, { op: e.target.value })}
                             >
                                 {OPS[fieldDef(condition.field).type].map(op => (
-                                    <option key={op.id} value={op.id}>{op.label}</option>
+                                    <option key={op.id} value={op.id}>{t(op.label)}</option>
                                 ))}
                             </select>
                             {renderValue(condition, index)}
                             <button
                                 className="rule-remove"
-                                title="Remove rule"
+                                title={t("smart.removeRule")}
                                 onClick={() => setConditions(prev => prev.filter((_, i) => i !== index))}
                             >
                                 <X size={14} />
                             </button>
                         </div>
                     ))}
-                    {conditions.length === 0 && <div className="editor-hint">No rules: every track matches.</div>}
+                    {conditions.length === 0 && <div className="editor-hint">{t("smart.noRules")}</div>}
                     <button
                         className="editor-add"
                         onClick={() => setConditions(prev => [...prev, { field: "title", op: "contains", value: "" }])}
                     >
-                        <Plus size={14} /> Add rule
+                        <Plus size={14} /> {t("smart.addRule")}
                     </button>
                 </div>
 
                 <div className="editor-sort">
-                    <span>Sort by</span>
+                    <span>{t("smart.sortBy")}</span>
                     <select className="rule-input" value={sort.field} onChange={(e) => setSort({ ...sort, field: e.target.value })}>
-                        {SORT_FIELDS.map(field => <option key={field.id} value={field.id}>{field.label}</option>)}
+                        {SORT_FIELDS.map(field => <option key={field.id} value={field.id}>{t(field.label)}</option>)}
                     </select>
                     <select className="rule-input" value={sort.dir} onChange={(e) => setSort({ ...sort, dir: e.target.value as SortSpec["dir"] })}>
-                        <option value="desc">descending</option>
-                        <option value="asc">ascending</option>
+                        <option value="desc">{t("smart.descending")}</option>
+                        <option value="asc">{t("smart.ascending")}</option>
                     </select>
                     <label className="editor-limit">
                         <input
@@ -287,7 +288,7 @@ export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, on
                             checked={limit !== null}
                             onChange={(e) => setLimit(e.target.checked ? 100 : null)}
                         />
-                        Limit to
+                        {t("smart.limitTo")}
                         <input
                             type="number"
                             className="rule-input limit-input"
@@ -296,21 +297,21 @@ export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, on
                             value={limit ?? 100}
                             onChange={(e) => setLimit(Math.max(1, Number(e.target.value) || 1))}
                         />
-                        tracks
+                        {t("smart.limitTracks")}
                     </label>
                 </div>
 
                 <div className="editor-footer">
                     <span className="editor-preview">
-                        {count === null ? "Counting…" : `${count} ${count === 1 ? "track matches" : "tracks match"}`}
+                        {count === null ? t("smart.counting") : t("smart.matches", { count })}
                     </span>
-                    <button className="editor-button" onClick={onClose}>Cancel</button>
+                    <button className="editor-button" onClick={onClose}>{t("common.cancel")}</button>
                     <button
                         className="editor-button primary"
                         disabled={!canSave}
                         onClick={() => onSave(name.trim(), rules)}
                     >
-                        Save
+                        {t("common.save")}
                     </button>
                 </div>
             </div>

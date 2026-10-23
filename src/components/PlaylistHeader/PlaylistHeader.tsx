@@ -4,6 +4,7 @@ import { ArrowLeft, ImagePlus, ListMusic, Pencil, Sparkles, Trash2, SlidersHoriz
 import type { ListRow, Playlist } from "../../types";
 import { formatDuration } from "../../utils/format";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
+import { t } from "../../i18n";
 import "./PlaylistHeader.css";
 
 interface PlaylistHeaderProps {
@@ -48,21 +49,21 @@ export const PlaylistHeader = ({
     const chooseCover = async () => {
         const path = await open({
             multiple: false,
-            filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "webp"] }],
+            filters: [{ name: t("playlist.images"), extensions: ["jpg", "jpeg", "png", "webp"] }],
         });
         if (typeof path === "string") onSetCover(path);
     };
 
     const totalSeconds = rows.reduce((sum, row) => sum + row.track.duration, 0);
     const summary = [
-        `${rows.length} ${rows.length === 1 ? "track" : "tracks"}`,
+        t("common.tracks", { count: rows.length }),
         rows.length > 0 ? formatDuration(totalSeconds) : null,
-        missingCount > 0 ? `${missingCount} missing` : null,
+        missingCount > 0 ? t("playlist.missing", { count: missingCount }) : null,
     ].filter(Boolean).join(" · ");
 
     return (
         <div className="playlist-header">
-            <button className="playlist-back" title="All playlists" onClick={onBack}>
+            <button className="playlist-back" title={t("playlist.all")} onClick={onBack}>
                 <ArrowLeft size={18} />
             </button>
             <PlaylistCover
@@ -76,8 +77,8 @@ export const PlaylistHeader = ({
             <div className="playlist-info">
                 <span className="playlist-kind">
                     {smart ? <Sparkles size={14} /> : <ListMusic size={14} />}
-                    {smart ? "Smart playlist" : "Playlist"}
-                    {playlist.readOnly && " · read-only (made by a newer app version)"}
+                    {smart ? t("playlist.kindSmart") : t("playlist.kind")}
+                    {playlist.readOnly && t("playlist.readOnly")}
                 </span>
 
                 {draft !== null ? (
@@ -96,7 +97,7 @@ export const PlaylistHeader = ({
                 ) : (
                     <h1
                         className={`playlist-name ${editable ? "editable" : ""}`}
-                        title={editable ? "Click to rename" : undefined}
+                        title={editable ? t("playlist.clickToRename") : undefined}
                         onClick={editable ? () => setDraft(playlist.name) : undefined}
                     >
                         {playlist.name}
@@ -109,22 +110,22 @@ export const PlaylistHeader = ({
                     <div className="playlist-actions">
                         {smart && (
                             <button className="playlist-action" onClick={onEditRules}>
-                                <SlidersHorizontal size={14} /> Edit rules
+                                <SlidersHorizontal size={14} /> {t("playlist.editRules")}
                             </button>
                         )}
                         <button className="playlist-action" onClick={() => setDraft(playlist.name)}>
-                            <Pencil size={14} /> Rename
+                            <Pencil size={14} /> {t("playlist.rename")}
                         </button>
                         <button className="playlist-action" onClick={chooseCover}>
-                            <ImagePlus size={14} /> {playlist.coverPath ? "Change cover" : "Set cover"}
+                            <ImagePlus size={14} /> {playlist.coverPath ? t("playlist.changeCover") : t("playlist.setCover")}
                         </button>
                         {playlist.coverPath && (
                             <button className="playlist-action" onClick={onClearCover}>
-                                Remove cover
+                                {t("playlist.removeCover")}
                             </button>
                         )}
                         <button className="playlist-action danger" onClick={onDelete}>
-                            <Trash2 size={14} /> Delete
+                            <Trash2 size={14} /> {t("common.delete")}
                         </button>
                     </div>
                 )}

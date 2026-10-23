@@ -95,19 +95,6 @@
     flex-shrink: 0;
 }
 
-.settings-soon {
-    padding: 1px 6px;
-    border-radius: 999px;
-    background: var(--surface);
-    font-size: 0.65rem;
-    font-weight: 500;
-    color: var(--text);
-}
-
-.settings-row.soon .settings-row-control {
-    opacity: 0.5;
-}
-
 .settings-button {
     display: flex;
     align-items: center;

@@ -14,6 +14,7 @@ import { CoverArt } from "../CoverArt";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { TrackSlider } from "./TrackSlider";
 import { VolumeControl } from "./VolumeControl";
+import { t } from "../../i18n";
 import "./PlayerBar.css";
 
 interface PlayerBarProps {
@@ -88,7 +89,7 @@ export const PlayerBar = (props: PlayerBarProps) => {
                             className={`track-name-display ${isOverflowing ? "is-overflowing" : ""}`}
                         >
                             <span ref={textRef} className="marquee-content">
-                                {title || "No track"}
+                                {title || t("player.noTrack")}
                             </span>
                             {isOverflowing && (
                                 <span className="marquee-duplicate">
@@ -103,19 +104,33 @@ export const PlayerBar = (props: PlayerBarProps) => {
                 </div>
 
                 <div className="playback-controls">
-                    <button className={`control-btn secondary ${props.isShuffle ? "active" : ""}`} onClick={props.onToggleShuffle}>
+                    <button
+                        className={`control-btn secondary ${props.isShuffle ? "active" : ""}`}
+                        title={t("player.shuffle")}
+                        aria-pressed={props.isShuffle}
+                        onClick={props.onToggleShuffle}
+                    >
                         <Shuffle size={20} />
                     </button>
-                    <button className="control-btn" onClick={props.onPrev} disabled={!hasTrack}>
+                    <button className="control-btn" title={t("player.previous")} onClick={props.onPrev} disabled={!hasTrack}>
                         <SkipBack size={22} fill="currentColor" />
                     </button>
-                    <button className="control-btn play-pause" onClick={props.onTogglePlay} disabled={!hasTrack}>
+                    <button
+                        className="control-btn play-pause"
+                        title={props.isPlaying ? t("player.pause") : t("player.play")}
+                        onClick={props.onTogglePlay}
+                        disabled={!hasTrack}
+                    >
                         {props.isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" style={{ marginLeft: '2px' }} />}
                     </button>
-                    <button className="control-btn" onClick={props.onNext} disabled={!hasTrack}>
+                    <button className="control-btn" title={t("player.next")} onClick={props.onNext} disabled={!hasTrack}>
                         <SkipForward size={22} fill="currentColor" />
                     </button>
-                    <button className={`control-btn secondary ${props.repeatMode !== 'none' ? "active" : ""}`} onClick={props.onToggleRepeat}>
+                    <button
+                        className={`control-btn secondary ${props.repeatMode !== 'none' ? "active" : ""}`}
+                        title={t(props.repeatMode === 'one' ? "player.repeatOne" : props.repeatMode === 'all' ? "player.repeatAll" : "player.repeatOff")}
+                        onClick={props.onToggleRepeat}
+                    >
                         {props.repeatMode === 'one' ? <Repeat1 size={20} /> : <Repeat size={20} />}
                     </button>
                 </div>

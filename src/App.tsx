@@ -46,16 +46,17 @@ import {
 import { nextTagColor } from "./utils/tags";
 import { notifyError, notifyInfo } from "./utils/notify";
 import { displayTitle } from "./utils/track";
+import { t, useI18n, type MessageKey } from "./i18n";
 import {
 	addRecentPath, removeRecentPath,
 	type ConflictReport, type ListRow, type Playlist, type SmartRules, type SystemView, type Track, type UserTag, type View,
 } from "./types";
 
-const EMPTY_TEXT: Record<SystemView, string> = {
-	library: "No tracks found. Scan a directory to start.",
-	favorites: "No favorites yet. Use the heart in the track panel or “Add to favorites” in a track's menu.",
-	recentlyPlayed: "Nothing played yet.",
-	mostPlayed: "Nothing played yet.",
+const EMPTY_TEXT: Record<SystemView, MessageKey> = {
+	library: "empty.library",
+	favorites: "empty.favorites",
+	recentlyPlayed: "empty.history",
+	mostPlayed: "empty.history",
 };
 
 const LIBRARY_VIEW: View = { kind: "system", id: "library" };
@@ -75,19 +76,19 @@ const lastSegment = (path: string): string => {
 const defaultSortLabel = (view: View, playlist: Playlist | null): string | null => {
 	switch (view.kind) {
 		case "system":
-			return view.id === "favorites" ? "Recently favorited"
-				: view.id === "recentlyPlayed" ? "Recently played"
-				: view.id === "mostPlayed" ? "Most played"
+			return view.id === "favorites" ? t("sort.recentlyFavorited")
+				: view.id === "recentlyPlayed" ? t("sort.recentlyPlayed")
+				: view.id === "mostPlayed" ? t("sort.mostPlayed")
 				: null;
-		case "artist": return "Album order";
-		case "album": return "Track order";
-		case "folder": return "Folder order";
-		case "playlist": return playlist?.type === "smart" ? "Rule order" : "Playlist order";
+		case "artist": return t("sort.albumOrder");
+		case "album": return t("sort.trackOrder");
+		case "folder": return t("sort.folderOrder");
+		case "playlist": return playlist?.type === "smart" ? t("sort.ruleOrder") : t("sort.playlistOrder");
 		default: return null;
 	}
 };
 
-const countTracks = (count: number) => `${count} ${count === 1 ? "track" : "tracks"}`;
+const countTracks = (count: number) => t("common.tracks", { count });
 
 type Screen = "loading" | "picker" | "library";
 
@@ -104,6 +105,7 @@ interface TagDialogState {
 function App() {
 	const { settings, updateSettings } = usePlayerSettings();
 	const { theme, setTheme } = useTheme();
+	const language = useI18n();
 	const library = useLibrary();
 	const [view, setView] = useState<Screen>("loading");
 	const [pickerError, setPickerError] = useState<string | null>(null);
@@ -140,8 +142,10 @@ function App() {
 	const playlists = usePlaylists(files);
 	const tags = useTags(files);
 
-	const artists = useMemo(() => groupArtists(files), [files]);
-	const albums = useMemo(() => groupAlbums(files), [files]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- names are translated
+	const artists = useMemo(() => groupArtists(files), [files, language]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- names are translated
+	const albums = useMemo(() => groupAlbums(files), [files, language]);
 	const artistsByKey = useMemo(() => new Map(artists.map(g => [g.key, g])), [artists]);
 	const albumsByKey = useMemo(() => new Map(albums.map(g => [g.key, g])), [albums]);
 	const showFolders = useMemo(() => hasFolders(files), [files]);
@@ -184,11 +188,12 @@ function App() {
 	const pinned = useMemo((): PinnedPlaylist[] => {
 		const count = (id: SystemView) => systemViewTracks(files, id, trackStats.stats).length;
 		return [
-			{ id: "favorites", name: "Favorites", icon: Heart, color: "#e11d48", count: count("favorites") },
-			{ id: "mostPlayed", name: "Most played", icon: TrendingUp, color: "#f59e0b", count: count("mostPlayed") },
-			{ id: "recentlyPlayed", name: "Recently played", icon: History, color: "#3b82f6", count: count("recentlyPlayed") },
+			{ id: "favorites", name: t("nav.favorites"), icon: Heart, color: "#e11d48", count: count("favorites") },
+			{ id: "mostPlayed", name: t("nav.mostPlayed"), icon: TrendingUp, color: "#f59e0b", count: count("mostPlayed") },
+			{ id: "recentlyPlayed", name: t("nav.recentlyPlayed"), icon: History, color: "#3b82f6", count: count("recentlyPlayed") },
 		];
-	}, [files, trackStats.stats]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- names are translated
+	}, [files, trackStats.stats, language]);
 
 	// Tagged library tracks per tag id.
 	const tagCounts = useMemo(() => {
@@ -203,7 +208,7 @@ function App() {
 	const openLibrary = async (path: string) => {
 		const valid = await library.validate(path);
 		if (!valid) {
-			setPickerError(`Folder not found: ${path}`);
+			setPickerError(t("picker.folderNotFound", { path }));
 			return;
 		}
 		setPickerError(null);
@@ -233,19 +238,19 @@ function App() {
 		try {
 			report = await invoke<ConflictReport>("resolve_conflicts");
 		} catch (e) {
-			notifyError("Could not check for sync conflicts", e);
+			notifyError(t("sync.checkFailed"), e);
 			return;
 		}
 		if (report.skipped.length > 0) {
-			notifyError(`${report.skipped.length} conflict ${report.skipped.length === 1 ? "copy" : "copies"} could not be merged: ${report.skipped.join("; ")}`);
+			notifyError(t("sync.skipped", { count: report.skipped.length, list: report.skipped.join("; ") }));
 		}
-		if (report.deviceIdRegenerated) notifyInfo("Another device shared this device's id; a new one was created");
+		if (report.deviceIdRegenerated) notifyInfo(t("sync.deviceIdRegenerated"));
 		if (report.merged.length === 0 && report.skipped.length === 0) {
-			notifyInfo("No sync conflicts");
+			notifyInfo(t("sync.none"));
 			return;
 		}
 		if (report.merged.length > 0) {
-			notifyInfo(`Merged ${report.merged.length} conflict ${report.merged.length === 1 ? "copy" : "copies"}`);
+			notifyInfo(t("sync.merged", { count: report.merged.length }));
 			await rescan();
 		}
 	};
@@ -275,7 +280,7 @@ function App() {
 					setView("library");
 					return;
 				}
-				setPickerError(`Last folder is no longer available: ${last}`);
+				setPickerError(t("picker.lastGone", { path: last }));
 			}
 			setView("picker");
 		})();
@@ -296,8 +301,10 @@ function App() {
 		const compare = compareBy({ field: viewSort.field, dir: viewSort.dir });
 		return [...naturalRows].sort((a, b) => compare(a.track, b.track));
 	}, [naturalRows, viewSort.field, viewSort.dir]);
-	const rowSection = useMemo(() => sectionOf(viewSort.field), [viewSort.field]);
-	const rowHint = useMemo(() => hintOf(viewSort.field), [viewSort.field]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- labels are translated
+	const rowSection = useMemo(() => sectionOf(viewSort.field), [viewSort.field, language]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- dates are formatted per language
+	const rowHint = useMemo(() => hintOf(viewSort.field), [viewSort.field, language]);
 	const viewKey = "id" in listView ? `${listView.kind}:${listView.id}` : listView.kind;
 
 	const {
@@ -330,7 +337,7 @@ function App() {
 
 	/** Create an empty playlist and open it with its name ready to edit. */
 	const createPlaylist = async () => {
-		const created = await playlists.createManual("New playlist");
+		const created = await playlists.createManual(t("playlists.defaultName"));
 		if (!created) return;
 		showView({ kind: "playlist", id: created.id });
 		setRenamingId(created.id);
@@ -338,7 +345,7 @@ function App() {
 
 	const addToPlaylist = async (target: Playlist, tracks: Track[]) => {
 		if (await playlists.addTracks(target.id, tracks.map(t => t.relPath))) {
-			notifyInfo(`Added to "${target.name}"`);
+			notifyInfo(t("notice.addedToPlaylist", { name: target.name }));
 		}
 	};
 
@@ -362,10 +369,11 @@ function App() {
 	};
 
 	const deletePlaylist = async (target: Playlist) => {
-		const confirmed = await ask(`Delete the playlist "${target.name}"? The tracks stay in the library.`, {
-			title: "Delete playlist",
+		const confirmed = await ask(t("confirm.deletePlaylist.body", { name: target.name }), {
+			title: t("confirm.deletePlaylist.title"),
 			kind: "warning",
-			okLabel: "Delete",
+			okLabel: t("common.delete"),
+			cancelLabel: t("common.cancel"),
 		});
 		if (confirmed && await playlists.remove(target.id)) showView(PLAYLISTS_VIEW);
 	};
@@ -405,11 +413,14 @@ function App() {
 
 	const deleteTag = async (target: UserTag) => {
 		const count = tagCounts.get(target.id) ?? 0;
-		const from = count > 0 ? ` It will be removed from ${count} ${count === 1 ? "track" : "tracks"}.` : "";
-		const confirmed = await ask(`Delete the tag "${target.name}"?${from} The tracks stay in the library.`, {
-			title: "Delete tag",
+		const body = count > 0
+			? t("confirm.deleteTag.bodyUsed", { name: target.name, count })
+			: t("confirm.deleteTag.body", { name: target.name });
+		const confirmed = await ask(body, {
+			title: t("confirm.deleteTag.title"),
 			kind: "warning",
-			okLabel: "Delete",
+			okLabel: t("common.delete"),
+			cancelLabel: t("common.cancel"),
 		});
 		// Assignments to a deleted tag are dropped when stats are derived.
 		if (confirmed && await tags.remove(target.id)) trackStats.reload();
@@ -423,22 +434,26 @@ function App() {
 
 	/** Move track files to the trash (after confirming) and drop them from the library. */
 	const deleteTracks = async (tracks: Track[]) => {
-		const subject = tracks.length === 1 ? `"${displayTitle(tracks[0])}"` : `${tracks.length} tracks`;
 		const confirmed = await ask(
-			`Move ${subject} to the trash? ${tracks.length === 1 ? "The file is" : "The files are"} deleted from the library folder; you can restore ${tracks.length === 1 ? "it" : "them"} from the trash.`,
-			{ title: "Delete from disk", kind: "warning", okLabel: "Move to trash" },
+			t("confirm.deleteFiles.body", { count: tracks.length, title: displayTitle(tracks[0]) }),
+			{
+				title: t("confirm.deleteFiles.title"),
+				kind: "warning",
+				okLabel: t("confirm.deleteFiles.ok"),
+				cancelLabel: t("common.cancel"),
+			},
 		);
 		if (!confirmed) return;
 		forgetTracks(tracks);
 		try {
 			await invoke("delete_tracks", { paths: tracks.map(t => t.relPath) });
 		} catch (e) {
-			notifyError("Could not delete the file", e);
+			notifyError(t("error.deleteFile"), e);
 			return;
 		}
 		const gone = new Set(tracks.map(t => t.path));
 		library.setFiles(prev => prev.filter(f => !gone.has(f.path)));
-		notifyInfo(tracks.length === 1 ? "Moved to the trash" : `Moved ${tracks.length} tracks to the trash`);
+		notifyInfo(t("notice.movedToTrash", { count: tracks.length }));
 	};
 
 	const tracksOfTag = (target: UserTag): Track[] => tagTracks(files, target.id, trackStats.stats);
@@ -448,16 +463,16 @@ function App() {
 	const trackMenu = (row: ListRow): MenuEntry[] => {
 		const favorite = trackStats.stats[row.track.relPath]?.favorite ?? false;
 		const entries: MenuEntry[] = [
-			{ kind: "item", label: "Play", icon: <Play size={16} />, onSelect: () => playTrack(row.track, displayFiles) },
+			{ kind: "item", label: t("common.play"), icon: <Play size={16} />, onSelect: () => playTrack(row.track, displayFiles) },
 			{ kind: "separator" },
 			{
 				kind: "item",
-				label: favorite ? "Remove from favorites" : "Add to favorites",
+				label: favorite ? t("common.removeFromFavorites") : t("common.addToFavorites"),
 				icon: <Heart size={16} fill={favorite ? "currentColor" : "none"} />,
 				onSelect: () => trackStats.toggleFavorite(row.track),
 			},
-			{ kind: "item", label: "Add to…", icon: <ListPlus size={16} />, onSelect: () => setAddTo([row.track]) },
-			{ kind: "item", label: "Tags…", icon: <Tag size={16} />, onSelect: () => setTagPicker([row.track]) },
+			{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo([row.track]) },
+			{ kind: "item", label: t("common.tags"), icon: <Tag size={16} />, onSelect: () => setTagPicker([row.track]) },
 			{ kind: "separator" },
 		];
 		// Danger zone: removals, then the file itself.
@@ -465,7 +480,7 @@ function App() {
 			const tag = currentTag;
 			entries.push({
 				kind: "item",
-				label: `Remove tag "${tag.name}"`,
+				label: t("menu.removeTag", { name: tag.name }),
 				icon: <X size={16} />,
 				danger: true,
 				onSelect: () => trackStats.setTrackTag([row.track], tag.id, false),
@@ -475,7 +490,7 @@ function App() {
 			const itemId = row.itemId;
 			entries.push({
 				kind: "item",
-				label: "Remove from this playlist",
+				label: t("menu.removeFromPlaylist"),
 				icon: <ListX size={16} />,
 				danger: true,
 				onSelect: () => playlists.removeItems(manualPlaylist.id, [itemId]),
@@ -483,7 +498,7 @@ function App() {
 		}
 		entries.push({
 			kind: "item",
-			label: "Delete from disk…",
+			label: t("menu.deleteFromDisk"),
 			icon: <Trash2 size={16} />,
 			danger: true,
 			onSelect: () => deleteTracks([row.track]),
@@ -492,16 +507,16 @@ function App() {
 	};
 
 	const playlistMenu = (target: Playlist): MenuEntry[] => [
-		{ kind: "item", label: "Open", icon: <FolderOpen size={16} />, onSelect: () => showView({ kind: "playlist", id: target.id }) },
+		{ kind: "item", label: t("common.open"), icon: <FolderOpen size={16} />, onSelect: () => showView({ kind: "playlist", id: target.id }) },
 		{
 			kind: "item",
-			label: "Play",
+			label: t("common.play"),
 			icon: <Play size={16} />,
 			onSelect: () => playPlaylist(target),
 		},
 		{
 			kind: "item",
-			label: "Add to…",
+			label: t("common.addTo"),
 			icon: <ListPlus size={16} />,
 			onSelect: async () => {
 				const tracks = await tracksOf(target);
@@ -512,7 +527,7 @@ function App() {
 			{ kind: "separator" } as const,
 			{
 				kind: "item" as const,
-				label: "Delete",
+				label: t("common.delete"),
 				icon: <Trash2 size={16} />,
 				danger: true,
 				onSelect: () => deletePlaylist(target),
@@ -522,11 +537,11 @@ function App() {
 
 	/** Menu of an artist or album card. */
 	const groupMenu = (group: TrackGroup, open: View): MenuEntry[] => [
-		{ kind: "item", label: "Open", icon: <FolderOpen size={16} />, onSelect: () => showView(open) },
-		{ kind: "item", label: "Play", icon: <Play size={16} />, onSelect: () => playTracks(group.tracks) },
+		{ kind: "item", label: t("common.open"), icon: <FolderOpen size={16} />, onSelect: () => showView(open) },
+		{ kind: "item", label: t("common.play"), icon: <Play size={16} />, onSelect: () => playTracks(group.tracks) },
 		{ kind: "separator" },
-		{ kind: "item", label: "Add to…", icon: <ListPlus size={16} />, onSelect: () => setAddTo(group.tracks) },
-		{ kind: "item", label: "Tags…", icon: <Tag size={16} />, onSelect: () => setTagPicker(group.tracks) },
+		{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo(group.tracks) },
+		{ kind: "item", label: t("common.tags"), icon: <Tag size={16} />, onSelect: () => setTagPicker(group.tracks) },
 	];
 
 	/** The folder path as breadcrumbs, from the library root. */
@@ -542,16 +557,16 @@ function App() {
 	};
 
 	const tagMenu = (target: UserTag): MenuEntry[] => [
-		{ kind: "item", label: "Open", icon: <FolderOpen size={16} />, onSelect: () => showView({ kind: "tag", id: target.id }) },
+		{ kind: "item", label: t("common.open"), icon: <FolderOpen size={16} />, onSelect: () => showView({ kind: "tag", id: target.id }) },
 		{
 			kind: "item",
-			label: "Play",
+			label: t("common.play"),
 			icon: <Play size={16} />,
 			onSelect: () => playTracks(tracksOfTag(target)),
 		},
 		{
 			kind: "item",
-			label: "Add to…",
+			label: t("common.addTo"),
 			icon: <ListPlus size={16} />,
 			onSelect: () => {
 				const tracks = tracksOfTag(target);
@@ -559,21 +574,21 @@ function App() {
 			},
 		},
 		{ kind: "separator" },
-		{ kind: "item", label: "Edit", icon: <Pencil size={16} />, onSelect: () => setTagDialog({ tag: target }) },
-		{ kind: "item", label: "Delete", icon: <Trash2 size={16} />, danger: true, onSelect: () => deleteTag(target) },
+		{ kind: "item", label: t("common.edit"), icon: <Pencil size={16} />, onSelect: () => setTagDialog({ tag: target }) },
+		{ kind: "item", label: t("common.delete"), icon: <Trash2 size={16} />, danger: true, onSelect: () => deleteTag(target) },
 	];
 
-	const emptyText = isSearching
-		? "Nothing matches your search."
+	const emptyText = t(isSearching
+		? "empty.search"
 		: listView.kind === "system"
 			? EMPTY_TEXT[listView.id]
 			: listView.kind === "tag"
-				? "No tracks have this tag yet. Use \u201cTags\u2026\u201d in a track's menu (right click or \u22ee) to add it."
+				? "empty.tag"
 				: currentGroup
-				? "No tracks here."
+				? "empty.group"
 				: playlist?.type === "smart"
-				? "No tracks match these rules."
-				: "This playlist is empty. Use \u201cAdd to\u2026\u201d in a track's menu (right click or \u22ee) to add tracks.";
+				? "empty.smart"
+				: "empty.playlist");
 
 	const handlePlayAll = () => {
 		if (displayFiles.length > 0) {
@@ -592,7 +607,7 @@ function App() {
 				{library.isLoading && (
 					<div className="loading-status">
 						<div className="spinner" aria-hidden="true" />
-						<span>Indexing...</span>
+						<span>{t("loading.indexing")}</span>
 					</div>
 				)}
 				<Notices />
@@ -668,12 +683,14 @@ function App() {
 						/>
 					) : listView.kind === "artists" ? (
 						<CollectionPage
-							title="Artists"
+							title={t("nav.artists")}
 							groups={artists}
 							icon={MicVocal}
 							round
 							describe={(group) => [countTracks(group.tracks.length), group.subtitle].filter(Boolean).join(" · ")}
-							emptyText="No artists: the tracks have no artist tags."
+							emptyText={t("collection.noArtists")}
+							filterPlaceholder={t("collection.filterArtists")}
+							noMatchText={t("collection.noMatchArtists")}
 							layout={layouts.artists}
 							onLayoutChange={(layout) => setLayout("artists", layout)}
 							onOpen={(group) => showView({ kind: "artist", id: group.key })}
@@ -683,11 +700,13 @@ function App() {
 						/>
 					) : listView.kind === "albums" ? (
 						<CollectionPage
-							title="Albums"
+							title={t("nav.albums")}
 							groups={albums}
 							icon={Disc3}
-							describe={(group) => [group.subtitle ?? "Unknown artist", group.year].filter(Boolean).join(" · ")}
-							emptyText="No albums: the tracks have no album tags."
+							describe={(group) => [group.subtitle ?? t("common.unknownArtist"), group.year].filter(Boolean).join(" · ")}
+							emptyText={t("collection.noAlbums")}
+							filterPlaceholder={t("collection.filterAlbums")}
+							noMatchText={t("collection.noMatchAlbums")}
 							layout={layouts.albums}
 							onLayoutChange={(layout) => setLayout("albums", layout)}
 							onOpen={(group) => showView({ kind: "album", id: group.key })}
@@ -709,38 +728,38 @@ function App() {
 
 							{currentGroup && listView.kind === "artist" && (
 								<GroupHeader
-									kind="Artist"
+									kind={t("group.artist")}
 									icon={MicVocal}
 									round
 									title={currentGroup.name}
 									details={[currentGroup.subtitle]}
 									covers={groupCovers(currentGroup, 1)}
 									rows={viewRows}
-									backTitle="All artists"
+									backTitle={t("group.allArtists")}
 									onBack={() => showView(ARTISTS_VIEW)}
 								/>
 							)}
 							{currentGroup && listView.kind === "album" && (
 								<GroupHeader
-									kind="Album"
+									kind={t("group.album")}
 									icon={Disc3}
 									title={currentGroup.name}
 									details={[currentGroup.subtitle, currentGroup.year != null ? String(currentGroup.year) : null]}
 									covers={groupCovers(currentGroup, 1)}
 									rows={viewRows}
-									backTitle="All albums"
+									backTitle={t("group.allAlbums")}
 									onBack={() => showView(ALBUMS_VIEW)}
 								/>
 							)}
 							{currentGroup && listView.kind === "folder" && (
 								<GroupHeader
-									kind="Folder"
+									kind={t("group.folder")}
 									icon={Folder}
 									title={currentGroup.name}
 									covers={groupCovers(currentGroup)}
 									rows={viewRows}
 									crumbs={listView.id ? folderCrumbs(listView.id).slice(0, -1) : undefined}
-									backTitle="Parent folder"
+									backTitle={t("group.parentFolder")}
 									onBack={listView.id
 										? () => showView({ kind: "folder", id: listView.id.split("/").slice(0, -1).join("/") })
 										: undefined}
@@ -859,17 +878,17 @@ function App() {
 					onPlayNext={() => {
 						playNext(addTo);
 						setAddTo(null);
-						notifyInfo("Playing next");
+						notifyInfo(t("notice.playingNext"));
 					}}
 					onAddToQueue={() => {
 						addToQueue(addTo);
 						setAddTo(null);
-						notifyInfo("Added to queue");
+						notifyInfo(t("notice.addedToQueue"));
 					}}
 					onAddToFavorites={() => {
 						trackStats.setFavorite(addTo, true);
 						setAddTo(null);
-						notifyInfo("Added to favorites");
+						notifyInfo(t("notice.addedToFavorites"));
 					}}
 					onAddToPlaylist={(target) => {
 						setAddTo(null);
@@ -885,8 +904,8 @@ function App() {
 
 			{editor && (
 				<SmartPlaylistEditor
-					title={editor.playlist ? "Edit smart playlist" : "New smart playlist"}
-					initialName={editor.playlist?.name ?? "New smart playlist"}
+					title={editor.playlist ? t("smart.editTitle") : t("smart.newTitle")}
+					initialName={editor.playlist?.name ?? t("smart.defaultName")}
 					initialRules={editor.playlist?.rules}
 					tags={tags.tags}
 					onSave={saveSmartPlaylist}

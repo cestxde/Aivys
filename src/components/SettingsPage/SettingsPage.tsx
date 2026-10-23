@@ -2,6 +2,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { FolderOpen, Info, Palette, RefreshCw, Library, Share2 } from "lucide-react";
 import type { ThemePreference } from "../../utils/theme";
+import {
+    getLanguagePreference, getLogoPreference, setLanguagePreference, setLogoPreference, t,
+    type LanguagePreference, type LogoPreference,
+} from "../../i18n";
 import "./SettingsPage.css";
 
 interface SettingsPageProps {
@@ -25,19 +29,14 @@ const Section = ({ icon, title, children }: { icon: ReactNode; title: string; ch
 );
 
 /** One setting: what it is on the left, its control on the right. */
-const Row = ({ title, description, children, soon = false }: {
+const Row = ({ title, description, children }: {
     title: string;
     description?: ReactNode;
     children?: ReactNode;
-    /** Planned, not available yet. */
-    soon?: boolean;
 }) => (
-    <div className={`settings-row ${soon ? "soon" : ""}`}>
+    <div className="settings-row">
         <div className="settings-row-text">
-            <span className="settings-row-title">
-                {title}
-                {soon && <span className="settings-soon">Coming soon</span>}
-            </span>
+            <span className="settings-row-title">{title}</span>
             {description && <span className="settings-row-description">{description}</span>}
         </div>
         {children && <div className="settings-row-control">{children}</div>}
@@ -85,6 +84,9 @@ export const SettingsPage = ({
         getVersion().then(setVersion).catch(() => setVersion(null));
     }, []);
 
+    // The folder name is shown as code inside the sentence.
+    const [conflictsBefore, conflictsAfter] = t("settings.conflictsHint").split("{folder}");
+
     const checkConflicts = async () => {
         setChecking(true);
         try {
@@ -96,73 +98,78 @@ export const SettingsPage = ({
 
     return (
         <div className="settings-page">
-            <h1 className="settings-title">Settings</h1>
+            <h1 className="settings-title">{t("nav.settings")}</h1>
 
-            <Section icon={<Palette size={16} />} title="Appearance">
-                <Row title="Theme" description="Follow the system, or always use a light or dark look.">
+            <Section icon={<Palette size={16} />} title={t("settings.appearance")}>
+                <Row title={t("settings.theme")} description={t("settings.themeHint")}>
                     <Segmented<ThemePreference>
                         options={[
-                            { value: "system", label: "System" },
-                            { value: "light", label: "Light" },
-                            { value: "dark", label: "Dark" },
+                            { value: "system", label: t("settings.system") },
+                            { value: "light", label: t("settings.light") },
+                            { value: "dark", label: t("settings.dark") },
                         ]}
                         value={theme}
                         onChange={onThemeChange}
                     />
                 </Row>
-                <Row title="Language" description="Language of the player's interface." soon>
-                    <Segmented
+                <Row title={t("settings.language")} description={t("settings.languageHint")}>
+                    <Segmented<LanguagePreference>
                         options={[
+                            { value: "system", label: t("settings.system") },
+                            // Language names are written in their own language.
                             { value: "en", label: "English" },
                             { value: "ru", label: "Русский" },
                         ]}
-                        value="en"
-                        onChange={() => {}}
-                        disabled
+                        value={getLanguagePreference()}
+                        onChange={setLanguagePreference}
+                    />
+                </Row>
+                <Row title={t("settings.logo")} description={t("settings.logoHint")}>
+                    <Segmented<LogoPreference>
+                        options={[
+                            { value: "auto", label: t("settings.logoAuto") },
+                            { value: "en", label: "Aivys" },
+                            { value: "ru", label: "Айвис" },
+                        ]}
+                        value={getLogoPreference()}
+                        onChange={setLogoPreference}
                     />
                 </Row>
             </Section>
 
-            <Section icon={<Library size={16} />} title="Library">
-                <Row title="Library folder" description={<span className="settings-path">{libraryPath}</span>}>
+            <Section icon={<Library size={16} />} title={t("settings.library")}>
+                <Row title={t("settings.folder")} description={<span className="settings-path">{libraryPath}</span>}>
                     <button className="settings-button" onClick={onChangeFolder}>
-                        <FolderOpen size={14} /> Change
+                        <FolderOpen size={14} /> {t("settings.change")}
                     </button>
                 </Row>
-                <Row title="Rescan" description="Read new and changed files now. Unchanged files are taken from the index.">
+                <Row title={t("settings.rescan")} description={t("settings.rescanHint")}>
                     <button className="settings-button" onClick={onRescan}>
-                        <RefreshCw size={14} /> Rescan
+                        <RefreshCw size={14} /> {t("settings.rescan")}
                     </button>
                 </Row>
                 <Row
-                    title="Recent folders"
+                    title={t("settings.recent")}
                     description={otherRecentCount > 0
-                        ? `${otherRecentCount} other ${otherRecentCount === 1 ? "folder is" : "folders are"} remembered on the start screen.`
-                        : "No other folders are remembered."}
+                        ? t("settings.recentCount", { count: otherRecentCount })
+                        : t("settings.recentNone")}
                 >
                     <button className="settings-button" disabled={otherRecentCount === 0} onClick={onClearRecent}>
-                        Clear
+                        {t("settings.clear")}
                     </button>
                 </Row>
             </Section>
 
-            <Section icon={<Share2 size={16} />} title="Sync">
-                <Row
-                    title="Sync conflicts"
-                    description={<>
-                        Your data lives in the <code>.aivys</code> folder next to the music and can be synced
-                        with Syncthing. Conflicting copies are merged when the library opens; check again after
-                        a sync while the player is running.
-                    </>}
-                >
+            <Section icon={<Share2 size={16} />} title={t("settings.sync")}>
+                <Row title={t("settings.conflicts")} description={<>{conflictsBefore}<code>.aivys</code>{conflictsAfter}</>}>
                     <button className="settings-button" disabled={checking} onClick={checkConflicts}>
-                        <RefreshCw size={14} className={checking ? "settings-spin" : ""} /> Check now
+                        <RefreshCw size={14} className={checking ? "settings-spin" : ""} /> {t("settings.checkNow")}
                     </button>
                 </Row>
             </Section>
 
-            <Section icon={<Info size={16} />} title="About">
-                <Row title="Aivys" description={version ? `Version ${version}` : undefined} />
+            <Section icon={<Info size={16} />} title={t("settings.about")}>
+                <Row title="Aivys" description={version ? t("settings.version", { version }) : undefined} />
             </Section>
         </div>
     );

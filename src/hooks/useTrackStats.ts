@@ -2,16 +2,17 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { EMPTY_STATS, type Track, type TrackStats } from "../types";
 import { notifyError } from "../utils/notify";
+import { t, type MessageKey } from "../i18n";
 
 type StatsMap = Record<string, TrackStats>;
 
 /** What the user tried to do, per command, for error notices. */
-const FAILED_MESSAGES: Record<string, string> = {
-    set_favorite: "Could not save favorite",
-    set_rating: "Could not save rating",
-    record_play: "Could not record the play",
-    record_complete: "Could not record the play",
-    set_track_tag: "Could not save the tag",
+const FAILED_MESSAGES: Record<string, MessageKey> = {
+    set_favorite: "error.saveFavorite",
+    set_rating: "error.saveRating",
+    record_play: "error.recordPlay",
+    record_complete: "error.recordPlay",
+    set_track_tag: "error.saveTag",
 };
 
 const nowUnix = () => Math.floor(Date.now() / 1000);
@@ -33,7 +34,7 @@ export const useTrackStats = (files: Track[]) => {
         try {
             setStats(await invoke<StatsMap>("get_track_stats"));
         } catch (e) {
-            notifyError("Could not load favorites and play history", e);
+            notifyError(t("error.loadStats"), e);
         }
     }, []);
 
@@ -45,7 +46,7 @@ export const useTrackStats = (files: Track[]) => {
             .then(loaded => {
                 if (!cancelled) setStats(loaded);
             })
-            .catch(e => notifyError("Could not load favorites and play history", e));
+            .catch(e => notifyError(t("error.loadStats"), e));
         return () => {
             cancelled = true;
         };
@@ -63,7 +64,7 @@ export const useTrackStats = (files: Track[]) => {
         try {
             await invoke(command, args);
         } catch (e) {
-            notifyError(FAILED_MESSAGES[command] ?? "Could not save the change", e);
+            notifyError(t(FAILED_MESSAGES[command] ?? "error.saveChange"), e);
             reload();
         }
     }, [reload]);

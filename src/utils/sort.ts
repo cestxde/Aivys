@@ -1,4 +1,5 @@
 import type { SortSpec, Track } from "../types";
+import { compareText, getLanguage, t, type MessageKey } from "../i18n";
 import { formatDate } from "./format";
 import { displayTitle } from "./track";
 
@@ -22,32 +23,34 @@ export const DEFAULT_SORT: ViewSort = { field: 'default', dir: 'asc' };
 /** A sortable field: its menu label, the direction it starts in, and what each direction means. */
 export interface SortFieldInfo {
     field: Exclude<SortField, 'default'>;
-    label: string;
+    label: MessageKey;
     natural: ViewSort['dir'];
-    asc: string;
-    desc: string;
+    asc: MessageKey;
+    desc: MessageKey;
     /** Compared as text (A–Z icons) rather than numbers. */
     text: boolean;
 }
 
 export const SORT_FIELDS: SortFieldInfo[] = [
-    { field: 'addedAt', label: "Date added", natural: 'desc', asc: "Oldest first", desc: "Newest first", text: false },
-    { field: 'title', label: "Title", natural: 'asc', asc: "A to Z", desc: "Z to A", text: true },
-    { field: 'artist', label: "Artist", natural: 'asc', asc: "A to Z", desc: "Z to A", text: true },
-    { field: 'album', label: "Album", natural: 'asc', asc: "A to Z", desc: "Z to A", text: true },
-    { field: 'duration', label: "Duration", natural: 'asc', asc: "Shortest first", desc: "Longest first", text: false },
-    { field: 'year', label: "Year", natural: 'desc', asc: "Oldest first", desc: "Newest first", text: false },
+    { field: 'addedAt', label: "sort.addedAt", natural: 'desc', asc: "sort.oldestFirst", desc: "sort.newestFirst", text: false },
+    { field: 'title', label: "sort.title", natural: 'asc', asc: "sort.aToZ", desc: "sort.zToA", text: true },
+    { field: 'artist', label: "sort.artist", natural: 'asc', asc: "sort.aToZ", desc: "sort.zToA", text: true },
+    { field: 'album', label: "sort.album", natural: 'asc', asc: "sort.aToZ", desc: "sort.zToA", text: true },
+    { field: 'duration', label: "sort.duration", natural: 'asc', asc: "sort.shortestFirst", desc: "sort.longestFirst", text: false },
+    { field: 'year', label: "sort.year", natural: 'desc', asc: "sort.oldestFirst", desc: "sort.newestFirst", text: false },
 ];
 
 /** Name of the sort's field; `defaultLabel` names the view's own order. */
-export const sortLabel = (sort: ViewSort, defaultLabel: string): string =>
-    SORT_FIELDS.find(info => info.field === sort.field)?.label ?? defaultLabel;
+export const sortLabel = (sort: ViewSort, defaultLabel: string): string => {
+    const info = SORT_FIELDS.find(info => info.field === sort.field);
+    return info ? t(info.label) : defaultLabel;
+};
 
 /** What the sort's direction means, e.g. "Newest first"; the view's own order can be reversed. */
 export const directionLabel = (sort: ViewSort, defaultLabel: string): string => {
     const info = SORT_FIELDS.find(info => info.field === sort.field);
-    if (info) return info[sort.dir];
-    return sort.dir === 'asc' ? defaultLabel : `${defaultLabel}, reversed`;
+    if (info) return t(info[sort.dir]);
+    return sort.dir === 'asc' ? defaultLabel : t("sort.reversed", { order: defaultLabel });
 };
 
 /** Switching to `field` starts in its natural direction. */
@@ -71,8 +74,6 @@ export const viewSortOf = (spec: SortSpec | undefined): ViewSort => {
 export const sortSpecOf = (sort: ViewSort): SortSpec =>
     ({ field: sort.field === 'default' ? 'manual' : sort.field, dir: sort.dir });
 
-const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
-
 const albumOrder = (a: Track, b: Track) =>
     (a.discNumber ?? 0) - (b.discNumber ?? 0) || (a.trackNumber ?? 0) - (b.trackNumber ?? 0);
 
@@ -88,23 +89,23 @@ const firstArtist = (track: Track) => text(track.artists[0]);
 /** Comparator for a sort (`default` is handled by the caller). Ties fall back to album order. */
 export const compareBy = (sort: ViewSort) => {
     const sign = sort.dir === 'desc' ? -1 : 1;
-    const byText = (a: string, b: string) => collator.compare(a, b);
+    const byText = compareText;
     const byNumber = (a: number, b: number) => a - b;
     return (a: Track, b: Track): number => {
         switch (sort.field) {
             case 'default': return 0;
             case 'addedAt': return sign * (a.dateCreated - b.dateCreated);
-            case 'title': return sign * collator.compare(displayTitle(a), displayTitle(b));
+            case 'title': return sign * compareText(displayTitle(a), displayTitle(b));
             case 'duration': return sign * (a.duration - b.duration);
             case 'artist':
                 return compareOptional(firstArtist(a), firstArtist(b), byText, sign)
-                    || collator.compare(a.album ?? "", b.album ?? "")
+                    || compareText(a.album ?? "", b.album ?? "")
                     || albumOrder(a, b);
             case 'album':
                 return compareOptional(text(a.album), text(b.album), byText, sign) || albumOrder(a, b);
             case 'year':
                 return compareOptional(a.year, b.year, byNumber, sign)
-                    || collator.compare(a.album ?? "", b.album ?? "")
+                    || compareText(a.album ?? "", b.album ?? "")
                     || albumOrder(a, b);
         }
     };
@@ -116,12 +117,12 @@ export interface SortSection {
     label: string;
 }
 
-const DURATION_BUCKETS: [number, string][] = [
-    [120, "Under 2 min"],
-    [240, "2–4 min"],
-    [360, "4–6 min"],
-    [600, "6–10 min"],
-    [Infinity, "10 min and longer"],
+const DURATION_BUCKETS: [number, MessageKey][] = [
+    [120, "section.under2"],
+    [240, "section.to4"],
+    [360, "section.to6"],
+    [600, "section.to10"],
+    [Infinity, "section.long"],
 ];
 
 /** The section a track falls in under a sort; null for the view's own order. */
@@ -132,29 +133,29 @@ export const sectionOf = (field: SortField): ((track: Track) => SortSection) | n
             const date = new Date(track.dateCreated * 1000);
             return {
                 key: `${date.getFullYear()}-${date.getMonth()}`,
-                label: date.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+                label: date.toLocaleDateString(getLanguage(), { month: "long", year: "numeric" }),
             };
         };
         case 'title': return track => {
-            const first = displayTitle(track).trim().charAt(0).toLocaleUpperCase();
+            const first = displayTitle(track).trim().charAt(0).toLocaleUpperCase(getLanguage());
             const label = /\p{L}/u.test(first) ? first : "#";
             return { key: label, label };
         };
         case 'artist': return track => {
             const artist = firstArtist(track);
-            return { key: artist?.toLowerCase() ?? "", label: artist ?? "Unknown artist" };
+            return { key: artist?.toLowerCase() ?? "", label: artist ?? t("common.unknownArtist") };
         };
         case 'album': return track => {
             const album = text(track.album);
-            return { key: album?.toLowerCase() ?? "", label: album ?? "No album" };
+            return { key: album?.toLowerCase() ?? "", label: album ?? t("section.noAlbum") };
         };
         case 'duration': return track => {
             const [limit, label] = DURATION_BUCKETS.find(([limit]) => track.duration < limit)!;
-            return { key: String(limit), label };
+            return { key: String(limit), label: t(label) };
         };
         case 'year': return track => ({
             key: String(track.year ?? ""),
-            label: track.year != null ? String(track.year) : "Unknown year",
+            label: track.year != null ? String(track.year) : t("section.unknownYear"),
         });
     }
 };

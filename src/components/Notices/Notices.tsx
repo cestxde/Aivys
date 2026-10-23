@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { AlertCircle, CheckCircle2, X } from "lucide-react";
 import { dismissNotice, getNotices, subscribeNotices } from "../../utils/notify";
+import { t } from "../../i18n";
 import "./Notices.css";
 
 /** Notices in the bottom-right corner, above the player bar. */
@@ -18,7 +19,7 @@ export const Notices = () => {
                     <span className="notice-message">{notice.message}</span>
                     <button
                         className="notice-close"
-                        title="Dismiss"
+                        title={t("notices.dismiss")}
                         onClick={() => dismissNotice(notice.id)}
                     >
                         <X size={14} />

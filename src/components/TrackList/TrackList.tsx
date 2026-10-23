@@ -6,6 +6,7 @@ import { displayTitle } from "../../utils/track";
 import { formatDuration } from "../../utils/format";
 import type { SortSection } from "../../utils/sort";
 import { CoverArt } from "../CoverArt";
+import { t } from "../../i18n";
 
 interface TrackListProps {
     rows: ListRow[];
@@ -46,7 +47,7 @@ export const TrackList = ({
     rows,
     activePath,
     looseFromIndex = -1,
-    emptyText = "No tracks found. Scan a directory to start.",
+    emptyText = t("empty.library"),
     sectionOf,
     hintOf,
     onPlay,
@@ -158,14 +159,14 @@ export const TrackList = ({
                     const title = displayTitle(file);
                     const artist = file.artists.length > 0
                         ? file.artists.join(", ")
-                        : "Unknown artist";
+                        : t("common.unknownArtist");
                     const drop = dropTarget?.key === row.key && dragging !== row.key
                         ? (dropTarget.after ? "drop-after" : "drop-before")
                         : "";
                     return (
                         <Fragment key={row.key}>
                             {index === looseFromIndex && (
-                                <div className="list-separator">Similar matches</div>
+                                <div className="list-separator">{t("list.similar")}</div>
                             )}
                             {header}
                             <div
@@ -180,7 +181,7 @@ export const TrackList = ({
                                 {onReorder && row.itemId && (
                                     <span
                                         className="drag-handle"
-                                        title="Drag to reorder"
+                                        title={t("list.dragToReorder")}
                                         onClick={(e) => e.stopPropagation()}
                                         onPointerDown={(e) => startDrag(e, row)}
                                         onPointerMove={moveDrag}
@@ -202,7 +203,7 @@ export const TrackList = ({
                                 {onOpenMenu && (
                                     <button
                                         className="row-button menu-button"
-                                        title="More"
+                                        title={t("common.more")}
                                         aria-haspopup="menu"
                                         onClick={(e) => {
                                             e.stopPropagation();

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Track, UserTag } from "../types";
 import { notifyError } from "../utils/notify";
+import { t } from "../i18n";
 
 /**
  * The library's user tags (`.aivys/tags.json`), sorted by name. Reloaded
@@ -18,7 +19,7 @@ export const useTags = (files: Track[]) => {
             .then(tags => {
                 if (!cancelled) setLoaded(tags);
             })
-            .catch(e => notifyError("Could not load tags", e));
+            .catch(e => notifyError(t("error.loadTags"), e));
         return () => {
             cancelled = true;
         };
@@ -39,7 +40,7 @@ export const useTags = (files: Track[]) => {
             upsert(tag);
             return tag;
         } catch (e) {
-            notifyError("Could not create the tag", e);
+            notifyError(t("error.createTag"), e);
             return null;
         }
     }, [upsert]);
@@ -50,7 +51,7 @@ export const useTags = (files: Track[]) => {
             upsert(tag);
             return tag;
         } catch (e) {
-            notifyError("Could not save the tag", e);
+            notifyError(t("error.saveTag"), e);
             return null;
         }
     }, [upsert]);
@@ -62,7 +63,7 @@ export const useTags = (files: Track[]) => {
             setLoaded(prev => prev.filter(t => t.id !== id));
             return true;
         } catch (e) {
-            notifyError("Could not delete the tag", e);
+            notifyError(t("error.deleteTag"), e);
             return false;
         }
     }, []);

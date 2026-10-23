@@ -1,5 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, X } from "lucide-react";
+import { t } from "../../i18n";
 import "./LibraryPicker.css";
 
 interface LibraryPickerProps {
@@ -31,21 +32,21 @@ export const LibraryPicker = ({ recentPaths, error, onOpen, onRemoveRecent }: Li
     return (
         <div className="library-picker">
             <div className="library-picker-inner">
-                <h1 className="library-picker-title">Choose your music folder</h1>
+                <h1 className="library-picker-title">{t("picker.title")}</h1>
                 <p className="library-picker-subtitle">
-                    Pick a folder and Aivys will scan it for audio files.
+                    {t("picker.subtitle")}
                 </p>
 
                 <button className="library-choose-btn" onClick={handleChoose}>
                     <FolderOpen size={18} />
-                    Choose folder
+                    {t("picker.choose")}
                 </button>
 
                 {error && <div className="library-picker-error">{error}</div>}
 
                 {recentPaths.length > 0 && (
                     <div className="library-recent">
-                        <div className="library-recent-title">Recent</div>
+                        <div className="library-recent-title">{t("picker.recent")}</div>
                         <ul className="library-recent-list">
                             {recentPaths.map((path) => (
                                 <li key={path} className="library-recent-row">
@@ -60,8 +61,8 @@ export const LibraryPicker = ({ recentPaths, error, onOpen, onRemoveRecent }: Li
                                     <button
                                         className="library-recent-remove"
                                         onClick={() => onRemoveRecent(path)}
-                                        title="Remove from recent"
-                                        aria-label="Remove from recent"
+                                        title={t("picker.removeRecent")}
+                                        aria-label={t("picker.removeRecent")}
                                     >
                                         <X size={16} />
                                     </button>

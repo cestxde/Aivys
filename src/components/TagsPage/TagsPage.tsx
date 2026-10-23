@@ -3,6 +3,7 @@ import { MoreVertical, Plus, Tag } from "lucide-react";
 import type { UserTag } from "../../types";
 import { TagDot } from "../TagChip/TagChip";
 import { CardPlayButton } from "../CardPlayButton/CardPlayButton";
+import { t } from "../../i18n";
 import "./TagsPage.css";
 
 interface TagsPageProps {
@@ -16,7 +17,7 @@ interface TagsPageProps {
     onCreate: () => void;
 }
 
-const describe = (count: number) => `${count} ${count === 1 ? "track" : "tracks"}`;
+const describe = (count: number) => t("common.tracks", { count });
 
 /** All user tags of the library with their track counts. */
 export const TagsPage = ({ tags, counts, onOpen, onPlay, onOpenMenu, onCreate }: TagsPageProps) => {
@@ -27,15 +28,15 @@ export const TagsPage = ({ tags, counts, onOpen, onPlay, onOpenMenu, onCreate }:
     return (
         <div className="tags-page">
             <div className="tags-toolbar">
-                <h1 className="tags-title">Tags</h1>
+                <h1 className="tags-title">{t("nav.tags")}</h1>
                 <input
                     className="search-input tags-filter"
-                    placeholder="Filter tags..."
+                    placeholder={t("tags.filter")}
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                 />
                 <button className="toolbar-button play-button tags-create" onClick={onCreate}>
-                    <Plus size={14} /> New tag
+                    <Plus size={14} /> {t("tags.new")}
                 </button>
             </div>
 
@@ -44,12 +45,9 @@ export const TagsPage = ({ tags, counts, onOpen, onPlay, onOpenMenu, onCreate }:
                     {tags.length === 0 ? (
                         <>
                             <Tag size={28} />
-                            <span>
-                                No tags yet. Create one here, or choose “Tags…” in a track's menu
-                                (right click or ⋮).
-                            </span>
+                            <span>{t("tags.empty")}</span>
                         </>
-                    ) : "No tags match the filter."}
+                    ) : t("tags.noMatch")}
                 </div>
             ) : (
                 <div className="tags-grid">
@@ -75,7 +73,7 @@ export const TagsPage = ({ tags, counts, onOpen, onPlay, onOpenMenu, onCreate }:
                             {(counts.get(tag.id) ?? 0) > 0 && <CardPlayButton onPlay={() => onPlay(tag)} />}
                             <button
                                 className="tag-card-menu"
-                                title="More"
+                                title={t("common.more")}
                                 aria-haspopup="menu"
                                 onClick={(e) => {
                                     e.stopPropagation();

@@ -3,6 +3,7 @@ import { Check, Heart, ListEnd, ListStart, Plus, X } from "lucide-react";
 import type { Playlist, Track } from "../../types";
 import { displayTitle } from "../../utils/track";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
+import { t } from "../../i18n";
 import "./AddToDialog.css";
 
 interface AddToDialogProps {
@@ -54,11 +55,11 @@ export const AddToDialog = ({
         tracks.length > 0 && [...paths].every(path => playlist.items?.some(item => item.path === path));
 
     // Favorites is listed like a playlist, so the filter applies to it too.
-    const showFavorites = !query || "favorites".includes(query);
+    const showFavorites = !query || t("nav.favorites").toLowerCase().includes(query);
 
     const subject = tracks.length === 1
         ? displayTitle(tracks[0])
-        : `${tracks.length} tracks`;
+        : t("common.tracks", { count: tracks.length });
 
     const createNew = () => {
         const name = newName?.trim();
@@ -67,31 +68,31 @@ export const AddToDialog = ({
 
     return (
         <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-            <div className="add-to-dialog" role="dialog" aria-label="Add to">
+            <div className="add-to-dialog" role="dialog" aria-label={t("common.addTo")}>
                 <div className="add-to-header">
                     <div className="add-to-heading">
-                        <h2>Add to…</h2>
+                        <h2>{t("common.addTo")}</h2>
                         <span className="add-to-subject">{subject}</span>
                     </div>
-                    <button className="add-to-close" title="Close" onClick={onClose}>
+                    <button className="add-to-close" title={t("common.close")} onClick={onClose}>
                         <X size={18} />
                     </button>
                 </div>
 
-                <div className="add-to-section-label">Queue</div>
+                <div className="add-to-section-label">{t("addTo.queue")}</div>
                 <div className="add-to-queue">
                     <button className="add-to-option" onClick={onPlayNext}>
-                        <ListStart size={18} /> Play next
+                        <ListStart size={18} /> {t("addTo.playNext")}
                     </button>
                     <button className="add-to-option" onClick={onAddToQueue}>
-                        <ListEnd size={18} /> Add to queue
+                        <ListEnd size={18} /> {t("addTo.addToQueue")}
                     </button>
                 </div>
 
-                <div className="add-to-section-label">Playlist</div>
+                <div className="add-to-section-label">{t("addTo.playlist")}</div>
                 <input
                     className="search-input"
-                    placeholder="Find a playlist..."
+                    placeholder={t("addTo.find")}
                     value={filter}
                     autoFocus
                     onChange={(e) => setFilter(e.target.value)}
@@ -101,10 +102,10 @@ export const AddToDialog = ({
                     {newName === null ? (
                         <button
                             className="add-to-row"
-                            onClick={() => setNewName(filter.trim() || "New playlist")}
+                            onClick={() => setNewName(filter.trim() || t("playlists.defaultName"))}
                         >
                             <span className="add-to-row-icon"><Plus size={18} /></span>
-                            <span className="add-to-row-name">New playlist</span>
+                            <span className="add-to-row-name">{t("playlists.new")}</span>
                         </button>
                     ) : (
                         <div className="add-to-row add-to-new">
@@ -124,7 +125,7 @@ export const AddToDialog = ({
                                 }}
                             />
                             <button className="editor-button primary" disabled={!newName.trim()} onClick={createNew}>
-                                Create
+                                {t("common.create")}
                             </button>
                         </div>
                     )}
@@ -133,11 +134,11 @@ export const AddToDialog = ({
                         <button className="add-to-row" onClick={onAddToFavorites}>
                             <span className="add-to-row-icon add-to-favorites-icon"><Heart size={18} fill="currentColor" /></span>
                             <span className="add-to-row-text">
-                                <span className="add-to-row-name">Favorites</span>
+                                <span className="add-to-row-name">{t("nav.favorites")}</span>
                             </span>
                             {allFavorite && (
-                                <span className="add-to-row-already" title="Already in favorites">
-                                    <Check size={14} /> added
+                                <span className="add-to-row-already" title={t("addTo.alreadyFavorite")}>
+                                    <Check size={14} /> {t("common.added")}
                                 </span>
                             )}
                         </button>
@@ -159,12 +160,12 @@ export const AddToDialog = ({
                                 <span className="add-to-row-text">
                                     <span className="add-to-row-name">{playlist.name}</span>
                                     <span className="add-to-row-meta">
-                                        {playlist.items?.length ?? 0} tracks
+                                        {t("common.tracks", { count: playlist.items?.length ?? 0 })}
                                     </span>
                                 </span>
                                 {already && (
-                                    <span className="add-to-row-already" title="Already in this playlist">
-                                        <Check size={14} /> added
+                                    <span className="add-to-row-already" title={t("addTo.alreadyInPlaylist")}>
+                                        <Check size={14} /> {t("common.added")}
                                     </span>
                                 )}
                             </button>
@@ -172,7 +173,7 @@ export const AddToDialog = ({
                     })}
 
                     {shown.length === 0 && playlists.length > 0 && !showFavorites && (
-                        <div className="add-to-empty">No playlists match.</div>
+                        <div className="add-to-empty">{t("addTo.noMatch")}</div>
                     )}
                 </div>
             </div>

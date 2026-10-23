@@ -5,6 +5,7 @@ import { formatDuration } from "../../utils/format";
 import type { TrackGroup } from "../../utils/groups";
 import { CoverMosaic } from "../PlaylistCover/PlaylistCover";
 import { CardPlayButton } from "../CardPlayButton/CardPlayButton";
+import { t } from "../../i18n";
 import "../PlaylistHeader/PlaylistHeader.css";
 import "./GroupHeader.css";
 
@@ -47,7 +48,7 @@ export const GroupHeader = ({
     const totalSeconds = rows.reduce((sum, row) => sum + row.track.duration, 0);
     const summary = [
         ...details,
-        `${rows.length} ${rows.length === 1 ? "track" : "tracks"}`,
+        t("common.tracks", { count: rows.length }),
         rows.length > 0 ? formatDuration(totalSeconds) : null,
     ].filter(Boolean).join(" · ");
 
@@ -62,7 +63,7 @@ export const GroupHeader = ({
 
             <div className="playlist-info">
                 {crumbs && crumbs.length > 0 ? (
-                    <nav className="group-crumbs" aria-label="Folder path">
+                    <nav className="group-crumbs" aria-label={t("group.folderPath")}>
                         {crumbs.map((crumb, index) => (
                             <Fragment key={index}>
                                 {index > 0 && <ChevronRight size={12} />}
@@ -110,13 +111,13 @@ export const FolderGrid = ({ folders, onOpen, onPlay, onOpenMenu }: FolderGridPr
                 <span className="folder-card-text">
                     <span className="folder-card-name">{folder.name}</span>
                     <span className="folder-card-meta">
-                        {folder.tracks.length} {folder.tracks.length === 1 ? "track" : "tracks"}
+                        {t("common.tracks", { count: folder.tracks.length })}
                     </span>
                 </span>
                 <CardPlayButton onPlay={() => onPlay(folder)} />
                 <button
                     className="playlists-menu-button"
-                    title="More"
+                    title={t("common.more")}
                     aria-haspopup="menu"
                     onClick={(e) => {
                         e.stopPropagation();

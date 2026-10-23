@@ -1,4 +1,5 @@
 import { Play } from "lucide-react";
+import { t } from "../../i18n";
 import "./CardPlayButton.css";
 
 /**
@@ -9,8 +10,8 @@ import "./CardPlayButton.css";
 export const CardPlayButton = ({ onPlay }: { onPlay: () => void }) => (
     <button
         className="card-play-button"
-        title="Play all"
-        aria-label="Play all"
+        title={t("common.playAll")}
+        aria-label={t("common.playAll")}
         onClick={(e) => {
             e.stopPropagation();
             onPlay();

@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Track } from "../types";
 import { notifyError } from "../utils/notify";
+import { t } from "../i18n";
 
 /**
  * Owns the track library: the scanned file list and the scan operation.
@@ -31,7 +32,7 @@ export const useLibrary = () => {
             setFiles(result);
             return result;
         } catch (e) {
-            notifyError("Could not scan the folder", e);
+            notifyError(t("error.scan"), e);
             setError(String(e));
             return null;
         } finally {

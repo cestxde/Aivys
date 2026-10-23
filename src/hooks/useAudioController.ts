@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { notifyError } from "../utils/notify";
+import { t } from "../i18n";
 
 // An AbortError only means a newer load interrupted play(): not worth a notice.
 const reportPlaybackError = (e: unknown) => {
     if (e instanceof DOMException && e.name === "AbortError") return;
-    notifyError("Playback failed", e);
+    notifyError(t("error.playback"), e);
 };
 
 export const useAudioController = (
