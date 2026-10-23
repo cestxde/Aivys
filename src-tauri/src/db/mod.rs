@@ -6,6 +6,7 @@
 //! or changed since the last scan, and the per-track state derived from the
 //! `.aivys/events` journals (see [`state`]).
 
+pub(crate) mod smart;
 pub(crate) mod state;
 
 use crate::track::Track;
@@ -154,6 +155,7 @@ fn connect(path: &Path) -> rusqlite::Result<Connection> {
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "synchronous", "NORMAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
+    smart::register_functions(&conn)?;
     Ok(conn)
 }
 

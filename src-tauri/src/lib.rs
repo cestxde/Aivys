@@ -52,7 +52,9 @@ pub fn run() {
             reorder_playlist,
             delete_playlist,
             set_playlist_cover,
-            clear_playlist_cover
+            clear_playlist_cover,
+            get_smart_playlist_tracks,
+            preview_smart_playlist
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

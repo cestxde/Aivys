@@ -318,3 +318,34 @@ pub(crate) async fn set_playlist_cover(
 pub(crate) async fn clear_playlist_cover(state: State<'_, StoreState>, id: String) -> Result<PlaylistView, StoreError> {
     with_store(&state, |store| playlists::clear_cover(store, &id))
 }
+
+// ---- Smart playlist evaluation ----
+
+fn smart_tracks(library: &mut Library, rules: &SmartRules) -> Result<Vec<String>, StoreError> {
+    let db = library
+        .synced_db()
+        .ok_or_else(|| StoreError::Invalid("library index is unavailable".to_owned()))?;
+    db.smart_playlist(rules)
+        .map_err(|err| StoreError::Invalid(format!("smart playlist query failed: {err}")))
+}
+
+/// Relative paths of the tracks a smart playlist currently contains.
+#[tauri::command]
+pub(crate) async fn get_smart_playlist_tracks(state: State<'_, StoreState>, id: String) -> Result<Vec<String>, StoreError> {
+    with_library(&state, |library| {
+        let rules = playlists::get(&library.store, &id)?
+            .playlist
+            .rules
+            .ok_or_else(|| StoreError::Invalid("not a smart playlist".to_owned()))?;
+        smart_tracks(library, &rules)
+    })
+}
+
+/// Evaluate rules without saving them, e.g. for a live preview in the editor.
+#[tauri::command]
+pub(crate) async fn preview_smart_playlist(
+    state: State<'_, StoreState>,
+    rules: SmartRules,
+) -> Result<Vec<String>, StoreError> {
+    with_library(&state, |library| smart_tracks(library, &rules))
+}
