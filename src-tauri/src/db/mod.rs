@@ -2,8 +2,11 @@
 //! never synced. It is a cache: audio-file tags and `.aivys/` stay the source
 //! of truth, and the database can be deleted at any time to be rebuilt.
 //!
-//! For now it caches scan results, so a rescan only reads tags of files that
-//! are new or changed since the last scan.
+//! It caches scan results, so a rescan only reads tags of files that are new
+//! or changed since the last scan, and the per-track state derived from the
+//! `.aivys/events` journals (see [`state`]).
+
+pub(crate) mod state;
 
 use crate::track::Track;
 use rusqlite::{params, Connection, Transaction};
@@ -12,7 +15,8 @@ use std::path::{Path, PathBuf, MAIN_SEPARATOR_STR};
 
 /// Bump on any schema change. A database with another version is deleted and
 /// rebuilt from scratch: it only holds rebuildable data, so no migrations.
-const SCHEMA_VERSION: i32 = 1;
+/// Also bump when the event vocabulary changes, so journals are re-ingested.
+const SCHEMA_VERSION: i32 = 2;
 
 const SCHEMA: &str = "
 CREATE TABLE meta (
@@ -58,6 +62,57 @@ CREATE TABLE track_genres (
     PRIMARY KEY (track_id, position)
 );
 CREATE INDEX track_genres_name ON track_genres(name);
+
+-- How much of each journal file has been ingested.
+CREATE TABLE journals (
+    file TEXT PRIMARY KEY,
+    -- Bytes ingested, always at a line boundary.
+    offset INTEGER NOT NULL,
+    -- blake3 of those bytes, to notice a journal that was rewritten.
+    prefix_hash TEXT NOT NULL
+);
+
+-- Every journal line with a known event; duplicates across files are
+-- collapsed when deriving state (see store::events::Dedup).
+CREATE TABLE events (
+    file TEXT NOT NULL,
+    -- Byte offset of the line in its file: the in-journal order.
+    seq INTEGER NOT NULL,
+    ts INTEGER NOT NULL,
+    device TEXT NOT NULL,
+    path TEXT NOT NULL,
+    event TEXT NOT NULL,
+    value INTEGER,
+    tag_id TEXT,
+    PRIMARY KEY (file, seq)
+);
+CREATE INDEX events_path ON events(path);
+
+-- Derived per-track state (keyed by path: events may outlive their file).
+CREATE TABLE track_state (
+    rel_path TEXT PRIMARY KEY,
+    play_count INTEGER NOT NULL,
+    last_played_at INTEGER,
+    rating INTEGER,
+    favorite INTEGER NOT NULL,
+    favorited_at INTEGER
+);
+
+-- Assigned user tags, including tags since deleted (filtered via user_tags).
+CREATE TABLE track_tags (
+    rel_path TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    tag_id TEXT NOT NULL,
+    PRIMARY KEY (rel_path, position)
+);
+CREATE INDEX track_tags_tag ON track_tags(tag_id);
+
+-- Copy of tags.json definitions, refreshed on every sync.
+CREATE TABLE user_tags (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    deleted INTEGER NOT NULL
+);
 ";
 
 /// What the index remembers about a file to decide whether to re-read it.

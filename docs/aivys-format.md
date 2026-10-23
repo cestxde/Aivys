@@ -309,9 +309,13 @@ resurrected by a merge.
 - **Merge strategy:** none needed in the normal case — every journal has a
   single writer, so the sync tool only ever copies files. The app reads
   `events/*.jsonl` and merges in memory.
-- **De-duplication:** identical lines (same `device`+`ts`+`path`+`event`
-  +`value`+`tagId`) are collapsed on read. Duplicates only arise from merged
-  conflict copies (§11).
+- **De-duplication:** duplicates only arise from conflict copies of a journal
+  (§11). Two lines are identical when `device`+`ts`+`path`+`event`+`value`
+  +`tagId` match. Identical lines **within one file** are distinct events
+  (e.g. two plays of a track within the same second, or favorite → unfavorite
+  → favorite in one second) and are all kept. Across files, a line is kept as
+  many times as it occurs in the file where it occurs most often (union with
+  maximum multiplicity), so a conflict copy never doubles events.
 - **Growth & compaction.** A line is ~100–150 bytes; tens of thousands of
   events are only a few MB, so v1 accepts unbounded growth: **append only,
   never rewrite** (the only exception is merging a conflict copy of the
@@ -697,6 +701,9 @@ Still open (to settle before Iteration 1, non-blocking):
 
 ## 15. Change log
 
+- **v1 (draft, rev 4)** — de-duplication of journal lines is a union with
+  maximum multiplicity across files; identical lines within one journal are
+  distinct events (§8.2.4).
 - **v1 (draft, rev 3)** — sync model for multi-device statistics:
   - Per-device append-only journals `events/<deviceId>.jsonl` for `play`,
     `complete`, `rating`, `favorite`/`unfavorite`, `tag`/`untag`; total event

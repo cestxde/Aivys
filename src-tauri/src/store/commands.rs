@@ -9,14 +9,36 @@ use super::playlists::{self, PlaylistView, SmartRules, SortSpec};
 use super::settings::{self, LibrarySettings};
 use super::tags::{self, TagDef};
 use super::{conflicts, system, Store, StoreError};
+use crate::db::LibraryDb;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 use tauri::{Manager, State};
 
-/// The store of the currently open library, if any.
+/// The currently open library: its `.aivys/` store and, when it could be
+/// opened, its local index.
+pub(crate) struct Library {
+    store: Store,
+    db: Option<LibraryDb>,
+}
+
+impl Library {
+    /// The index, synced with the journals on disk (which a sync tool may have
+    /// changed since the last call). `None` if the index is unavailable.
+    fn synced_db(&mut self) -> Option<&LibraryDb> {
+        let db = self.db.as_mut()?;
+        match db.sync_events(&self.store) {
+            Ok(_) => Some(db),
+            Err(err) => {
+                log::warn!("cannot sync journals into the index: {err}");
+                None
+            }
+        }
+    }
+}
+
 #[derive(Default)]
-pub(crate) struct StoreState(Mutex<Option<Store>>);
+pub(crate) struct StoreState(Mutex<Option<Library>>);
 
 /// Open the store for `base_path` and make it current. Called by the scan, so
 /// the store always matches the library on screen.
@@ -26,19 +48,35 @@ pub(crate) fn open_store(app: &tauri::AppHandle, base_path: &Path) -> Result<(),
         .app_data_dir()
         .map_err(|err| StoreError::Invalid(format!("no app-data directory: {err}")))?;
     let store = Store::open(base_path, &app_data)?;
+    let db = match LibraryDb::open(&app_data, base_path) {
+        Ok(db) => Some(db),
+        Err(err) => {
+            log::warn!("cannot open library index: {err}");
+            None
+        }
+    };
+    let mut library = Library { store, db };
+    library.synced_db();
 
     let state = app.state::<StoreState>();
     let mut guard = state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    *guard = Some(store);
+    *guard = Some(library);
     Ok(())
+}
+
+fn with_library<R>(
+    state: &State<'_, StoreState>,
+    f: impl FnOnce(&mut Library) -> Result<R, StoreError>,
+) -> Result<R, StoreError> {
+    let mut guard = state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    f(guard.as_mut().ok_or(StoreError::NotOpen)?)
 }
 
 fn with_store<R>(
     state: &State<'_, StoreState>,
     f: impl FnOnce(&mut Store) -> Result<R, StoreError>,
 ) -> Result<R, StoreError> {
-    let mut guard = state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    f(guard.as_mut().ok_or(StoreError::NotOpen)?)
+    with_library(state, |library| f(&mut library.store))
 }
 
 fn record(state: &State<'_, StoreState>, path: &str, kind: EventKind, value: Option<i64>, tag_id: Option<String>) -> Result<(), StoreError> {
@@ -112,7 +150,8 @@ pub(crate) async fn set_track_tag(
     })
 }
 
-fn all_stats(store: &Store) -> Result<HashMap<String, TrackStats>, StoreError> {
+/// Derived state straight from the journals; used when the index is unavailable.
+fn stats_from_journals(store: &Store) -> Result<HashMap<String, TrackStats>, StoreError> {
     let deleted_tags = tags::deleted_ids(store).unwrap_or_else(|err| {
         log::warn!("cannot read tags.json: {err}");
         Default::default()
@@ -123,7 +162,15 @@ fn all_stats(store: &Store) -> Result<HashMap<String, TrackStats>, StoreError> {
 /// Derived state of every track that has any, keyed by relative path.
 #[tauri::command]
 pub(crate) async fn get_track_stats(state: State<'_, StoreState>) -> Result<HashMap<String, TrackStats>, StoreError> {
-    with_store(&state, |store| all_stats(store))
+    with_library(&state, |library| {
+        if let Some(db) = library.synced_db() {
+            match db.track_stats() {
+                Ok(stats) => return Ok(stats),
+                Err(err) => log::warn!("index query failed: {err}"),
+            }
+        }
+        stats_from_journals(&library.store)
+    })
 }
 
 /// Relative track paths of a system playlist, in display order.
@@ -133,8 +180,16 @@ pub(crate) async fn get_system_playlist(
     id: String,
     limit: Option<usize>,
 ) -> Result<Vec<String>, StoreError> {
-    with_store(&state, |store| {
-        let stats = if id == "recentlyAdded" { HashMap::new() } else { all_stats(store)? };
+    with_library(&state, |library| {
+        if let Some(db) = library.synced_db() {
+            match db.system_playlist(&id, limit) {
+                Ok(Some(paths)) => return Ok(paths),
+                Ok(None) => return Err(StoreError::NotFound(format!("system playlist {id}"))),
+                Err(err) => log::warn!("index query failed: {err}"),
+            }
+        }
+        let store = &library.store;
+        let stats = if id == "recentlyAdded" { HashMap::new() } else { stats_from_journals(store)? };
         system::paths(store, &id, &stats, limit)
     })
 }

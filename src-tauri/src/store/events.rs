@@ -34,7 +34,7 @@ impl EventKind {
         }
     }
 
-    fn parse(value: &str) -> Option<Self> {
+    pub(crate) fn parse(value: &str) -> Option<Self> {
         Some(match value {
             "play" => EventKind::Play,
             "complete" => EventKind::Complete,
@@ -68,7 +68,7 @@ pub(crate) struct EventLine {
 }
 
 /// Identity used to collapse duplicate lines (§8.2.4).
-type DedupKey = (String, u64, String, String, Option<i64>, Option<String>);
+pub(crate) type DedupKey = (String, u64, String, String, Option<i64>, Option<String>);
 
 impl EventLine {
     pub(crate) fn dedup_key(&self) -> DedupKey {
@@ -80,6 +80,38 @@ impl EventLine {
             self.value,
             self.tag_id.clone(),
         )
+    }
+}
+
+/// Collapses duplicate lines across journal files (§8.2.4) with maximum
+/// multiplicity: identical lines repeated within one file are distinct events
+/// (e.g. two plays of a track within one second), while the same line in a
+/// conflict copy of that file is a duplicate. Each file's lines must be fed
+/// in that file's order; files may be interleaved.
+pub(crate) struct Dedup<F> {
+    kept: HashMap<DedupKey, usize>,
+    per_file: HashMap<(F, DedupKey), usize>,
+}
+
+impl<F: std::hash::Hash + Eq> Dedup<F> {
+    pub(crate) fn new() -> Self {
+        Dedup {
+            kept: HashMap::new(),
+            per_file: HashMap::new(),
+        }
+    }
+
+    /// Whether this occurrence of `key` in `file` is a new event.
+    pub(crate) fn keep(&mut self, file: F, key: DedupKey) -> bool {
+        let seen_in_file = self.per_file.entry((file, key.clone())).or_insert(0);
+        *seen_in_file += 1;
+        let kept = self.kept.entry(key).or_insert(0);
+        if *seen_in_file > *kept {
+            *kept = *seen_in_file;
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -145,7 +177,7 @@ fn append_line(path: &Path, mut text: String) -> io::Result<()> {
 
 /// All journal files in `events/`, including conflict copies (they hold
 /// events too; duplicates are collapsed on read).
-fn journal_files(store: &Store) -> Result<Vec<PathBuf>, StoreError> {
+pub(crate) fn journal_files(store: &Store) -> Result<Vec<PathBuf>, StoreError> {
     let entries = match fs::read_dir(store.path(EVENTS_DIR)) {
         Ok(entries) => entries,
         Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -163,7 +195,7 @@ fn journal_files(store: &Store) -> Result<Vec<PathBuf>, StoreError> {
 }
 
 /// Parse a journal line into an event, or explain why it is skipped.
-fn parse_line(raw: &str) -> Result<Event, String> {
+pub(crate) fn parse_line(raw: &str) -> Result<Event, String> {
     let line: EventLine = serde_json::from_str(raw).map_err(|err| format!("bad line: {err}"))?;
     if line.schema_version > SCHEMA_VERSION {
         return Err(format!("newer schemaVersion {}", line.schema_version));
@@ -175,7 +207,7 @@ fn parse_line(raw: &str) -> Result<Event, String> {
 /// Read every device's journal and return the known events in total order:
 /// `ts`, then `device`, then position within the journal (§8.2.2).
 pub(crate) fn read_all(store: &Store) -> Result<Vec<Event>, StoreError> {
-    let mut seen = HashSet::new();
+    let mut dedup = Dedup::new();
     let mut ordered = Vec::new();
 
     for (file_idx, file) in journal_files(store)?.iter().enumerate() {
@@ -189,7 +221,7 @@ pub(crate) fn read_all(store: &Store) -> Result<Vec<Event>, StoreError> {
         for (line_idx, raw) in lines.iter().enumerate() {
             match parse_line(raw) {
                 Ok(event) => {
-                    if seen.insert(event.line.dedup_key()) {
+                    if dedup.keep(file_idx, event.line.dedup_key()) {
                         ordered.push((file_idx, line_idx, event));
                     }
                 }
@@ -295,24 +327,25 @@ pub(crate) fn derive(events: &[Event], deleted_tags: &HashSet<String>) -> HashMa
 /// de-duplicated and in event order (§11). Lines that cannot be parsed are
 /// kept as-is at the end: they may come from a newer app version.
 pub(crate) fn merge_journal_files(canonical: &Path, conflict: &Path) -> Result<(), StoreError> {
-    let mut lines = read_complete_lines(canonical)?;
-    lines.extend(read_complete_lines(conflict)?);
+    let files = [read_complete_lines(canonical)?, read_complete_lines(conflict)?];
 
-    let mut seen_keys = HashSet::new();
+    let mut dedup = Dedup::new();
     let mut seen_raw = HashSet::new();
     let mut parsed = Vec::new();
     let mut unparsed = Vec::new();
 
-    for raw in lines {
-        match serde_json::from_str::<EventLine>(&raw) {
-            Ok(line) => {
-                if seen_keys.insert(line.dedup_key()) {
-                    parsed.push((line.ts, line.device, raw));
+    for (file_idx, lines) in files.into_iter().enumerate() {
+        for raw in lines {
+            match serde_json::from_str::<EventLine>(&raw) {
+                Ok(line) => {
+                    if dedup.keep(file_idx, line.dedup_key()) {
+                        parsed.push((line.ts, line.device, raw));
+                    }
                 }
-            }
-            Err(_) => {
-                if seen_raw.insert(raw.clone()) {
-                    unparsed.push(raw);
+                Err(_) => {
+                    if seen_raw.insert(raw.clone()) {
+                        unparsed.push(raw);
+                    }
                 }
             }
         }
@@ -414,6 +447,27 @@ mod tests {
         append(&store, "a.flac", EventKind::Play, None, None).unwrap();
         let events = read_all(&store).unwrap();
         assert_eq!(derive(&events, &HashSet::new())["a.flac"].play_count, 2);
+    }
+
+    #[test]
+    fn repeats_within_one_journal_are_distinct_events() {
+        let lib = TempLibrary::new();
+        let store = lib.open();
+        let device = store.device_id().to_owned();
+        write_journal(
+            &store,
+            &device,
+            &[
+                line(1, &device, "a.flac", "play", None, None),
+                line(1, &device, "a.flac", "play", None, None),
+                line(2, &device, "a.flac", "favorite", None, None),
+                line(2, &device, "a.flac", "unfavorite", None, None),
+                line(2, &device, "a.flac", "favorite", None, None),
+            ],
+        );
+        let stats = derive(&read_all(&store).unwrap(), &HashSet::new());
+        assert_eq!(stats["a.flac"].play_count, 2);
+        assert!(stats["a.flac"].favorite);
     }
 
     #[test]
