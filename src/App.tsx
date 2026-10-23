@@ -26,6 +26,7 @@ import { usePlayTracking } from "./hooks/usePlayTracking";
 import { usePlaylists } from "./hooks/usePlaylists";
 import { useTags } from "./hooks/useTags";
 import { useViewRows } from "./hooks/useViewRows";
+import { useSmartPlaylistPaths } from "./hooks/useSmartPlaylistPaths";
 import { PlaylistHeader } from "./components/PlaylistHeader/PlaylistHeader";
 import { ContextMenu, type MenuEntry } from "./components/ContextMenu/ContextMenu";
 import { SmartPlaylistEditor } from "./components/SmartPlaylistEditor/SmartPlaylistEditor";
@@ -160,6 +161,7 @@ function App() {
 			&& !files.some(f => f.relPath.startsWith(`${requestedView.id}/`)) ? ROOT_FOLDER_VIEW
 		: requestedView;
 	const currentTag = listView.kind === "tag" ? tags.byId.get(listView.id) ?? null : null;
+	const smartPaths = useSmartPlaylistPaths(playlists.playlists, trackStats.stats, listView.kind === "playlists");
 
 	// The artist, album or folder on screen.
 	const currentGroup = useMemo((): TrackGroup | null => {
@@ -653,6 +655,7 @@ function App() {
 							onPlayPinned={(id) => playTracks(systemViewTracks(files, id, trackStats.stats))}
 							playlists={playlists.playlists}
 							tracksByPath={tracksByPath}
+							smartPaths={smartPaths}
 							layout={layouts.playlists}
 							onLayoutChange={(layout) => setLayout("playlists", layout)}
 							onOpen={(target) => showView({ kind: "playlist", id: target.id })}

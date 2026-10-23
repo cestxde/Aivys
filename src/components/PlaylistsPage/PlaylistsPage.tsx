@@ -23,6 +23,8 @@ interface PlaylistsPageProps {
     playlists: Playlist[];
     /** Library tracks by relative path, for member covers and counts. */
     tracksByPath: Map<string, Track>;
+    /** Evaluated track paths of smart playlists (missing: not known yet). */
+    smartPaths: Map<string, string[]>;
     layout: PlaylistsLayout;
     onLayoutChange: (layout: PlaylistsLayout) => void;
     onOpenPinned: (id: SystemView) => void;
@@ -34,13 +36,19 @@ interface PlaylistsPageProps {
     onCreateSmart: () => void;
 }
 
-const memberCovers = (playlist: Playlist, tracksByPath: Map<string, Track>): string[] =>
-    (playlist.items ?? []).flatMap(item => tracksByPath.get(item.path)?.coverPath ?? []);
-
 const trackCount = (count: number) => t("common.tracks", { count });
 
-const describe = (playlist: Playlist): string =>
-    playlist.type === "smart" ? t("playlist.kindSmart") : trackCount(playlist.items?.length ?? 0);
+/** A playlist's name; a smart playlist is marked with a sparkle. */
+const PlaylistName = ({ playlist }: { playlist: Playlist }) => (
+    <>
+        {playlist.type === "smart" && (
+            <span className="playlist-smart-mark" title={t("playlist.kindSmart")}>
+                <Sparkles size={12} />
+            </span>
+        )}
+        {playlist.name}
+    </>
+);
 
 /** Grid / list switch shared by the collection pages. */
 export const LayoutToggle = ({ layout, onChange }: { layout: PlaylistsLayout; onChange: (layout: PlaylistsLayout) => void }) => (
@@ -82,6 +90,7 @@ export const PlaylistsPage = ({
     pinned,
     playlists,
     tracksByPath,
+    smartPaths,
     layout,
     onLayoutChange,
     onOpenPinned,
@@ -106,6 +115,17 @@ export const PlaylistsPage = ({
             {menuButton(playlist)}
         </>
     );
+
+    // Smart playlists' members are evaluated by rules; until then they have none.
+    const memberPaths = (playlist: Playlist): string[] | null => playlist.type === "smart"
+        ? smartPaths.get(playlist.id) ?? null
+        : (playlist.items ?? []).map(item => item.path);
+    const memberCovers = (playlist: Playlist): string[] =>
+        (memberPaths(playlist) ?? []).flatMap(path => tracksByPath.get(path)?.coverPath ?? []);
+    const describe = (playlist: Playlist): string => {
+        const paths = memberPaths(playlist);
+        return paths ? trackCount(paths.length) : "…";
+    };
 
     const menuButton = (playlist: Playlist) => (
         <button
@@ -205,13 +225,13 @@ export const PlaylistsPage = ({
                         >
                             <PlaylistCover
                                 playlist={playlist}
-                                memberCovers={memberCovers(playlist, tracksByPath)}
+                                memberCovers={memberCovers(playlist)}
                                 size={160}
                                 className="playlist-card-cover"
                             />
                             <div className="playlist-card-footer">
                                 <div className="playlist-card-text">
-                                    <span className="playlist-card-name">{playlist.name}</span>
+                                    <span className="playlist-card-name"><PlaylistName playlist={playlist} /></span>
                                     <span className="playlist-card-meta">{describe(playlist)}</span>
                                 </div>
                                 {actions(playlist)}
@@ -233,11 +253,11 @@ export const PlaylistsPage = ({
                         >
                             <PlaylistCover
                                 playlist={playlist}
-                                memberCovers={memberCovers(playlist, tracksByPath)}
+                                memberCovers={memberCovers(playlist)}
                                 size={48}
                             />
                             <div className="track-main-info">
-                                <span className="track-title">{playlist.name}</span>
+                                <span className="track-title"><PlaylistName playlist={playlist} /></span>
                                 <span className="track-artist">{describe(playlist)}</span>
                             </div>
                             {actions(playlist)}

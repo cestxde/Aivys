@@ -209,3 +209,12 @@
     );
     color: #fff;
 }
+
+/* Marks a smart playlist before its name. */
+.playlist-smart-mark {
+    display: inline-flex;
+    vertical-align: -1px;
+    margin-right: 5px;
+    color: var(--text);
+    opacity: 0.75;
+}
