@@ -30,6 +30,11 @@
     background: var(--code-bg);
 }
 
+.sidebar-item.active {
+    background: var(--accent-bg);
+    font-weight: 600;
+}
+
 .sidebar-item:disabled {
     opacity: 0.45;
     cursor: not-allowed;

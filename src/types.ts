@@ -31,6 +31,38 @@ export interface Track {
     metadataModifiedAt: number;
 }
 
+/** Per-track state derived from the .aivys event journals (get_track_stats). */
+export interface TrackStats {
+    playCount: number;
+    lastPlayedAt: number | null;
+    // 1-5, null = unrated
+    rating: number | null;
+    favorite: boolean;
+    favoritedAt: number | null;
+    // Assigned user tag ids
+    tags: string[];
+}
+
+export const EMPTY_STATS: TrackStats = {
+    playCount: 0,
+    lastPlayedAt: null,
+    rating: null,
+    favorite: false,
+    favoritedAt: null,
+    tags: [],
+};
+
+/** How a search result matched: as typed, via transliteration/keyboard layout, or with typos. */
+export type MatchKind = 'exact' | 'translit' | 'fuzzy';
+
+export interface SearchHit {
+    relPath: string;
+    kind: MatchKind;
+}
+
+/** What the main track list shows. */
+export type LibraryView = 'library' | 'favorites' | 'recentlyPlayed' | 'mostPlayed';
+
 export type SortOrder = 'name' | 'artist' | 'album' | 'date' | 'duration' | 'manual';
 
 export type RepeatMode = 'none' | 'all' | 'one';

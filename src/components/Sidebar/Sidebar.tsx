@@ -1,20 +1,23 @@
 import type { ReactNode } from "react";
-import { Library, ListMusic, Tag, Heart, FolderOpen } from "lucide-react";
+import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp } from "lucide-react";
 import { ThemedLogo } from "../ThemedLogo";
+import type { LibraryView } from "../../types";
 import "./Sidebar.css";
 
 interface SidebarItem {
     label: string;
     icon: ReactNode;
-    /** Items are placeholders for now; all are disabled until implemented. */
-    disabled?: boolean;
+    /** The view the item opens; items without one are not implemented yet. */
+    view?: LibraryView;
 }
 
 const ITEMS: SidebarItem[] = [
-    { label: "Library", icon: <Library size={18} />, disabled: true },
-    { label: "Playlists", icon: <ListMusic size={18} />, disabled: true },
-    { label: "Tags", icon: <Tag size={18} />, disabled: true },
-    { label: "Favorites", icon: <Heart size={18} />, disabled: true },
+    { label: "Library", icon: <Library size={18} />, view: "library" },
+    { label: "Favorites", icon: <Heart size={18} />, view: "favorites" },
+    { label: "Recently played", icon: <History size={18} />, view: "recentlyPlayed" },
+    { label: "Most played", icon: <TrendingUp size={18} />, view: "mostPlayed" },
+    { label: "Playlists", icon: <ListMusic size={18} /> },
+    { label: "Tags", icon: <Tag size={18} /> },
 ];
 
 interface SidebarProps {
@@ -22,6 +25,8 @@ interface SidebarProps {
     libraryPath: string;
     /** Called when the user wants to switch to another folder. */
     onChangeLibrary: () => void;
+    view: LibraryView;
+    onViewChange: (view: LibraryView) => void;
 }
 
 /** Last path segment, falling back to the full path. */
@@ -32,10 +37,10 @@ const folderName = (path: string): string => {
 
 /**
  * Left navigation rail: brand, the current library folder + a "change folder"
- * action, and (disabled) placeholders for upcoming sections. Hidden on narrow
- * layouts by CSS, keeping the track list as the primary view.
+ * action, the list views, and (disabled) placeholders for upcoming sections.
+ * Hidden on narrow layouts by CSS, keeping the track list as the primary view.
  */
-export const Sidebar = ({ libraryPath, onChangeLibrary }: SidebarProps) => {
+export const Sidebar = ({ libraryPath, onChangeLibrary, view, onViewChange }: SidebarProps) => {
     return (
         <nav className="sidebar">
             <div className="sidebar-brand">
@@ -61,9 +66,11 @@ export const Sidebar = ({ libraryPath, onChangeLibrary }: SidebarProps) => {
             {ITEMS.map((item) => (
                 <button
                     key={item.label}
-                    className="sidebar-item"
-                    disabled={item.disabled}
-                    title={item.disabled ? `${item.label} (coming soon)` : item.label}
+                    className={`sidebar-item ${item.view === view ? "active" : ""}`}
+                    disabled={!item.view}
+                    title={item.view ? item.label : `${item.label} (coming soon)`}
+                    aria-current={item.view === view ? "page" : undefined}
+                    onClick={() => item.view && onViewChange(item.view)}
                 >
                     <span className="sidebar-icon">{item.icon}</span>
                     <span className="sidebar-label">{item.label}</span>

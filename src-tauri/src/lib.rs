@@ -83,3 +83,42 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+#[cfg(test)]
+mod tests {
+    /// Every command in `generate_handler!` must be allowed by a permission in
+    /// `permissions/` that the default capability grants; otherwise Tauri
+    /// rejects calls from the frontend with "not allowed by ACL".
+    #[test]
+    fn every_command_is_allowed() {
+        let source = include_str!("lib.rs");
+        let start = source.find("generate_handler![").expect("handler list") + "generate_handler![".len();
+        let end = start + source[start..].find(']').expect("end of handler list");
+        let commands: Vec<&str> = source[start..end]
+            .split(',')
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .collect();
+
+        let capability = include_str!("../capabilities/default.json");
+        let permissions = [
+            include_str!("../permissions/scan.toml"),
+            include_str!("../permissions/library.toml"),
+        ];
+        let granted: Vec<&str> = permissions
+            .iter()
+            .filter(|toml| {
+                toml.lines()
+                    .filter_map(|line| line.trim().strip_prefix("identifier = "))
+                    .any(|id| capability.contains(id.trim()))
+            })
+            .copied()
+            .collect();
+
+        let missing: Vec<&str> = commands
+            .into_iter()
+            .filter(|command| !granted.iter().any(|toml| toml.contains(&format!("\"{command}\""))))
+            .collect();
+        assert!(missing.is_empty(), "commands without a permission: {missing:?}");
+    }
+}

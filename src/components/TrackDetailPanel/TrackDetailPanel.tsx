@@ -1,7 +1,8 @@
 import { useState } from "react";
-import type { Track } from "../../types";
+import { Heart, Star } from "lucide-react";
+import type { Track, TrackStats } from "../../types";
 import { displayTitle } from "../../utils/track";
-import { formatDuration } from "../../utils/format";
+import { formatDateTime, formatDuration } from "../../utils/format";
 import { CoverArt } from "../CoverArt";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
 import "./TrackDetailPanel.css";
@@ -9,6 +10,10 @@ import "./TrackDetailPanel.css";
 interface TrackDetailPanelProps {
     /** The track to show (currently the playing track). */
     track: Track | null;
+    stats: TrackStats | null;
+    onToggleFavorite: (track: Track) => void;
+    /** 1-5, or 0 to clear. */
+    onSetRating: (track: Track, rating: number) => void;
 }
 
 /** A labelled "label: value" row, hidden when there is no value. */
@@ -22,13 +27,34 @@ const DetailRow = ({ label, value }: { label: string; value: string | null | und
     );
 };
 
+/** Five stars; clicking the current rating clears it. */
+const RatingStars = ({ rating, onChange }: { rating: number; onChange: (rating: number) => void }) => {
+    const [hover, setHover] = useState(0);
+    const shown = hover || rating;
+    return (
+        <div className="detail-rating" onMouseLeave={() => setHover(0)}>
+            {[1, 2, 3, 4, 5].map((value) => (
+                <button
+                    key={value}
+                    className={`rating-star ${value <= shown ? "is-on" : ""}`}
+                    title={value === rating ? "Clear rating" : `Rate ${value}`}
+                    onMouseEnter={() => setHover(value)}
+                    onClick={() => onChange(value === rating ? 0 : value)}
+                >
+                    <Star size={18} fill={value <= shown ? "currentColor" : "none"} />
+                </button>
+            ))}
+        </div>
+    );
+};
+
 /**
  * Right-hand panel that shows the details of a track. In this first iteration
  * it is a read-only view of the currently playing track; later it will host
  * tabs (current / selected) and the metadata editor. On narrow layouts the
  * whole panel is hidden by CSS.
  */
-export const TrackDetailPanel = ({ track }: TrackDetailPanelProps) => {
+export const TrackDetailPanel = ({ track, stats, onToggleFavorite, onSetRating }: TrackDetailPanelProps) => {
     const [showCover, setShowCover] = useState(false);
 
     if (!track) {
@@ -67,6 +93,21 @@ export const TrackDetailPanel = ({ track }: TrackDetailPanelProps) => {
                 {artists && <span className="detail-artist">{artists}</span>}
             </div>
 
+            <div className="detail-actions">
+                <button
+                    className={`detail-favorite ${stats?.favorite ? "is-favorite" : ""}`}
+                    title={stats?.favorite ? "Remove from favorites" : "Add to favorites"}
+                    aria-pressed={stats?.favorite ?? false}
+                    onClick={() => onToggleFavorite(track)}
+                >
+                    <Heart size={20} fill={stats?.favorite ? "currentColor" : "none"} />
+                </button>
+                <RatingStars
+                    rating={stats?.rating ?? 0}
+                    onChange={(rating) => onSetRating(track, rating)}
+                />
+            </div>
+
             <div className="detail-rows">
                 <DetailRow label="Album" value={track.album} />
                 <DetailRow label="Album artist" value={track.albumArtist} />
@@ -75,6 +116,11 @@ export const TrackDetailPanel = ({ track }: TrackDetailPanelProps) => {
                 <DetailRow label="Genre" value={track.genre.length ? track.genre.join(", ") : null} />
                 <DetailRow label="Duration" value={formatDuration(track.duration)} />
                 <DetailRow label="Format" value={technical || null} />
+                <DetailRow label="Plays" value={String(stats?.playCount ?? 0)} />
+                <DetailRow
+                    label="Last played"
+                    value={stats?.lastPlayedAt ? formatDateTime(stats.lastPlayedAt) : null}
+                />
             </div>
 
             {showCover && (

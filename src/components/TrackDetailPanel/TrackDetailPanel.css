@@ -166,3 +166,42 @@
     color: var(--text-h);
     word-break: break-word;
 }
+.detail-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.detail-favorite,
+.rating-star {
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    border: none;
+    background: none;
+    color: var(--text);
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.1s, color 0.1s;
+}
+
+.detail-favorite:hover,
+.rating-star:hover {
+    opacity: 1;
+}
+
+.detail-favorite.is-favorite {
+    color: #e11d48;
+    opacity: 1;
+}
+
+.detail-rating {
+    display: flex;
+    gap: 2px;
+}
+
+.rating-star.is-on {
+    color: #f59e0b;
+    opacity: 1;
+}

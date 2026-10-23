@@ -6,6 +6,8 @@ interface ToolbarProps {
     onSearchChange: (value: string) => void;
     sortOrder: SortOrder;
     onSortChange: (order: SortOrder) => void;
+    /** Views with their own order (favorites, history) cannot be re-sorted. */
+    sortDisabled?: boolean;
     onShuffleAll: () => void;
     onPlayAll: () => void;
 }
@@ -15,6 +17,7 @@ export const Toolbar = ({
     onSearchChange,
     sortOrder,
     onSortChange,
+    sortDisabled = false,
     onShuffleAll,
     onPlayAll
 }: ToolbarProps) => {
@@ -25,6 +28,7 @@ export const Toolbar = ({
                     value={sortOrder}
                     onChange={(e) => onSortChange(e.target.value as SortOrder)}
                     className="sort-select"
+                    disabled={sortDisabled}
                 >
                     <option value="date">Newest</option>
                     <option value="name">Title</option>

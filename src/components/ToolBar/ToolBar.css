@@ -47,6 +47,11 @@
     cursor: pointer;
 }
 
+.sort-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .toolbar-button {
     padding: 8px 16px;
     border-radius: 6px;

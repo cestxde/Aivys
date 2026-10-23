@@ -5,3 +5,10 @@ export const formatDuration = (seconds: number): string => {
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
 };
+
+/** Format a unix timestamp (seconds) as a short local date and time. */
+export const formatDateTime = (unixSeconds: number): string =>
+    new Date(unixSeconds * 1000).toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+    });

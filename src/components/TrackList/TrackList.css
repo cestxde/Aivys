@@ -82,3 +82,44 @@
     opacity: 0.5;
     background: var(--bg);
 }
+
+.list-separator {
+    padding: 0.5rem 1rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    opacity: 0.6;
+    background: var(--code-bg);
+}
+
+/* Shown on hover, and always for favorites. */
+.favorite-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 4px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.1s, color 0.1s;
+}
+
+.audio-item:hover .favorite-button,
+.favorite-button:focus-visible {
+    opacity: 0.6;
+}
+
+.favorite-button:hover {
+    opacity: 1 !important;
+    color: var(--text-h);
+}
+
+.favorite-button.is-favorite {
+    opacity: 1;
+    color: #e11d48;
+}

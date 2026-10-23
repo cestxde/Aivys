@@ -11,6 +11,7 @@
     "core:webview:default",
     "log:default",
     "dialog:default",
-    "allow-scan-directory"
+    "allow-scan-directory",
+    "allow-library-store"
   ]
 }

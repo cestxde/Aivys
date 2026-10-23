@@ -8,7 +8,10 @@ export const useAudioController = (
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
-    const audioRef = useRef<HTMLAudioElement | null>(null);
+    // One element for the whole session: every track is loaded into it, so
+    // listeners attached once keep working.
+    const [element] = useState(() => new Audio());
+    const audioRef = useRef<HTMLAudioElement | null>(element);
 
     // Sync volume
     useEffect(() => {
@@ -19,20 +22,17 @@ export const useAudioController = (
 
     // Track time and duration
     useEffect(() => {
-        const audio = audioRef.current;
-        if (!audio) return;
+        const updateTime = () => setCurrentTime(element.currentTime);
+        const updateDuration = () => setDuration(element.duration);
 
-        const updateTime = () => setCurrentTime(audio.currentTime);
-        const updateDuration = () => setDuration(audio.duration);
-
-        audio.addEventListener("timeupdate", updateTime);
-        audio.addEventListener("loadedmetadata", updateDuration);
+        element.addEventListener("timeupdate", updateTime);
+        element.addEventListener("loadedmetadata", updateDuration);
 
         return () => {
-            audio.removeEventListener("timeupdate", updateTime);
-            audio.removeEventListener("loadedmetadata", updateDuration);
+            element.removeEventListener("timeupdate", updateTime);
+            element.removeEventListener("loadedmetadata", updateDuration);
         };
-    }, [isPlaying, audioRef.current]);
+    }, [element]);
 
     // Replace the current source with `filePath`, resetting the position to 0.
     // Returns the audio element so callers can start playback if needed.
@@ -97,7 +97,7 @@ export const useAudioController = (
         volume: initialVolume,
         setVolume: onVolumeChange,
         currentTime, duration,
-        audioRef,
+        audioRef, element,
         playFile, loadFilePaused, togglePlay, seek, stop
     };
 };

@@ -11,7 +11,16 @@ import { ThemedLogo } from "./components/ThemedLogo";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { TrackDetailPanel } from "./components/TrackDetailPanel/TrackDetailPanel";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
-import { addRecentPath, removeRecentPath } from "./types";
+import { useTrackStats } from "./hooks/useTrackStats";
+import { usePlayTracking } from "./hooks/usePlayTracking";
+import { addRecentPath, removeRecentPath, type LibraryView } from "./types";
+
+const EMPTY_TEXT: Record<LibraryView, string> = {
+	library: "No tracks found. Scan a directory to start.",
+	favorites: "No favorites yet. Use the heart next to a track to add it.",
+	recentlyPlayed: "Nothing played yet.",
+	mostPlayed: "Nothing played yet.",
+};
 
 type View = "loading" | "picker" | "library";
 
@@ -20,6 +29,7 @@ function App() {
 	const library = useLibrary();
 	const [view, setView] = useState<View>("loading");
 	const [pickerError, setPickerError] = useState<string | null>(null);
+	const [libraryView, setLibraryView] = useState<LibraryView>("library");
 
 	const {
 		activePath, playTrack,
@@ -27,11 +37,15 @@ function App() {
 		currentTime, duration, seek, stop,
 		onNext, onPrev,
 		toggleShuffle, isShuffle,
-		repeatMode, toggleRepeatMode
+		repeatMode, toggleRepeatMode,
+		element
 	} = useAudioPlayer(library.files, settings, updateSettings);
 
 	const files = library.files;
 	const currentTrack = files.find(f => f.path === activePath);
+
+	const trackStats = useTrackStats(files);
+	usePlayTracking(element, currentTrack ?? null, trackStats.recordPlay, trackStats.recordComplete);
 
 	// Open a folder as the active library: validate it, remember it, scan it.
 	const openLibrary = async (path: string) => {
@@ -87,9 +101,11 @@ function App() {
 	const {
 		searchQuery, setSearchQuery,
 		sortOrder, setSortOrder,
-		displayFiles, handleShuffleAll
+		displayFiles, looseFromIndex, isSearching, handleShuffleAll
 	} = useTrackListLogic(
 		files,
+		libraryView,
+		trackStats.stats,
 		isShuffle,
 		toggleShuffle,
 		playTrack
@@ -143,6 +159,8 @@ function App() {
 				<Sidebar
 					libraryPath={settings.lastPath}
 					onChangeLibrary={goToPicker}
+					view={libraryView}
+					onViewChange={setLibraryView}
 				/>
 
 				<main className="container">
@@ -151,6 +169,7 @@ function App() {
 						onSearchChange={setSearchQuery}
 						sortOrder={sortOrder}
 						onSortChange={setSortOrder}
+						sortDisabled={libraryView !== "library" || isSearching}
 						onShuffleAll={handleShuffleAll}
 						onPlayAll={handlePlayAll}
 					/>
@@ -159,12 +178,21 @@ function App() {
 						<TrackList
 							files={displayFiles}
 							activePath={activePath}
+							stats={trackStats.stats}
+							looseFromIndex={looseFromIndex}
+							emptyText={isSearching ? "Nothing matches your search." : EMPTY_TEXT[libraryView]}
 							onPlay={(track) => playTrack(track, displayFiles)}
+							onToggleFavorite={trackStats.toggleFavorite}
 						/>
 					</div>
 				</main>
 
-				<TrackDetailPanel track={currentTrack ?? null} />
+				<TrackDetailPanel
+					track={currentTrack ?? null}
+					stats={currentTrack ? trackStats.stats[currentTrack.relPath] ?? null : null}
+					onToggleFavorite={trackStats.toggleFavorite}
+					onSetRating={trackStats.setRating}
+				/>
 			</div>
 
 			<PlayerBar
