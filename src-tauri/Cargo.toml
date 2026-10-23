@@ -34,3 +34,4 @@ deunicode = "1.6.2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 trash = "5.2"
+tauri-plugin-window-state = "2"
