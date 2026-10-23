@@ -134,6 +134,12 @@ button.add-to-row:hover {
     border-radius: 8px;
 }
 
+.add-to-favorites-icon {
+    border: none;
+    background: color-mix(in srgb, #e11d48 14%, transparent);
+    color: #e11d48;
+}
+
 .add-to-row-text {
     display: flex;
     flex-direction: column;

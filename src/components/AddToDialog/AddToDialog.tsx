@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, ListEnd, ListStart, Plus, X } from "lucide-react";
+import { Check, Heart, ListEnd, ListStart, Plus, X } from "lucide-react";
 import type { Playlist, Track } from "../../types";
 import { displayTitle } from "../../utils/track";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
@@ -10,8 +10,11 @@ interface AddToDialogProps {
     /** Manual playlists that can be added to. */
     playlists: Playlist[];
     tracksByPath: Map<string, Track>;
+    /** Every one of the tracks is a favorite already. */
+    allFavorite: boolean;
     onPlayNext: () => void;
     onAddToQueue: () => void;
+    onAddToFavorites: () => void;
     onAddToPlaylist: (playlist: Playlist) => void;
     /** Create a playlist with the tracks, named `name`. */
     onCreatePlaylist: (name: string) => void;
@@ -23,8 +26,10 @@ export const AddToDialog = ({
     tracks,
     playlists,
     tracksByPath,
+    allFavorite,
     onPlayNext,
     onAddToQueue,
+    onAddToFavorites,
     onAddToPlaylist,
     onCreatePlaylist,
     onClose,
@@ -47,6 +52,9 @@ export const AddToDialog = ({
     const paths = new Set(tracks.map(t => t.relPath));
     const containsAll = (playlist: Playlist) =>
         tracks.length > 0 && [...paths].every(path => playlist.items?.some(item => item.path === path));
+
+    // Favorites is listed like a playlist, so the filter applies to it too.
+    const showFavorites = !query || "favorites".includes(query);
 
     const subject = tracks.length === 1
         ? displayTitle(tracks[0])
@@ -121,6 +129,20 @@ export const AddToDialog = ({
                         </div>
                     )}
 
+                    {showFavorites && (
+                        <button className="add-to-row" onClick={onAddToFavorites}>
+                            <span className="add-to-row-icon add-to-favorites-icon"><Heart size={18} fill="currentColor" /></span>
+                            <span className="add-to-row-text">
+                                <span className="add-to-row-name">Favorites</span>
+                            </span>
+                            {allFavorite && (
+                                <span className="add-to-row-already" title="Already in favorites">
+                                    <Check size={14} /> added
+                                </span>
+                            )}
+                        </button>
+                    )}
+
                     {shown.map(playlist => {
                         const already = containsAll(playlist);
                         return (
@@ -149,7 +171,7 @@ export const AddToDialog = ({
                         );
                     })}
 
-                    {shown.length === 0 && playlists.length > 0 && (
+                    {shown.length === 0 && playlists.length > 0 && !showFavorites && (
                         <div className="add-to-empty">No playlists match.</div>
                     )}
                 </div>

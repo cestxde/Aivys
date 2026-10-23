@@ -68,11 +68,18 @@ export const useTrackStats = (files: Track[]) => {
         }
     }, [reload]);
 
-    const toggleFavorite = useCallback((track: Track) => {
-        const favorite = !(statsRef.current[track.relPath]?.favorite ?? false);
-        patch(track.relPath, () => ({ favorite, favoritedAt: favorite ? nowUnix() : null }));
-        persist("set_favorite", { path: track.relPath, favorite });
+    /** Add tracks to favorites or remove them (those already in that state are skipped). */
+    const setFavorite = useCallback((tracks: Track[], favorite: boolean) => {
+        for (const track of tracks) {
+            if ((statsRef.current[track.relPath]?.favorite ?? false) === favorite) continue;
+            patch(track.relPath, () => ({ favorite, favoritedAt: favorite ? nowUnix() : null }));
+            persist("set_favorite", { path: track.relPath, favorite });
+        }
     }, [patch, persist]);
+
+    const toggleFavorite = useCallback((track: Track) => {
+        setFavorite([track], !(statsRef.current[track.relPath]?.favorite ?? false));
+    }, [setFavorite]);
 
     /** `rating` is 1-5, or 0 to clear. */
     const setRating = useCallback((track: Track, rating: number) => {
@@ -102,5 +109,5 @@ export const useTrackStats = (files: Track[]) => {
         persist("record_complete", { path: track.relPath });
     }, [patch, persist]);
 
-    return { stats, reload, toggleFavorite, setRating, setTrackTag, recordPlay, recordComplete };
+    return { stats, reload, setFavorite, toggleFavorite, setRating, setTrackTag, recordPlay, recordComplete };
 };

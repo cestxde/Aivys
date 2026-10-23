@@ -606,6 +606,7 @@ function App() {
 					tracks={addTo}
 					playlists={playlists.playlists.filter(p => p.type === "manual" && !p.readOnly)}
 					tracksByPath={tracksByPath}
+					allFavorite={addTo.every(t => trackStats.stats[t.relPath]?.favorite)}
 					onPlayNext={() => {
 						playNext(addTo);
 						setAddTo(null);
@@ -615,6 +616,11 @@ function App() {
 						addToQueue(addTo);
 						setAddTo(null);
 						notifyInfo("Added to queue");
+					}}
+					onAddToFavorites={() => {
+						trackStats.setFavorite(addTo, true);
+						setAddTo(null);
+						notifyInfo("Added to favorites");
 					}}
 					onAddToPlaylist={(target) => {
 						setAddTo(null);
