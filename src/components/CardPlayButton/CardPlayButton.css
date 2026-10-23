@@ -34,3 +34,13 @@
         opacity: 1;
     }
 }
+
+/* With a mouse, hidden card actions take no room: names use the full width
+   and are only cut while the actions are shown. Touch keeps them visible. */
+@media (hover: hover) {
+    .card-hover:not(:hover):not(:focus-within) .card-play-button,
+    .card-hover:not(:hover):not(:focus-within) .playlists-menu-button,
+    .card-hover:not(:hover):not(:focus-within) .tag-card-menu {
+        display: none;
+    }
+}
