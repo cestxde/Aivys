@@ -9,6 +9,7 @@ use super::playlists::{self, PlaylistView, SmartRules, SortSpec};
 use super::settings::{self, LibrarySettings};
 use super::tags::{self, TagDef};
 use super::{conflicts, system, Store, StoreError};
+use crate::db::search::SearchHit;
 use crate::db::LibraryDb;
 use std::collections::HashMap;
 use std::path::Path;
@@ -348,4 +349,23 @@ pub(crate) async fn preview_smart_playlist(
     rules: SmartRules,
 ) -> Result<Vec<String>, StoreError> {
     with_library(&state, |library| smart_tracks(library, &rules))
+}
+
+// ---- Search ----
+
+/// Tracks matching a search box query, best first, with how each matched.
+#[tauri::command]
+pub(crate) async fn search_tracks(
+    state: State<'_, StoreState>,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<SearchHit>, StoreError> {
+    with_library(&state, |library| {
+        let db = library
+            .db
+            .as_ref()
+            .ok_or_else(|| StoreError::Invalid("library index is unavailable".to_owned()))?;
+        db.search(&query, limit.unwrap_or(100))
+            .map_err(|err| StoreError::Invalid(format!("search failed: {err}")))
+    })
 }

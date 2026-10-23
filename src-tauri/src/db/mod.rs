@@ -6,6 +6,7 @@
 //! or changed since the last scan, and the per-track state derived from the
 //! `.aivys/events` journals (see [`state`]).
 
+pub(crate) mod search;
 pub(crate) mod smart;
 pub(crate) mod state;
 
@@ -17,7 +18,7 @@ use std::path::{Path, PathBuf, MAIN_SEPARATOR_STR};
 /// Bump on any schema change. A database with another version is deleted and
 /// rebuilt from scratch: it only holds rebuildable data, so no migrations.
 /// Also bump when the event vocabulary changes, so journals are re-ingested.
-const SCHEMA_VERSION: i32 = 2;
+const SCHEMA_VERSION: i32 = 3;
 
 const SCHEMA: &str = "
 CREATE TABLE meta (
@@ -114,6 +115,14 @@ CREATE TABLE user_tags (
     name TEXT NOT NULL,
     deleted INTEGER NOT NULL
 );
+
+-- Full-text search over tracks (rowid = tracks.id). The *_latin columns hold
+-- loose Latin keys of the same text, for transliterated queries (see search).
+CREATE VIRTUAL TABLE search USING fts5(
+    title, artist, album, title_latin, artist_latin, album_latin,
+    tokenize = 'unicode61 remove_diacritics 2'
+);
+CREATE VIRTUAL TABLE search_vocab USING fts5vocab(search, col);
 ";
 
 /// What the index remembers about a file to decide whether to re-read it.
@@ -133,6 +142,9 @@ pub(crate) struct ScannedTrack {
 
 pub(crate) struct LibraryDb {
     conn: Connection,
+    /// Latin-key vocabulary for typo correction, with the `data_version` it
+    /// was read at (the scan writes through another connection).
+    vocab: std::cell::RefCell<Option<(i64, search::Vocab)>>,
 }
 
 /// One database per library: `<app-data>/index/<hash of the library root>.sqlite`.
@@ -188,7 +200,10 @@ impl LibraryDb {
                 Self::create(&path, library_root)?
             }
         };
-        Ok(LibraryDb { conn })
+        Ok(LibraryDb {
+            conn,
+            vocab: Default::default(),
+        })
     }
 
     fn create(path: &Path, library_root: &Path) -> rusqlite::Result<Connection> {
@@ -238,12 +253,17 @@ impl LibraryDb {
             for (rel_path, added_at) in added_at_updates {
                 stmt.execute(params![rel_path, added_at])?;
             }
+            let mut unindex =
+                tx.prepare("DELETE FROM search WHERE rowid = (SELECT id FROM tracks WHERE rel_path = ?1)")?;
             let mut stmt = tx.prepare("DELETE FROM tracks WHERE rel_path = ?1")?;
             for rel_path in removed {
+                unindex.execute([rel_path])?;
                 stmt.execute([rel_path])?;
             }
         }
-        tx.commit()
+        tx.commit()?;
+        self.invalidate_vocab();
+        Ok(())
     }
 
     /// Every indexed track, with absolute paths resolved against `root`.
@@ -351,7 +371,8 @@ fn upsert_track(tx: &Transaction, scanned: &ScannedTrack) -> rusqlite::Result<()
             stmt.execute(params![id, position as i64, name])?;
         }
     }
-    Ok(())
+
+    search::index_track(tx, id, track)
 }
 
 #[cfg(test)]

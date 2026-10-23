@@ -30,3 +30,4 @@ encoding_rs = "0.8"
 blake3 = "1.5"
 uuid = { version = "1", features = ["v4"] }
 rusqlite = { version = "0.40", features = ["bundled", "fallible_uint", "functions"] }
+deunicode = "1.6.2"

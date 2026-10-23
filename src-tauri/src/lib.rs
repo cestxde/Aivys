@@ -54,7 +54,8 @@ pub fn run() {
             set_playlist_cover,
             clear_playlist_cover,
             get_smart_playlist_tracks,
-            preview_smart_playlist
+            preview_smart_playlist,
+            search_tracks
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
