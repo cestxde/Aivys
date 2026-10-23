@@ -15,6 +15,7 @@ import { Sidebar } from "./components/Sidebar/Sidebar";
 import { TrackDetailPanel } from "./components/TrackDetailPanel/TrackDetailPanel";
 import { Notices } from "./components/Notices/Notices";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
+import { useSearchScroll } from "./hooks/useSearchScroll";
 import { useTrackStats } from "./hooks/useTrackStats";
 import { usePlayTracking } from "./hooks/usePlayTracking";
 import { usePlaylists } from "./hooks/usePlaylists";
@@ -186,6 +187,7 @@ function App() {
 		toggleShuffle,
 		playTrack
 	);
+	const { ref: listRef, onScroll: onListScroll } = useSearchScroll(searchQuery, "id" in listView ? `${listView.kind}:${listView.id}` : listView.kind);
 
 	const editablePlaylist = playlist && !playlist.readOnly ? playlist : null;
 	const manualPlaylist = editablePlaylist?.type === "manual" ? editablePlaylist : null;
@@ -204,8 +206,10 @@ function App() {
 		}
 	};
 
+	// Navigating always leaves the search, even to the view already open.
 	const showView = (next: View) => {
 		setRenamingId(null);
+		setSearchQuery("");
 		setListView(next);
 	};
 
@@ -548,7 +552,7 @@ function App() {
 								onPlayAll={handlePlayAll}
 							/>
 
-							<div className="track-list-wrapper">
+							<div className="track-list-wrapper" ref={listRef} onScroll={onListScroll}>
 								<TrackList
 									rows={displayRows}
 									activePath={activePath}
