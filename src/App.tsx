@@ -19,6 +19,7 @@ import { Notices } from "./components/Notices/Notices";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
 import { useSearchScroll } from "./hooks/useSearchScroll";
 import { usePageLayouts } from "./hooks/usePageLayouts";
+import { sortScopeOf, useViewSorts } from "./hooks/useViewSorts";
 import { useTrackStats } from "./hooks/useTrackStats";
 import { usePlayTracking } from "./hooks/usePlayTracking";
 import { usePlaylists } from "./hooks/usePlaylists";
@@ -35,7 +36,8 @@ import { TagsPage } from "./components/TagsPage/TagsPage";
 import { TagHeader } from "./components/TagHeader/TagHeader";
 import { TagDialog } from "./components/TagDialog/TagDialog";
 import { TagPicker } from "./components/TagPicker/TagPicker";
-import { sortSpecOf, systemViewTracks, tagTracks } from "./utils/views";
+import { systemViewTracks, tagTracks } from "./utils/views";
+import { compareBy, hintOf, sectionOf, sortSpecOf, viewSortOf, DEFAULT_SORT, type ViewSort } from "./utils/sort";
 import {
 	folderTracks, groupAlbums, groupArtists, groupCovers, hasFolders, subfolders, type TrackGroup,
 } from "./utils/groups";
@@ -44,7 +46,7 @@ import { notifyError, notifyInfo } from "./utils/notify";
 import { displayTitle } from "./utils/track";
 import {
 	addRecentPath, removeRecentPath,
-	type ListRow, type Playlist, type SmartRules, type SortOrder, type SystemView, type Track, type UserTag, type View,
+	type ListRow, type Playlist, type SmartRules, type SystemView, type Track, type UserTag, type View,
 } from "./types";
 
 const EMPTY_TEXT: Record<SystemView, string> = {
@@ -65,6 +67,22 @@ const ROOT_FOLDER_VIEW: View = { kind: "folder", id: "" };
 const lastSegment = (path: string): string => {
 	const parts = path.split(/[\\/]/).filter(Boolean);
 	return parts.length ? parts[parts.length - 1] : path;
+};
+
+/** Name of a view's own order in the sort menu; null when it has none worth offering. */
+const defaultSortLabel = (view: View, playlist: Playlist | null): string | null => {
+	switch (view.kind) {
+		case "system":
+			return view.id === "favorites" ? "Recently favorited"
+				: view.id === "recentlyPlayed" ? "Recently played"
+				: view.id === "mostPlayed" ? "Most played"
+				: null;
+		case "artist": return "Album order";
+		case "album": return "Track order";
+		case "folder": return "Folder order";
+		case "playlist": return playlist?.type === "smart" ? "Rule order" : "Playlist order";
+		default: return null;
+	}
 };
 
 const countTracks = (count: number) => `${count} ${count === 1 ? "track" : "tracks"}`;
@@ -156,12 +174,12 @@ function App() {
 		[listView, files],
 	);
 
-	const { rows: viewRows, missingCount, playlist, sortOrder, setLibrarySort } =
+	const { rows: naturalRows, missingCount, playlist } =
 		useViewRows(listView, files, trackStats.stats, playlists.playlists, currentGroup?.tracks ?? null);
 
 	// Built-in playlists pinned on the playlists page.
 	const pinned = useMemo((): PinnedPlaylist[] => {
-		const count = (id: SystemView) => systemViewTracks(files, id, trackStats.stats, "date").length;
+		const count = (id: SystemView) => systemViewTracks(files, id, trackStats.stats).length;
 		return [
 			{ id: "favorites", name: "Favorites", icon: Heart, color: "#e11d48", count: count("favorites") },
 			{ id: "mostPlayed", name: "Most played", icon: TrendingUp, color: "#f59e0b", count: count("mostPlayed") },
@@ -229,6 +247,23 @@ function App() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
+	// The sort of the list on screen: remembered per kind of view, a manual
+	// playlist's own in its file.
+	const viewSorts = useViewSorts();
+	const sortScope = sortScopeOf(listView, playlist?.type ?? null);
+	const defaultLabel = defaultSortLabel(listView, playlist);
+	const remembered = sortScope ? viewSorts.sorts[sortScope] : viewSortOf(playlist?.sort);
+	// A view without an order of its own never shows it.
+	const viewSort: ViewSort = remembered.field === "default" && !defaultLabel ? DEFAULT_SORT : remembered;
+	const viewRows = useMemo(() => {
+		if (viewSort.field === "default") return viewSort.dir === "desc" ? [...naturalRows].reverse() : naturalRows;
+		const compare = compareBy({ field: viewSort.field, dir: viewSort.dir });
+		return [...naturalRows].sort((a, b) => compare(a.track, b.track));
+	}, [naturalRows, viewSort.field, viewSort.dir]);
+	const rowSection = useMemo(() => sectionOf(viewSort.field), [viewSort.field]);
+	const rowHint = useMemo(() => hintOf(viewSort.field), [viewSort.field]);
+	const viewKey = "id" in listView ? `${listView.kind}:${listView.id}` : listView.kind;
+
 	const {
 		searchQuery, setSearchQuery,
 		displayRows, displayFiles, looseFromIndex, isSearching, handleShuffleAll
@@ -238,15 +273,17 @@ function App() {
 		toggleShuffle,
 		playTrack
 	);
-	const { ref: listRef, onScroll: onListScroll } = useSearchScroll(searchQuery, "id" in listView ? `${listView.kind}:${listView.id}` : listView.kind);
+	const { ref: listRef, onScroll: onListScroll } = useSearchScroll(searchQuery, viewKey);
 
 	const editablePlaylist = playlist && !playlist.readOnly ? playlist : null;
 	const manualPlaylist = editablePlaylist?.type === "manual" ? editablePlaylist : null;
 
-	const handleSortChange = (order: SortOrder) => {
-		if (listView.kind === "system" || listView.kind === "tag") setLibrarySort(order);
-		else if (manualPlaylist) playlists.setSort(manualPlaylist.id, sortSpecOf(order));
+	const handleSortChange = (sort: ViewSort) => {
+		if (sortScope) viewSorts.setSort(sortScope, sort);
+		else if (manualPlaylist) playlists.setSort(manualPlaylist.id, sortSpecOf(sort));
 	};
+	// Read-only playlists keep the order they came with.
+	const sortLocked = !sortScope && !manualPlaylist;
 
 	// Navigating always leaves the search, even to the view already open.
 	const showView = (next: View) => {
@@ -368,7 +405,7 @@ function App() {
 		notifyInfo(tracks.length === 1 ? "Moved to the trash" : `Moved ${tracks.length} tracks to the trash`);
 	};
 
-	const tracksOfTag = (target: UserTag): Track[] => tagTracks(files, target.id, trackStats.stats, "date");
+	const tracksOfTag = (target: UserTag): Track[] => tagTracks(files, target.id, trackStats.stats);
 
 	const closeMenu = useCallback(() => setMenu(null), []);
 
@@ -562,7 +599,7 @@ function App() {
 						<PlaylistsPage
 							pinned={pinned}
 							onOpenPinned={(id) => showView({ kind: "system", id })}
-							onPlayPinned={(id) => playTracks(systemViewTracks(files, id, trackStats.stats, "date"))}
+							onPlayPinned={(id) => playTracks(systemViewTracks(files, id, trackStats.stats))}
 							playlists={playlists.playlists}
 							tracksByPath={tracksByPath}
 							layout={layouts.playlists}
@@ -685,10 +722,12 @@ function App() {
 							<Toolbar
 								searchQuery={searchQuery}
 								onSearchChange={setSearchQuery}
-								sortOrder={sortOrder}
+								sort={viewSort}
+								defaultLabel={defaultLabel}
 								onSortChange={handleSortChange}
-								sortDisabled={isSearching}
-								showManualOrder={playlist?.type === "manual"}
+								display={viewSorts.display}
+								onDisplayChange={viewSorts.setDisplay}
+								sortDisabled={isSearching || sortLocked}
 								onShuffleAll={handleShuffleAll}
 								onPlayAll={handlePlayAll}
 							/>
@@ -710,14 +749,21 @@ function App() {
 									/>
 								)}
 								<TrackList
+									key={`${viewKey}:${viewSort.field}:${viewSort.dir}:${viewSorts.display}`}
 									rows={displayRows}
 									activePath={activePath}
 									looseFromIndex={looseFromIndex}
+									sectionOf={!isSearching && viewSorts.display === "sections" ? rowSection : null}
+									hintOf={!isSearching && viewSorts.display === "inline" ? rowHint : null}
 									emptyText={emptyText}
 									onPlay={(track) => playTrack(track, displayFiles)}
 									onOpenMenu={(row, x, y) => setMenu({ x, y, entries: trackMenu(row) })}
-									onReorder={manualPlaylist && sortOrder === "manual" && !isSearching
-										? (itemIds) => playlists.reorder(manualPlaylist.id, itemIds)
+									onReorder={manualPlaylist && viewSort.field === "default" && !isSearching
+										? (itemIds) => playlists.reorder(
+											manualPlaylist.id,
+											// Shown reversed: store the order back the right way round.
+											viewSort.dir === "desc" ? [...itemIds].reverse() : itemIds,
+										)
 										: undefined}
 								/>
 							</div>

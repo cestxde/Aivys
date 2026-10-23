@@ -2,7 +2,16 @@ import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import "./ContextMenu.css";
 
 export type MenuEntry =
-    | { kind: "item"; label: string; icon?: ReactNode; onSelect: () => void; disabled?: boolean; danger?: boolean }
+    | {
+        kind: "item";
+        label: string;
+        icon?: ReactNode;
+        /** Gray text on the right, e.g. the current state of the item. */
+        detail?: string;
+        onSelect: () => void;
+        disabled?: boolean;
+        danger?: boolean;
+    }
     | { kind: "label"; label: string }
     | { kind: "separator" };
 
@@ -36,15 +45,19 @@ export const ContextMenu = ({ x, y, entries, onClose }: ContextMenuProps) => {
         const onKey = (e: KeyboardEvent) => {
             if (e.key === "Escape") onClose();
         };
+        // A long menu scrolls itself; only scrolling elsewhere closes it.
+        const onScroll = (e: Event) => {
+            if (!ref.current?.contains(e.target as Node)) onClose();
+        };
         window.addEventListener("pointerdown", onPointerDown);
         window.addEventListener("keydown", onKey);
         window.addEventListener("resize", onClose);
-        window.addEventListener("scroll", onClose, true);
+        window.addEventListener("scroll", onScroll, true);
         return () => {
             window.removeEventListener("pointerdown", onPointerDown);
             window.removeEventListener("keydown", onKey);
             window.removeEventListener("resize", onClose);
-            window.removeEventListener("scroll", onClose, true);
+            window.removeEventListener("scroll", onScroll, true);
         };
     }, [onClose]);
 
@@ -72,6 +85,7 @@ export const ContextMenu = ({ x, y, entries, onClose }: ContextMenuProps) => {
                     >
                         <span className="context-menu-icon">{entry.icon}</span>
                         <span className="context-menu-text">{entry.label}</span>
+                        {entry.detail && <span className="context-menu-detail">{entry.detail}</span>}
                     </button>
                 );
             })}

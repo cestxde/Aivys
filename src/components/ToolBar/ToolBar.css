@@ -39,18 +39,38 @@
     border-color: var(--accent);
 }
 
-.sort-select {
-    padding: 8px;
+.sort-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 10px;
     border-radius: 6px;
     background: var(--code-bg);
     color: var(--text-h);
     border: 1px solid var(--border);
+    font: inherit;
+    font-size: 0.85rem;
     cursor: pointer;
 }
 
-.sort-select:disabled {
+.sort-button:hover:not(:disabled) {
+    border-color: var(--accent);
+}
+
+.sort-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.sort-direction {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+}
+
+.sort-button-label {
+    white-space: nowrap;
 }
 
 .toolbar-button {

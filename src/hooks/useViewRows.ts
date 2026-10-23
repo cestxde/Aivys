@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { ListRow, Playlist, SortOrder, Track, TrackStats, View } from "../types";
-import { compareTracks, sortOrderOf, systemViewTracks, tagTracks } from "../utils/views";
+import type { ListRow, Playlist, Track, TrackStats, View } from "../types";
+import { systemViewTracks, tagTracks } from "../utils/views";
 import { notifyError } from "../utils/notify";
 
 /**
@@ -32,10 +32,9 @@ const useSmartPaths = (playlist: Playlist | null, stats: Record<string, TrackSta
 const rowsOf = (tracks: Track[]): ListRow[] => tracks.map(track => ({ key: track.path, track }));
 
 /**
- * The rows the track list shows for `view`, in the view's order, plus how the
- * view can be sorted: the library and tags by a local choice, a manual
- * playlist by its persisted sort, a smart playlist only through its rules.
- * Artists, albums and folders show `groupTracks` in their own order.
+ * The rows the track list shows for `view`, in the view's own order (sorting
+ * is applied on top by the caller). Artists, albums and folders show
+ * `groupTracks`.
  */
 export const useViewRows = (
     view: View,
@@ -44,7 +43,6 @@ export const useViewRows = (
     playlists: Playlist[],
     groupTracks: Track[] | null
 ) => {
-    const [librarySort, setLibrarySort] = useState<SortOrder>('date');
     const playlist = view.kind === 'playlist'
         ? playlists.find(p => p.id === view.id) ?? null
         : null;
@@ -52,20 +50,15 @@ export const useViewRows = (
 
     const byRelPath = useMemo(() => new Map(files.map(f => [f.relPath, f])), [files]);
 
-    const sortOrder: SortOrder | null = view.kind === 'system'
-        ? (view.id === 'library' ? librarySort : null)
-        : view.kind === 'tag' ? librarySort
-        : playlist?.type === 'manual' ? sortOrderOf(playlist.sort) : null;
-
     const { rows, missingCount } = useMemo(() => {
         if (view.kind === 'system') {
-            return { rows: rowsOf(systemViewTracks(files, view.id, stats, librarySort)), missingCount: 0 };
+            return { rows: rowsOf(systemViewTracks(files, view.id, stats)), missingCount: 0 };
         }
         if (view.kind === 'artist' || view.kind === 'album' || view.kind === 'folder') {
             return { rows: rowsOf(groupTracks ?? []), missingCount: 0 };
         }
         if (view.kind === 'tag') {
-            return { rows: rowsOf(tagTracks(files, view.id, stats, librarySort)), missingCount: 0 };
+            return { rows: rowsOf(tagTracks(files, view.id, stats)), missingCount: 0 };
         }
         if (!playlist) return { rows: [], missingCount: 0 };
 
@@ -83,13 +76,8 @@ export const useViewRows = (
             if (track) rows.push({ key: item.id, track, itemId: item.id });
             else missing++;
         }
-        const order = sortOrderOf(playlist.sort);
-        if (order !== 'manual') {
-            const compare = compareTracks(order);
-            rows.sort((a, b) => compare(a.track, b.track));
-        }
         return { rows, missingCount: missing };
-    }, [view, files, stats, librarySort, playlist, smartPaths, byRelPath, groupTracks]);
+    }, [view, files, stats, playlist, smartPaths, byRelPath, groupTracks]);
 
-    return { rows, missingCount, playlist, sortOrder, setLibrarySort };
+    return { rows, missingCount, playlist };
 };

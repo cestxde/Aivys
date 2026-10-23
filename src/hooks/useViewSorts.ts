@@ -1,0 +1,99 @@
+import { useCallback, useState } from "react";
+import type { View } from "../types";
+import { DEFAULT_SORT, type ListDisplay, type SortField, type ViewSort } from "../utils/sort";
+
+/**
+ * Views that share a remembered sort: one per built-in view, one for all
+ * tags, all artists, ... A manual playlist keeps its sort in its own file.
+ */
+export type SortScope =
+    | 'library' | 'favorites' | 'recentlyPlayed' | 'mostPlayed'
+    | 'tag' | 'artist' | 'album' | 'folder' | 'smart';
+
+export const sortScopeOf = (view: View, playlistType: 'manual' | 'smart' | null): SortScope | null => {
+    switch (view.kind) {
+        case 'system': return view.id;
+        case 'tag':
+        case 'artist':
+        case 'album':
+        case 'folder': return view.kind;
+        case 'playlist': return playlistType === 'smart' ? 'smart' : null;
+        default: return null;
+    }
+};
+
+const NEWEST: ViewSort = { field: 'addedAt', dir: 'desc' };
+
+/** The library and tags have no order of their own worth keeping. */
+const DEFAULTS: Record<SortScope, ViewSort> = {
+    library: NEWEST,
+    tag: NEWEST,
+    favorites: DEFAULT_SORT,
+    recentlyPlayed: DEFAULT_SORT,
+    mostPlayed: DEFAULT_SORT,
+    artist: DEFAULT_SORT,
+    album: DEFAULT_SORT,
+    folder: DEFAULT_SORT,
+    smart: DEFAULT_SORT,
+};
+
+// Device-local view preferences; a failing storage just means no memory.
+const SORTS_KEY = "aivys.sorts";
+const DISPLAY_KEY = "aivys.listDisplay";
+
+const FIELDS: SortField[] = ['default', 'addedAt', 'title', 'artist', 'album', 'duration', 'year'];
+
+const isSort = (value: unknown): value is ViewSort => {
+    const sort = value as Partial<ViewSort> | null;
+    return !!sort && FIELDS.includes(sort.field as SortField) && (sort.dir === 'asc' || sort.dir === 'desc');
+};
+
+const loadSorts = (): Record<SortScope, ViewSort> => {
+    const sorts = { ...DEFAULTS };
+    try {
+        const stored = JSON.parse(localStorage.getItem(SORTS_KEY) ?? "{}") as Record<string, unknown>;
+        for (const scope of Object.keys(DEFAULTS) as SortScope[]) {
+            if (isSort(stored[scope])) sorts[scope] = stored[scope];
+        }
+    } catch {
+        // Defaults.
+    }
+    return sorts;
+};
+
+const loadDisplay = (): ListDisplay => {
+    try {
+        return localStorage.getItem(DISPLAY_KEY) === "sections" ? "sections" : "inline";
+    } catch {
+        return "inline";
+    }
+};
+
+const save = (key: string, value: string) => {
+    try {
+        localStorage.setItem(key, value);
+    } catch {
+        // Not remembered; fine.
+    }
+};
+
+/** The remembered sort of every scope, and how sorted lists are displayed. */
+export const useViewSorts = () => {
+    const [sorts, setSorts] = useState(loadSorts);
+    const [display, setDisplayState] = useState<ListDisplay>(loadDisplay);
+
+    const setSort = useCallback((scope: SortScope, sort: ViewSort) => {
+        setSorts(prev => {
+            const next = { ...prev, [scope]: sort };
+            save(SORTS_KEY, JSON.stringify(next));
+            return next;
+        });
+    }, []);
+
+    const setDisplay = useCallback((next: ListDisplay) => {
+        setDisplayState(next);
+        save(DISPLAY_KEY, next);
+    }, []);
+
+    return { sorts, setSort, display, setDisplay };
+};

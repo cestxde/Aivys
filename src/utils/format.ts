@@ -13,6 +13,10 @@ export const formatDateTime = (unixSeconds: number): string =>
         timeStyle: "short",
     });
 
+/** Format a unix timestamp (seconds) as a short local date. */
+export const formatDate = (unixSeconds: number): string =>
+    new Date(unixSeconds * 1000).toLocaleDateString(undefined, { dateStyle: "medium" });
+
 const SIZE_UNITS = ["B", "KB", "MB", "GB", "TB"];
 
 /** Format a byte count the way file managers do, e.g. "8.4 MB" (1 KB = 1024 B). */

@@ -1,9 +1,10 @@
 import "./TrackList.css";
-import { Fragment, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { GripVertical, MoreVertical } from "lucide-react";
+import { Fragment, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { ChevronRight, GripVertical, MoreVertical } from "lucide-react";
 import type { ListRow, Track } from "../../types";
 import { displayTitle } from "../../utils/track";
 import { formatDuration } from "../../utils/format";
+import type { SortSection } from "../../utils/sort";
 import { CoverArt } from "../CoverArt";
 
 interface TrackListProps {
@@ -12,6 +13,10 @@ interface TrackListProps {
     /** Index from which results are loose search matches (-1: none). */
     looseFromIndex?: number;
     emptyText?: string;
+    /** Split the rows into collapsible sections (consecutive rows with the same key). */
+    sectionOf?: ((track: Track) => SortSection) | null;
+    /** Gray detail next to each track (the value it is sorted by). */
+    hintOf?: ((track: Track) => string | null) | null;
 
     onPlay: (track: Track) => void;
     /** Open the track menu at a viewport position (right click or the ⋮ button). */
@@ -42,6 +47,8 @@ export const TrackList = ({
     activePath,
     looseFromIndex = -1,
     emptyText = "No tracks found. Scan a directory to start.",
+    sectionOf,
+    hintOf,
     onPlay,
     onOpenMenu,
     onReorder,
@@ -95,6 +102,33 @@ export const TrackList = ({
         }
     };
 
+    // Sections start where the key changes: `starts` maps a row index to its
+    // section and size, `keys` holds every row's section key. Collapsing a key
+    // hides every section with that key.
+    const { starts, keys } = useMemo(() => {
+        const starts = new Map<number, { section: SortSection; count: number }>();
+        const keys: (string | null)[] = [];
+        let current: { section: SortSection; count: number } | null = null;
+        rows.forEach((row, index) => {
+            const section = sectionOf?.(row.track) ?? null;
+            keys.push(section?.key ?? null);
+            if (!section) return;
+            if (current && current.section.key === section.key) {
+                current.count++;
+                return;
+            }
+            current = { section, count: 1 };
+            starts.set(index, current);
+        });
+        return { starts, keys };
+    }, [rows, sectionOf]);
+    const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+    const toggleSection = (key: string) => setCollapsed(prev => {
+        const next = new Set(prev);
+        if (!next.delete(key)) next.add(key);
+        return next;
+    });
+
     const openMenuAt = (row: ListRow, x: number, y: number) => onOpenMenu?.(row, x, y);
 
     return (
@@ -103,7 +137,24 @@ export const TrackList = ({
                 <div className="empty-state">{emptyText}</div>
             ) : (
                 rows.map((row, index) => {
+                    const start = starts.get(index);
+                    const key = keys[index];
+                    const hidden = key !== null && collapsed.has(key);
+                    const header = start && (
+                        <button
+                            className={`list-section ${hidden ? "" : "open"}`}
+                            aria-expanded={!hidden}
+                            onClick={() => toggleSection(start.section.key)}
+                        >
+                            <ChevronRight size={14} className="list-section-chevron" />
+                            <span className="list-section-label">{start.section.label}</span>
+                            <span className="list-section-count">{start.count}</span>
+                        </button>
+                    );
+                    if (hidden) return <Fragment key={row.key}>{header}</Fragment>;
+
                     const file = row.track;
+                    const hint = hintOf?.(file);
                     const title = displayTitle(file);
                     const artist = file.artists.length > 0
                         ? file.artists.join(", ")
@@ -116,6 +167,7 @@ export const TrackList = ({
                             {index === looseFromIndex && (
                                 <div className="list-separator">Similar matches</div>
                             )}
+                            {header}
                             <div
                                 data-row-key={row.key}
                                 onClick={() => onPlay(file)}
@@ -143,6 +195,7 @@ export const TrackList = ({
                                     <span className="track-title">{title}</span>
                                     <span className="track-artist">{artist}</span>
                                 </div>
+                                {hint && <span className="track-hint" title={hint}>{hint}</span>}
                                 <span className="duration-tag">
                                     {formatDuration(file.duration)}
                                 </span>

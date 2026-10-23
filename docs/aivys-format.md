@@ -411,7 +411,13 @@ written.
 - `sort` is the **view sort** for this playlist, synced per-playlist (not in
   `library.json`). For a manual playlist `field: "manual"` means "use `items`
   order"; any other `field` renders a sorted view without changing the stored
-  order. `dir` ∈ `{ "asc", "desc" }`. Default: `{ "field": "manual", "dir": "asc" }`.
+  order. `dir` ∈ `{ "asc", "desc" }`; `manual` with `desc` shows the `items`
+  order reversed. Default: `{ "field": "manual", "dir": "asc" }`.
+  Sortable fields use the smart-playlist names (§8.4.3): `addedAt`, `title`,
+  `artist`, `album`, `duration`, `year`. Readers also accept the pre-release
+  names `name` (= `title`) and `date` (= `addedAt`); an unknown field falls
+  back to `manual`. Tracks without a value for the field sort last in both
+  directions.
 - `cover` is an optional playlist-cover reference (`null` = none); see §8.4.4.
 - `items[].contentHash` is **reserved for v1**: always `null` now. It exists so
   a future version can recover playlist membership after a file rename/move by
