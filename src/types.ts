@@ -87,7 +87,15 @@ export type View =
     | { kind: 'albums' }
     | { kind: 'album'; id: string }
     // `id` is the "/"-separated folder path, "" for the library root.
-    | { kind: 'folder'; id: string };
+    | { kind: 'folder'; id: string }
+    | { kind: 'settings' };
+
+/** What `resolve_conflicts` did with sync-conflict copies in `.aivys/`. */
+export interface ConflictReport {
+    merged: string[];
+    skipped: string[];
+    deviceIdRegenerated: boolean;
+}
 
 /** Views that list the tracks of an artist, album or folder. */
 export type GroupView = Extract<View, { kind: 'artist' | 'album' | 'folder' }>;

@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder } from "lucide-react";
+import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Settings } from "lucide-react";
 import { ThemedLogo } from "../ThemedLogo";
 import type { View } from "../../types";
 import "./Sidebar.css";
@@ -9,6 +9,8 @@ interface SidebarItem {
     icon: ReactNode;
     view: View;
 }
+
+const SETTINGS: SidebarItem = { label: "Settings", icon: <Settings size={18} />, view: { kind: "settings" } };
 
 const FOLDERS: SidebarItem = { label: "Folders", icon: <Folder size={18} />, view: { kind: "folder", id: "" } };
 
@@ -50,6 +52,7 @@ const isCurrent = (item: View, view: View): boolean => {
         case "artists": return view.kind === "artists" || view.kind === "artist";
         case "albums": return view.kind === "albums" || view.kind === "album";
         case "folder": return view.kind === "folder";
+        case "settings": return view.kind === "settings";
         case "system": return view.kind === "system" && item.id === view.id;
         default: return false;
     }
@@ -67,6 +70,19 @@ const folderName = (path: string): string => {
  * Hidden on narrow layouts by CSS, keeping the track list as the primary view.
  */
 export const Sidebar = ({ libraryPath, onChangeLibrary, view, onViewChange, showFolders }: SidebarProps) => {
+    const renderItem = (item: SidebarItem) => (
+        <button
+            key={item.label}
+            className={`sidebar-item ${isCurrent(item.view, view) ? "active" : ""}`}
+            title={item.label}
+            aria-current={isCurrent(item.view, view) ? "page" : undefined}
+            onClick={() => onViewChange(item.view)}
+        >
+            <span className="sidebar-icon">{item.icon}</span>
+            <span className="sidebar-label">{item.label}</span>
+        </button>
+    );
+
     return (
         <nav className="sidebar">
             <div className="sidebar-brand">
@@ -90,20 +106,14 @@ export const Sidebar = ({ libraryPath, onChangeLibrary, view, onViewChange, show
             {SECTIONS.map((items, index) => (
                 <Fragment key={index}>
                     <div className="sidebar-divider" />
-                    {items.filter(item => item !== FOLDERS || showFolders).map((item) => (
-                        <button
-                            key={item.label}
-                            className={`sidebar-item ${isCurrent(item.view, view) ? "active" : ""}`}
-                            title={item.label}
-                            aria-current={isCurrent(item.view, view) ? "page" : undefined}
-                            onClick={() => onViewChange(item.view)}
-                        >
-                            <span className="sidebar-icon">{item.icon}</span>
-                            <span className="sidebar-label">{item.label}</span>
-                        </button>
-                    ))}
+                    {items.filter(item => item !== FOLDERS || showFolders).map(renderItem)}
                 </Fragment>
             ))}
+
+            <div className="sidebar-bottom">
+                <div className="sidebar-divider" />
+                {renderItem(SETTINGS)}
+            </div>
         </nav>
     );
 };

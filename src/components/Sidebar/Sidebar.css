@@ -86,3 +86,9 @@
     white-space: nowrap;
     max-width: 130px;
 }
+/* Settings sit at the bottom of the rail. */
+.sidebar-bottom {
+    display: flex;
+    flex-direction: column;
+    margin-top: auto;
+}

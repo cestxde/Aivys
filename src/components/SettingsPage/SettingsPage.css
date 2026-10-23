@@ -1,0 +1,182 @@
+.settings-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.settings-page > * {
+    flex-shrink: 0;
+}
+
+.settings-title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-h);
+}
+
+.settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 760px;
+}
+
+.settings-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text);
+}
+
+.settings-rows {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    background: var(--bg);
+}
+
+.settings-row + .settings-row {
+    border-top: 1px solid var(--border);
+}
+
+.settings-row-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-row-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-h);
+}
+
+.settings-row-description {
+    font-size: 0.8rem;
+    color: var(--text);
+    opacity: 0.8;
+}
+
+.settings-row-description code {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+}
+
+.settings-path {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    word-break: break-all;
+    user-select: text;
+}
+
+.settings-row-control {
+    flex-shrink: 0;
+}
+
+.settings-soon {
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--code-bg);
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.settings-row.soon .settings-row-control {
+    opacity: 0.5;
+}
+
+.settings-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text-h);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.settings-button:hover:not(:disabled) {
+    background: var(--code-bg);
+}
+
+.settings-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.settings-segmented {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.settings-segmented button {
+    padding: 6px 12px;
+    border: none;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.settings-segmented button + button {
+    border-left: 1px solid var(--border);
+}
+
+.settings-segmented button.active {
+    background: var(--code-bg);
+    color: var(--text-h);
+    font-weight: 600;
+}
+
+.settings-segmented button:disabled {
+    cursor: not-allowed;
+}
+
+.settings-spin {
+    animation: settings-spin 0.8s linear infinite;
+}
+
+@keyframes settings-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Narrow windows: controls go under their text. */
+@media (max-width: 600px) {
+    .settings-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

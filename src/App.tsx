@@ -36,6 +36,7 @@ import { TagsPage } from "./components/TagsPage/TagsPage";
 import { TagHeader } from "./components/TagHeader/TagHeader";
 import { TagDialog } from "./components/TagDialog/TagDialog";
 import { TagPicker } from "./components/TagPicker/TagPicker";
+import { SettingsPage } from "./components/SettingsPage/SettingsPage";
 import { systemViewTracks, tagTracks } from "./utils/views";
 import { compareBy, hintOf, sectionOf, sortSpecOf, viewSortOf, DEFAULT_SORT, type ViewSort } from "./utils/sort";
 import {
@@ -46,7 +47,7 @@ import { notifyError, notifyInfo } from "./utils/notify";
 import { displayTitle } from "./utils/track";
 import {
 	addRecentPath, removeRecentPath,
-	type ListRow, type Playlist, type SmartRules, type SystemView, type Track, type UserTag, type View,
+	type ConflictReport, type ListRow, type Playlist, type SmartRules, type SystemView, type Track, type UserTag, type View,
 } from "./types";
 
 const EMPTY_TEXT: Record<SystemView, string> = {
@@ -217,6 +218,34 @@ function App() {
 	const goToPicker = () => {
 		stop();
 		setView("picker");
+	};
+
+	const rescan = () => library.scan(settings.lastPath);
+
+	// Forget every remembered folder except the open one.
+	const clearRecent = () => updateSettings({ recentPaths: settings.recentPaths.filter(p => p === settings.lastPath) });
+
+	/** Merge sync-conflict copies now; reload everything if something changed. */
+	const checkConflicts = async () => {
+		let report: ConflictReport;
+		try {
+			report = await invoke<ConflictReport>("resolve_conflicts");
+		} catch (e) {
+			notifyError("Could not check for sync conflicts", e);
+			return;
+		}
+		if (report.skipped.length > 0) {
+			notifyError(`${report.skipped.length} conflict ${report.skipped.length === 1 ? "copy" : "copies"} could not be merged: ${report.skipped.join("; ")}`);
+		}
+		if (report.deviceIdRegenerated) notifyInfo("Another device shared this device's id; a new one was created");
+		if (report.merged.length === 0 && report.skipped.length === 0) {
+			notifyInfo("No sync conflicts");
+			return;
+		}
+		if (report.merged.length > 0) {
+			notifyInfo(`Merged ${report.merged.length} conflict ${report.merged.length === 1 ? "copy" : "copies"}`);
+			await rescan();
+		}
 	};
 
 	const handleRemoveRecent = (path: string) => {
@@ -618,6 +647,15 @@ function App() {
 							onPlay={(target) => playTracks(tracksOfTag(target))}
 							onOpenMenu={(target, x, y) => setMenu({ x, y, entries: tagMenu(target) })}
 							onCreate={() => setTagDialog({ tag: null })}
+						/>
+					) : listView.kind === "settings" ? (
+						<SettingsPage
+							libraryPath={settings.lastPath}
+							otherRecentCount={settings.recentPaths.filter(p => p !== settings.lastPath).length}
+							onChangeFolder={goToPicker}
+							onRescan={rescan}
+							onClearRecent={clearRecent}
+							onCheckConflicts={checkConflicts}
 						/>
 					) : listView.kind === "artists" ? (
 						<CollectionPage
