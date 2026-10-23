@@ -2,7 +2,7 @@ import "./App.css";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { Heart, ListPlus, Play, Trash2, FolderOpen } from "lucide-react";
+import { Heart, ListPlus, Play, Trash2, FolderOpen, Tag, Pencil, X } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
 import { usePlayerSettings } from "./hooks/usePlayerSettings";
@@ -18,17 +18,23 @@ import { useTrackListLogic } from "./hooks/useTrackListLogic";
 import { useTrackStats } from "./hooks/useTrackStats";
 import { usePlayTracking } from "./hooks/usePlayTracking";
 import { usePlaylists } from "./hooks/usePlaylists";
+import { useTags } from "./hooks/useTags";
 import { useViewRows } from "./hooks/useViewRows";
 import { PlaylistHeader } from "./components/PlaylistHeader/PlaylistHeader";
 import { ContextMenu, type MenuEntry } from "./components/ContextMenu/ContextMenu";
-import { SmartPlaylistEditor, type TagOption } from "./components/SmartPlaylistEditor/SmartPlaylistEditor";
+import { SmartPlaylistEditor } from "./components/SmartPlaylistEditor/SmartPlaylistEditor";
 import { PlaylistsPage, type PlaylistsLayout } from "./components/PlaylistsPage/PlaylistsPage";
 import { AddToDialog } from "./components/AddToDialog/AddToDialog";
-import { sortSpecOf } from "./utils/views";
+import { TagsPage } from "./components/TagsPage/TagsPage";
+import { TagHeader } from "./components/TagHeader/TagHeader";
+import { TagDialog } from "./components/TagDialog/TagDialog";
+import { TagPicker } from "./components/TagPicker/TagPicker";
+import { sortSpecOf, tagTracks } from "./utils/views";
+import { nextTagColor } from "./utils/tags";
 import { notifyInfo } from "./utils/notify";
 import {
 	addRecentPath, removeRecentPath,
-	type ListRow, type Playlist, type SmartRules, type SortOrder, type SystemView, type Track, type View,
+	type ListRow, type Playlist, type SmartRules, type SortOrder, type SystemView, type Track, type UserTag, type View,
 } from "./types";
 
 const EMPTY_TEXT: Record<SystemView, string> = {
@@ -40,6 +46,7 @@ const EMPTY_TEXT: Record<SystemView, string> = {
 
 const LIBRARY_VIEW: View = { kind: "system", id: "library" };
 const PLAYLISTS_VIEW: View = { kind: "playlists" };
+const TAGS_VIEW: View = { kind: "tags" };
 
 // Device-local view preference; a failing storage just means no memory.
 const LAYOUT_KEY = "aivys.playlistsLayout";
@@ -56,7 +63,11 @@ type Screen = "loading" | "picker" | "library";
 /** The smart-playlist editor: creating a new one, or editing `playlist`. */
 interface EditorState {
 	playlist: Playlist | null;
-	tags: TagOption[];
+}
+
+/** The tag dialog: creating a new tag, or editing `tag`. */
+interface TagDialogState {
+	tag: UserTag | null;
 }
 
 function App() {
@@ -71,6 +82,9 @@ function App() {
 	const [editor, setEditor] = useState<EditorState | null>(null);
 	// Tracks the "Add to…" dialog is open for.
 	const [addTo, setAddTo] = useState<Track[] | null>(null);
+	const [tagDialog, setTagDialog] = useState<TagDialogState | null>(null);
+	// Tracks the tag picker is open for.
+	const [tagPicker, setTagPicker] = useState<Track[] | null>(null);
 	const [playlistsLayout, setPlaylistsLayout] = useState<PlaylistsLayout>(loadLayout);
 
 	const {
@@ -92,12 +106,24 @@ function App() {
 	usePlayTracking(element, currentTrack ?? null, trackStats.recordPlay, trackStats.recordComplete);
 
 	const playlists = usePlaylists(files);
-	// A playlist that is gone (deleted, other library) falls back to the list.
-	const listView: View = requestedView.kind === "playlist" && !playlists.playlists.some(p => p.id === requestedView.id)
-		? PLAYLISTS_VIEW
+	const tags = useTags(files);
+	// A playlist or tag that is gone (deleted, other library) falls back to the list.
+	const listView: View =
+		requestedView.kind === "playlist" && !playlists.playlists.some(p => p.id === requestedView.id) ? PLAYLISTS_VIEW
+		: requestedView.kind === "tag" && !tags.byId.has(requestedView.id) ? TAGS_VIEW
 		: requestedView;
+	const currentTag = listView.kind === "tag" ? tags.byId.get(listView.id) ?? null : null;
 	const { rows: viewRows, missingCount, playlist, sortOrder, setLibrarySort } =
 		useViewRows(listView, files, trackStats.stats, playlists.playlists);
+
+	// Tagged library tracks per tag id.
+	const tagCounts = useMemo(() => {
+		const counts = new Map<string, number>();
+		for (const file of files) {
+			for (const id of trackStats.stats[file.relPath]?.tags ?? []) counts.set(id, (counts.get(id) ?? 0) + 1);
+		}
+		return counts;
+	}, [files, trackStats.stats]);
 
 	// Open a folder as the active library: validate it, remember it, scan it.
 	const openLibrary = async (path: string) => {
@@ -164,7 +190,7 @@ function App() {
 	const manualPlaylist = editablePlaylist?.type === "manual" ? editablePlaylist : null;
 
 	const handleSortChange = (order: SortOrder) => {
-		if (listView.kind === "system") setLibrarySort(order);
+		if (listView.kind === "system" || listView.kind === "tag") setLibrarySort(order);
 		else if (manualPlaylist) playlists.setSort(manualPlaylist.id, sortSpecOf(order));
 	};
 
@@ -201,15 +227,7 @@ function App() {
 		if (created) await addToPlaylist(created, tracks);
 	};
 
-	const openEditor = async (edited: Playlist | null) => {
-		let tags: TagOption[] = [];
-		try {
-			tags = await invoke<TagOption[]>("list_tags");
-		} catch {
-			// The tag field just offers nothing.
-		}
-		setEditor({ playlist: edited, tags });
-	};
+	const openEditor = (edited: Playlist | null) => setEditor({ playlist: edited });
 
 	const saveSmartPlaylist = async (name: string, rules: SmartRules) => {
 		const edited = editor?.playlist;
@@ -245,6 +263,39 @@ function App() {
 		}
 	};
 
+	const saveTag = async (name: string, color: string) => {
+		const edited = tagDialog?.tag;
+		setTagDialog(null);
+		if (!edited) {
+			await tags.create(name, color);
+			return;
+		}
+		const change: { name?: string; color?: string } = {};
+		if (name !== edited.name) change.name = name;
+		if (color !== edited.color) change.color = color;
+		if (change.name !== undefined || change.color !== undefined) await tags.update(edited.id, change);
+	};
+
+	const deleteTag = async (target: UserTag) => {
+		const count = tagCounts.get(target.id) ?? 0;
+		const from = count > 0 ? ` It will be removed from ${count} ${count === 1 ? "track" : "tracks"}.` : "";
+		const confirmed = await ask(`Delete the tag "${target.name}"?${from} The tracks stay in the library.`, {
+			title: "Delete tag",
+			kind: "warning",
+			okLabel: "Delete",
+		});
+		// Assignments to a deleted tag are dropped when stats are derived.
+		if (confirmed && await tags.remove(target.id)) trackStats.reload();
+	};
+
+	/** Create a tag from the picker and assign it to the picked tracks. */
+	const createTagFor = async (name: string, tracks: Track[]) => {
+		const created = await tags.create(name, nextTagColor(tags.tags));
+		if (created) trackStats.setTrackTag(tracks, created.id, true);
+	};
+
+	const tracksOfTag = (target: UserTag): Track[] => tagTracks(files, target.id, trackStats.stats, "date");
+
 	const closeMenu = useCallback(() => setMenu(null), []);
 
 	const trackMenu = (row: ListRow): MenuEntry[] => {
@@ -252,6 +303,7 @@ function App() {
 		const entries: MenuEntry[] = [
 			{ kind: "item", label: "Play", icon: <Play size={16} />, onSelect: () => playTrack(row.track, displayFiles) },
 			{ kind: "item", label: "Add to…", icon: <ListPlus size={16} />, onSelect: () => setAddTo([row.track]) },
+			{ kind: "item", label: "Tags…", icon: <Tag size={16} />, onSelect: () => setTagPicker([row.track]) },
 			{
 				kind: "item",
 				label: favorite ? "Remove from favorites" : "Add to favorites",
@@ -259,6 +311,18 @@ function App() {
 				onSelect: () => trackStats.toggleFavorite(row.track),
 			},
 		];
+		if (currentTag) {
+			const tag = currentTag;
+			entries.push(
+				{ kind: "separator" },
+				{
+					kind: "item",
+					label: `Remove tag "${tag.name}"`,
+					icon: <X size={16} />,
+					onSelect: () => trackStats.setTrackTag([row.track], tag.id, false),
+				},
+			);
+		}
 		if (manualPlaylist && row.itemId) {
 			const itemId = row.itemId;
 			entries.push(
@@ -307,11 +371,38 @@ function App() {
 		]),
 	];
 
+	const tagMenu = (target: UserTag): MenuEntry[] => [
+		{ kind: "item", label: "Open", icon: <FolderOpen size={16} />, onSelect: () => showView({ kind: "tag", id: target.id }) },
+		{
+			kind: "item",
+			label: "Play",
+			icon: <Play size={16} />,
+			onSelect: () => {
+				const tracks = tracksOfTag(target);
+				if (tracks.length > 0) playTrack(tracks[0], tracks);
+			},
+		},
+		{
+			kind: "item",
+			label: "Add to…",
+			icon: <ListPlus size={16} />,
+			onSelect: () => {
+				const tracks = tracksOfTag(target);
+				if (tracks.length > 0) setAddTo(tracks);
+			},
+		},
+		{ kind: "separator" },
+		{ kind: "item", label: "Edit", icon: <Pencil size={16} />, onSelect: () => setTagDialog({ tag: target }) },
+		{ kind: "item", label: "Delete", icon: <Trash2 size={16} />, danger: true, onSelect: () => deleteTag(target) },
+	];
+
 	const emptyText = isSearching
 		? "Nothing matches your search."
 		: listView.kind === "system"
 			? EMPTY_TEXT[listView.id]
-			: playlist?.type === "smart"
+			: listView.kind === "tag"
+				? "No tracks have this tag yet. Use \u201cTags\u2026\u201d in a track's menu (right click or \u22ee) to add it."
+				: playlist?.type === "smart"
 				? "No tracks match these rules."
 				: "This playlist is empty. Use \u201cAdd to\u2026\u201d in a track's menu (right click or \u22ee) to add tracks.";
 
@@ -381,8 +472,26 @@ function App() {
 							onCreate={createPlaylist}
 							onCreateSmart={() => openEditor(null)}
 						/>
+					) : listView.kind === "tags" ? (
+						<TagsPage
+							tags={tags.tags}
+							counts={tagCounts}
+							onOpen={(target) => showView({ kind: "tag", id: target.id })}
+							onOpenMenu={(target, x, y) => setMenu({ x, y, entries: tagMenu(target) })}
+							onCreate={() => setTagDialog({ tag: null })}
+						/>
 					) : (
 						<>
+							{currentTag && (
+								<TagHeader
+									tag={currentTag}
+									rows={viewRows}
+									onBack={() => showView(TAGS_VIEW)}
+									onEdit={() => setTagDialog({ tag: currentTag })}
+									onDelete={() => deleteTag(currentTag)}
+								/>
+							)}
+
 							{playlist && (
 								<PlaylistHeader
 									key={playlist.id}
@@ -418,6 +527,7 @@ function App() {
 									rows={displayRows}
 									activePath={activePath}
 									stats={trackStats.stats}
+									tagsById={tags.byId}
 									looseFromIndex={looseFromIndex}
 									emptyText={emptyText}
 									onPlay={(track) => playTrack(track, displayFiles)}
@@ -437,6 +547,9 @@ function App() {
 					stats={currentTrack ? trackStats.stats[currentTrack.relPath] ?? null : null}
 					onToggleFavorite={trackStats.toggleFavorite}
 					onSetRating={trackStats.setRating}
+					tagsById={tags.byId}
+					onEditTags={(track) => setTagPicker([track])}
+					onOpenTag={(target) => showView({ kind: "tag", id: target.id })}
 				/>
 			</div>
 
@@ -493,9 +606,30 @@ function App() {
 					title={editor.playlist ? "Edit smart playlist" : "New smart playlist"}
 					initialName={editor.playlist?.name ?? "New smart playlist"}
 					initialRules={editor.playlist?.rules}
-					tags={editor.tags}
+					tags={tags.tags}
 					onSave={saveSmartPlaylist}
 					onClose={() => setEditor(null)}
+				/>
+			)}
+
+			{tagDialog && (
+				<TagDialog
+					tag={tagDialog.tag}
+					initialColor={nextTagColor(tags.tags)}
+					tags={tags.tags}
+					onSave={saveTag}
+					onClose={() => setTagDialog(null)}
+				/>
+			)}
+
+			{tagPicker && (
+				<TagPicker
+					tracks={tagPicker}
+					tags={tags.tags}
+					stats={trackStats.stats}
+					onToggle={(tag, assigned) => trackStats.setTrackTag(tagPicker, tag.id, assigned)}
+					onCreate={(name) => createTagFor(name, tagPicker)}
+					onClose={() => setTagPicker(null)}
 				/>
 			)}
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ListRow, Playlist, SortOrder, Track, TrackStats, View } from "../types";
-import { compareTracks, sortOrderOf, systemViewTracks } from "../utils/views";
+import { compareTracks, sortOrderOf, systemViewTracks, tagTracks } from "../utils/views";
 import { notifyError } from "../utils/notify";
 
 /**
@@ -33,7 +33,7 @@ const rowsOf = (tracks: Track[]): ListRow[] => tracks.map(track => ({ key: track
 
 /**
  * The rows the track list shows for `view`, in the view's order, plus how the
- * view can be sorted: the library by a local choice, a manual playlist by its
+ * view can be sorted: the library and tags by a local choice, a manual playlist by its
  * persisted sort, a smart playlist only through its rules.
  */
 export const useViewRows = (
@@ -52,11 +52,15 @@ export const useViewRows = (
 
     const sortOrder: SortOrder | null = view.kind === 'system'
         ? (view.id === 'library' ? librarySort : null)
+        : view.kind === 'tag' ? librarySort
         : playlist?.type === 'manual' ? sortOrderOf(playlist.sort) : null;
 
     const { rows, missingCount } = useMemo(() => {
         if (view.kind === 'system') {
             return { rows: rowsOf(systemViewTracks(files, view.id, stats, librarySort)), missingCount: 0 };
+        }
+        if (view.kind === 'tag') {
+            return { rows: rowsOf(tagTracks(files, view.id, stats, librarySort)), missingCount: 0 };
         }
         if (!playlist) return { rows: [], missingCount: 0 };
 

@@ -205,3 +205,30 @@
     color: #f59e0b;
     opacity: 1;
 }
+
+.detail-tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+}
+
+.detail-tags-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px;
+    border: 1px dashed var(--border);
+    border-radius: 999px;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.detail-tags-edit:hover {
+    background: var(--code-bg);
+    color: var(--text-h);
+}

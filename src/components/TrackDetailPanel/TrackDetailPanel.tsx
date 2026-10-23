@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Heart, Star } from "lucide-react";
-import type { Track, TrackStats } from "../../types";
+import { Heart, Star, Tag } from "lucide-react";
+import type { Track, TrackStats, UserTag } from "../../types";
 import { displayTitle } from "../../utils/track";
 import { formatDateTime, formatDuration } from "../../utils/format";
+import { tagsOf } from "../../utils/tags";
 import { CoverArt } from "../CoverArt";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
+import { TagChip } from "../TagChip/TagChip";
 import "./TrackDetailPanel.css";
 
 interface TrackDetailPanelProps {
@@ -14,6 +16,10 @@ interface TrackDetailPanelProps {
     onToggleFavorite: (track: Track) => void;
     /** 1-5, or 0 to clear. */
     onSetRating: (track: Track, rating: number) => void;
+    tagsById: Map<string, UserTag>;
+    /** Open the tag picker for the track. */
+    onEditTags: (track: Track) => void;
+    onOpenTag: (tag: UserTag) => void;
 }
 
 /** A labelled "label: value" row, hidden when there is no value. */
@@ -54,7 +60,15 @@ const RatingStars = ({ rating, onChange }: { rating: number; onChange: (rating: 
  * tabs (current / selected) and the metadata editor. On narrow layouts the
  * whole panel is hidden by CSS.
  */
-export const TrackDetailPanel = ({ track, stats, onToggleFavorite, onSetRating }: TrackDetailPanelProps) => {
+export const TrackDetailPanel = ({
+    track,
+    stats,
+    onToggleFavorite,
+    onSetRating,
+    tagsById,
+    onEditTags,
+    onOpenTag,
+}: TrackDetailPanelProps) => {
     const [showCover, setShowCover] = useState(false);
 
     if (!track) {
@@ -65,6 +79,7 @@ export const TrackDetailPanel = ({ track, stats, onToggleFavorite, onSetRating }
         );
     }
 
+    const tags = tagsOf(stats?.tags, tagsById);
     const artists = track.artists.length ? track.artists.join(", ") : null;
     const technical = [
         track.format?.toUpperCase() ?? null,
@@ -106,6 +121,15 @@ export const TrackDetailPanel = ({ track, stats, onToggleFavorite, onSetRating }
                     rating={stats?.rating ?? 0}
                     onChange={(rating) => onSetRating(track, rating)}
                 />
+            </div>
+
+            <div className="detail-tags">
+                {tags.map(tag => (
+                    <TagChip key={tag.id} tag={tag} onClick={() => onOpenTag(tag)} />
+                ))}
+                <button className="detail-tags-edit" onClick={() => onEditTags(track)}>
+                    <Tag size={13} /> {tags.length > 0 ? "Edit tags" : "Add tags"}
+                </button>
             </div>
 
             <div className="detail-rows">

@@ -60,6 +60,16 @@ export interface SearchHit {
     kind: MatchKind;
 }
 
+/** A user-defined colored tag (tags.json); assignments are in TrackStats.tags. */
+export interface UserTag {
+    id: string;
+    name: string;
+    // "#rrggbb"
+    color: string;
+    createdAt: number;
+    updatedAt: number;
+}
+
 /** Built-in list views. */
 export type SystemView = 'library' | 'favorites' | 'recentlyPlayed' | 'mostPlayed';
 
@@ -67,7 +77,9 @@ export type SystemView = 'library' | 'favorites' | 'recentlyPlayed' | 'mostPlaye
 export type View =
     | { kind: 'system'; id: SystemView }
     | { kind: 'playlists' }
-    | { kind: 'playlist'; id: string };
+    | { kind: 'playlist'; id: string }
+    | { kind: 'tags' }
+    | { kind: 'tag'; id: string };
 
 export interface SortSpec {
     field: string;

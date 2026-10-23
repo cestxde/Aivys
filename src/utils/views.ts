@@ -59,3 +59,14 @@ export const systemViewTracks = (
                 .slice(0, HISTORY_LIMIT);
     }
 };
+
+/** Tracks that have the user tag `tagId`, in `sortOrder`. */
+export const tagTracks = (
+    files: Track[],
+    tagId: string,
+    stats: Record<string, TrackStats>,
+    sortOrder: SortOrder
+): Track[] =>
+    files
+        .filter(f => stats[f.relPath]?.tags.includes(tagId))
+        .sort(compareTracks(sortOrder));

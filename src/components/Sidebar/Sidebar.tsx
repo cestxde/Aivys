@@ -17,7 +17,7 @@ const ITEMS: SidebarItem[] = [
     { label: "Recently played", icon: <History size={18} />, view: { kind: "system", id: "recentlyPlayed" } },
     { label: "Most played", icon: <TrendingUp size={18} />, view: { kind: "system", id: "mostPlayed" } },
     { label: "Playlists", icon: <ListMusic size={18} />, view: { kind: "playlists" } },
-    { label: "Tags", icon: <Tag size={18} /> },
+    { label: "Tags", icon: <Tag size={18} />, view: { kind: "tags" } },
 ];
 
 interface SidebarProps {
@@ -29,10 +29,11 @@ interface SidebarProps {
     onViewChange: (view: View) => void;
 }
 
-/** Whether a sidebar item is the current one (a playlist counts as "Playlists"). */
+/** Whether a sidebar item is the current one (a playlist counts as "Playlists", a tag as "Tags"). */
 const isCurrent = (item: View | undefined, view: View): boolean => {
     if (!item) return false;
     if (item.kind === "playlists") return view.kind === "playlists" || view.kind === "playlist";
+    if (item.kind === "tags") return view.kind === "tags" || view.kind === "tag";
     return item.kind === "system" && view.kind === "system" && item.id === view.id;
 };
 

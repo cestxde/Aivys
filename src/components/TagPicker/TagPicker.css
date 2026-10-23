@@ -1,0 +1,38 @@
+.tag-picker-list {
+    min-height: 160px;
+}
+
+.tag-picker-row {
+    gap: 10px;
+    padding: 8px;
+}
+
+.tag-picker-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-h);
+}
+
+.tag-picker-row.on .tag-picker-check,
+.tag-picker-row.mixed .tag-picker-check {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-text);
+}
+
+.tag-picker-row .add-to-row-name {
+    flex: 1;
+}
+
+.tag-picker-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+}

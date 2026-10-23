@@ -11,12 +11,13 @@ const FAILED_MESSAGES: Record<string, string> = {
     set_rating: "Could not save rating",
     record_play: "Could not record the play",
     record_complete: "Could not record the play",
+    set_track_tag: "Could not save the tag",
 };
 
 const nowUnix = () => Math.floor(Date.now() / 1000);
 
 /**
- * Per-track favorites, ratings and play statistics from the library's
+ * Per-track favorites, ratings, tags and play statistics from the library's
  * `.aivys/` journals, keyed by `Track.relPath`. Reloaded after every scan;
  * user actions update the local copy immediately and are then persisted.
  */
@@ -79,6 +80,18 @@ export const useTrackStats = (files: Track[]) => {
         persist("set_rating", { path: track.relPath, rating });
     }, [patch, persist]);
 
+    /** Assign or remove a tag on tracks (those already in that state are skipped). */
+    const setTrackTag = useCallback((tracks: Track[], tagId: string, assigned: boolean) => {
+        for (const track of tracks) {
+            const current = statsRef.current[track.relPath]?.tags ?? [];
+            if (current.includes(tagId) === assigned) continue;
+            patch(track.relPath, ({ tags }) => ({
+                tags: assigned ? [...tags, tagId] : tags.filter(id => id !== tagId),
+            }));
+            persist("set_track_tag", { path: track.relPath, tagId, assigned });
+        }
+    }, [patch, persist]);
+
     const recordPlay = useCallback((track: Track) => {
         patch(track.relPath, current => ({ playCount: current.playCount + 1, lastPlayedAt: nowUnix() }));
         persist("record_play", { path: track.relPath });
@@ -89,5 +102,5 @@ export const useTrackStats = (files: Track[]) => {
         persist("record_complete", { path: track.relPath });
     }, [patch, persist]);
 
-    return { stats, reload, toggleFavorite, setRating, recordPlay, recordComplete };
+    return { stats, reload, toggleFavorite, setRating, setTrackTag, recordPlay, recordComplete };
 };

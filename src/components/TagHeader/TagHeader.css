@@ -1,0 +1,13 @@
+.tag-header-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 120px;
+    height: 120px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--tag-color) 22%, var(--bg));
+    color: var(--tag-color);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tag-color) 40%, transparent);
+    cursor: pointer;
+}
