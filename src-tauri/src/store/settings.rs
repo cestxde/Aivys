@@ -78,29 +78,6 @@ pub(crate) fn ensure(store: &Store) -> Result<(), StoreError> {
     write_json(&path, &settings)
 }
 
-pub(crate) fn set_visible_system_playlists(
-    store: &Store,
-    ids: Vec<String>,
-) -> Result<LibrarySettings, StoreError> {
-    let mut visible = Vec::new();
-    for id in ids {
-        if !SYSTEM_PLAYLISTS.contains(&id.as_str()) {
-            return Err(StoreError::Invalid(format!("unknown system playlist: {id}")));
-        }
-        if !visible.contains(&id) {
-            visible.push(id);
-        }
-    }
-
-    let path = store.path(FILE);
-    let mut settings = read_json_or_default::<LibrarySettings>(&path)?.writable(&path)?;
-    settings.schema_version = SCHEMA_VERSION;
-    settings.ui.visible_system_playlists = visible;
-    settings.updated_at = now_unix();
-    write_json(&path, &settings)?;
-    Ok(settings)
-}
-
 pub(crate) fn set_artist_rules(store: &Store, rules: ArtistRules) -> Result<LibrarySettings, StoreError> {
     let path = store.path(FILE);
     let mut settings = read_json_or_default::<LibrarySettings>(&path)?.writable(&path)?;

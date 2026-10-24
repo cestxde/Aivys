@@ -9,7 +9,7 @@ use super::playlists::{self, PlaylistView, SmartRules, SortSpec};
 use super::settings::{self, LibrarySettings};
 use crate::artists::ArtistRules;
 use super::tags::{self, TagDef};
-use super::{conflicts, system, Store, StoreError};
+use super::{conflicts, Store, StoreError};
 use crate::db::search::SearchHit;
 use crate::db::LibraryDb;
 use crate::library::{rescan_library, scan_lock};
@@ -96,14 +96,6 @@ fn record(state: &State<'_, StoreState>, path: &str, kind: EventKind, value: Opt
 #[tauri::command]
 pub(crate) async fn get_library_settings(state: State<'_, StoreState>) -> Result<LibrarySettings, StoreError> {
     with_store(&state, |store| settings::load(store))
-}
-
-#[tauri::command]
-pub(crate) async fn set_visible_system_playlists(
-    state: State<'_, StoreState>,
-    ids: Vec<String>,
-) -> Result<LibrarySettings, StoreError> {
-    with_store(&state, |store| settings::set_visible_system_playlists(store, ids))
 }
 
 /// Save how artist tags are split; a rescan applies it.
@@ -196,27 +188,6 @@ pub(crate) async fn get_track_stats(state: State<'_, StoreState>) -> Result<Hash
             }
         }
         stats_from_journals(&library.store)
-    })
-}
-
-/// Relative track paths of a system playlist, in display order.
-#[tauri::command]
-pub(crate) async fn get_system_playlist(
-    state: State<'_, StoreState>,
-    id: String,
-    limit: Option<usize>,
-) -> Result<Vec<String>, StoreError> {
-    with_library(&state, |library| {
-        if let Some(db) = library.synced_db() {
-            match db.system_playlist(&id, limit) {
-                Ok(Some(paths)) => return Ok(paths),
-                Ok(None) => return Err(StoreError::NotFound(format!("system playlist {id}"))),
-                Err(err) => log::warn!("index query failed: {err}"),
-            }
-        }
-        let store = &library.store;
-        let stats = if id == "recentlyAdded" { HashMap::new() } else { stats_from_journals(store)? };
-        system::paths(store, &id, &stats, limit)
     })
 }
 
@@ -349,11 +320,6 @@ pub(crate) async fn delete_tag(state: State<'_, StoreState>, id: String) -> Resu
 #[tauri::command]
 pub(crate) async fn list_playlists(state: State<'_, StoreState>) -> Result<Vec<PlaylistView>, StoreError> {
     with_store(&state, |store| playlists::list(store))
-}
-
-#[tauri::command]
-pub(crate) async fn get_playlist(state: State<'_, StoreState>, id: String) -> Result<PlaylistView, StoreError> {
-    with_store(&state, |store| playlists::get(store, &id))
 }
 
 #[tauri::command]

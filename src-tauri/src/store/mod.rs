@@ -11,7 +11,6 @@ pub(crate) mod fsio;
 pub(crate) mod index;
 pub(crate) mod playlists;
 pub(crate) mod settings;
-pub(crate) mod system;
 pub(crate) mod tags;
 
 use serde::{Serialize, Serializer};

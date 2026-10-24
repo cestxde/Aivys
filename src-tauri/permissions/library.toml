@@ -3,7 +3,6 @@ identifier = "allow-library-store"
 description = "Allows reading and writing the library's .aivys data (favorites, ratings, plays, tags, playlists, settings), searching it, editing track tags and moving tracks to the trash"
 commands.allow = [
   "get_library_settings",
-  "set_visible_system_playlists",
   "set_artist_rules",
   "default_artist_rules",
   "resolve_conflicts",
@@ -13,13 +12,11 @@ commands.allow = [
   "set_favorite",
   "set_track_tag",
   "get_track_stats",
-  "get_system_playlist",
   "list_tags",
   "create_tag",
   "update_tag",
   "delete_tag",
   "list_playlists",
-  "get_playlist",
   "create_manual_playlist",
   "create_smart_playlist",
   "rename_playlist",

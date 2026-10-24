@@ -127,32 +127,6 @@ impl LibraryDb {
         }
         Ok(stats)
     }
-
-    /// Relative paths of a system playlist (§8.6) in display order, or `None`
-    /// for an unknown id.
-    pub(crate) fn system_playlist(&self, id: &str, limit: Option<usize>) -> rusqlite::Result<Option<Vec<String>>> {
-        let query = match id {
-            "favorites" => {
-                "SELECT rel_path FROM track_state WHERE favorite = 1
-                 ORDER BY favorited_at DESC, rel_path LIMIT ?1"
-            }
-            "recentlyPlayed" => {
-                "SELECT rel_path FROM track_state WHERE last_played_at IS NOT NULL
-                 ORDER BY last_played_at DESC, rel_path LIMIT ?1"
-            }
-            "mostPlayed" => {
-                "SELECT rel_path FROM track_state WHERE play_count > 0
-                 ORDER BY play_count DESC, last_played_at DESC, rel_path LIMIT ?1"
-            }
-            "recentlyAdded" => "SELECT rel_path FROM tracks ORDER BY added_at DESC, rel_path LIMIT ?1",
-            _ => return Ok(None),
-        };
-        // A negative LIMIT means "no limit" in SQLite.
-        let limit = limit.map_or(-1, |limit| limit as i64);
-        let mut stmt = self.conn.prepare(query)?;
-        let rows = stmt.query_map([limit], |row| row.get(0))?;
-        rows.collect::<rusqlite::Result<_>>().map(Some)
-    }
 }
 
 /// Parse and insert the complete lines in `bytes[start..end]`. Returns the
@@ -319,12 +293,6 @@ mod tests {
         tags::delete(&store, &tag.id).unwrap();
         db.sync_events(&store).unwrap();
         assert!(db.track_stats().unwrap()["b.flac"].tags.is_empty());
-
-        assert_eq!(
-            db.system_playlist("favorites", None).unwrap().unwrap(),
-            vec!["a.flac".to_owned()]
-        );
-        assert!(db.system_playlist("nope", None).unwrap().is_none());
     }
 
     #[test]
