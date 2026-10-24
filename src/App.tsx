@@ -32,6 +32,7 @@ import { ContextMenu, type MenuEntry } from "./components/ContextMenu/ContextMen
 import { SmartPlaylistEditor } from "./components/SmartPlaylistEditor/SmartPlaylistEditor";
 import { PlaylistsPage, type PinnedPlaylist } from "./components/PlaylistsPage/PlaylistsPage";
 import { CollectionPage } from "./components/CollectionPage/CollectionPage";
+import { AlbumStrip } from "./components/AlbumStrip/AlbumStrip";
 import { FolderGrid, GroupHeader, type Crumb } from "./components/GroupHeader/GroupHeader";
 import { AddToDialog } from "./components/AddToDialog/AddToDialog";
 import { TagsPage } from "./components/TagsPage/TagsPage";
@@ -189,6 +190,14 @@ function App() {
 			default: return null;
 		}
 	}, [listView, artistsByKey, albumsByKey, files, settings.lastPath]);
+	// An artist's albums, newest first, for the cards above their tracks.
+	const artistAlbums = useMemo(() => {
+		if (listView.kind !== "artist" || !currentGroup) return [];
+		const keys = new Set(currentGroup.tracks.flatMap(track => albumKeyOf(track) ?? []));
+		return [...keys]
+			.flatMap(key => albumsByKey.get(key) ?? [])
+			.sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || a.name.localeCompare(b.name));
+	}, [listView.kind, currentGroup, albumsByKey]);
 	const currentSubfolders = useMemo(
 		() => (listView.kind === "folder" ? subfolders(files, listView.id) : []),
 		[listView, files],
@@ -963,6 +972,16 @@ function App() {
 							/>
 
 							<div className="track-list-wrapper" ref={listRef} onScroll={onListScroll}>
+								{!isSearching && artistAlbums.length > 0 && (
+									<AlbumStrip
+										albums={artistAlbums}
+										playingKey={playingIn("album")}
+										onOpen={(album) => showView({ kind: "album", id: album.key }, listView)}
+										onPlay={(album) => playTracks(album.tracks, { kind: "album", id: album.key })}
+										onOpenMenu={(album, x, y) =>
+											setMenu({ x, y, entries: groupMenu(album, { kind: "album", id: album.key }) })}
+									/>
+								)}
 								{!isSearching && currentSubfolders.length > 0 && (
 									<FolderGrid
 										folders={currentSubfolders}

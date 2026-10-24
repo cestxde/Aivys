@@ -1,0 +1,55 @@
+.album-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+}
+
+.album-strip-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.album-strip-title {
+    flex: 1;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text);
+}
+
+.album-strip-count {
+    margin-left: 4px;
+    font-weight: 400;
+    opacity: 0.7;
+}
+
+.album-strip-toggle {
+    padding: 2px 8px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.album-strip-toggle:hover {
+    background: var(--surface);
+    color: var(--text-h);
+}
+
+/* One row of cards until expanded (its height is set from the first card). */
+.album-strip-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 0.5rem;
+    overflow: hidden;
+}
+
+.album-strip-card {
+    gap: 0.4rem;
+}

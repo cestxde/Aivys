@@ -206,6 +206,10 @@ export const TrackList = ({
         scroller.addEventListener("scroll", update, { passive: true });
         const resize = new ResizeObserver(update);
         resize.observe(scroller);
+        // Content above the list (album cards, subfolders) moves it when it grows.
+        for (const child of scroller.children) {
+            if (child !== root) resize.observe(child);
+        }
         return () => {
             scroller.removeEventListener("scroll", update);
             resize.disconnect();

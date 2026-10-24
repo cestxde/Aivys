@@ -283,6 +283,8 @@ export const ru: Record<MessageKey, Message> = {
     "group.allAlbums": "Все альбомы",
     "group.parentFolder": "Родительская папка",
     "group.folderPath": "Путь к папке",
+    "group.showAll": "Показать все",
+    "group.showLess": "Свернуть",
 
     // Tags
     "tags.filter": "Фильтр тегов...",

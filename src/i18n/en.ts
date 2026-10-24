@@ -273,6 +273,8 @@ export const en = {
     "group.allAlbums": "All albums",
     "group.parentFolder": "Parent folder",
     "group.folderPath": "Folder path",
+    "group.showAll": "Show all",
+    "group.showLess": "Show less",
 
     // Tags
     "tags.filter": "Filter tags...",
