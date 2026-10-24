@@ -217,6 +217,13 @@ pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String) -> 
         if let Err(err) = open_store(&app, Path::new(&base_path)) {
             log::warn!("cannot open .aivys store: {err}");
         }
+        // The page may load files of the open library only (tracks, and
+        // playlist covers in .aivys) and of the cover cache.
+        for dir in [Path::new(&base_path), covers_dir.as_path()] {
+            if let Err(err) = app.asset_protocol_scope().allow_directory(dir, true) {
+                log::warn!("cannot allow {} for the asset protocol: {err}", dir.display());
+            }
+        }
         do_scan(&base_path, &covers_dir, app_data.as_deref(), &artist_rules(&app))
     })
     .await
