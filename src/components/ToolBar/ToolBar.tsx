@@ -119,9 +119,16 @@ export const Toolbar = ({
                 <input
                     type="text"
                     placeholder={t("toolbar.search")}
-                    className="search-input"
+                    className="search-input track-search"
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
+                    onKeyDown={(e) => {
+                        // Esc clears the search; in an empty box it goes back (App).
+                        if (e.key === "Escape" && searchQuery) {
+                            e.stopPropagation();
+                            onSearchChange("");
+                        }
+                    }}
                 />
             </div>
 

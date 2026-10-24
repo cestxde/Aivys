@@ -374,11 +374,57 @@ function App() {
 	const sortLocked = !sortScope && !manualPlaylist;
 
 	// Navigating always leaves the search, even to the view already open.
-	const showView = (next: View) => {
+	// Where "back" returns to when it is not the view's own list: the view
+	// settings were opened from, or the playlists page for a built-in playlist
+	// opened from its card.
+	const [backTo, setBackTo] = useState<View | null>(null);
+
+	/** Open `next`; `from` is where going back should return to, if not the usual place. */
+	const showView = (next: View, from?: View) => {
+		if (next.kind === "settings") {
+			if (listView.kind !== "settings") setBackTo(listView);
+		} else {
+			setBackTo(from ?? null);
+		}
 		setRenamingId(null);
 		setSearchQuery("");
 		setListView(next);
 	};
+
+	/**
+	 * Where "back" leads from the current view: an opened item to its list (the
+	 * header's back button), a top-level view to the library; none from it.
+	 */
+	const parentView = (): View | null => {
+		switch (listView.kind) {
+			case "playlist": return PLAYLISTS_VIEW;
+			case "tag": return TAGS_VIEW;
+			case "artist": return ARTISTS_VIEW;
+			case "album": return ALBUMS_VIEW;
+			case "folder":
+				return listView.id ? { kind: "folder", id: listView.id.split("/").slice(0, -1).join("/") } : LIBRARY_VIEW;
+			case "settings": return backTo ?? LIBRARY_VIEW;
+			case "system": return listView.id === "library" ? null : backTo ?? LIBRARY_VIEW;
+			default: return LIBRARY_VIEW;
+		}
+	};
+
+	// Esc goes back, unless something else uses it: an open menu, dialog or
+	// cover viewer closes itself, and a text field keeps its own Esc (except
+	// the empty track search, see the toolbar).
+	const parent = parentView();
+	useEffect(() => {
+		if (!parent) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== "Escape" || e.defaultPrevented) return;
+			if (document.querySelector(".dialog-backdrop, .context-menu, .cover-viewer-backdrop")) return;
+			const target = e.target as HTMLElement | null;
+			if (target?.matches("input, textarea, select, [contenteditable]") && !target.matches(".track-search")) return;
+			showView(parent);
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	});
 
 	/** Create an empty playlist and open it with its name ready to edit. */
 	const createPlaylist = async () => {
@@ -712,7 +758,7 @@ function App() {
 					{listView.kind === "playlists" ? (
 						<PlaylistsPage
 							pinned={pinned}
-							onOpenPinned={(id) => showView({ kind: "system", id })}
+							onOpenPinned={(id) => showView({ kind: "system", id }, PLAYLISTS_VIEW)}
 							onPlayPinned={(id) => playTracks(systemViewTracks(files, id, trackStats.stats), { kind: "system", id })}
 							playingPinnedId={playingIn("system")}
 							playingPlaylistId={playingIn("playlist")}
