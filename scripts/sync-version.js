@@ -1,58 +1,57 @@
+// Runs from `npm version` (the "version" script), after npm has written the
+// new version to package.json and before it commits: copies the version to
+// the Tauri config, Cargo.toml and Cargo.lock.
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const tauriConfigPath = path.resolve(__dirname, '../src-tauri/tauri.conf.json');
-const cargoTomlPath = path.resolve(__dirname, '../src-tauri/Cargo.toml');
-const cargoLockPath = path.resolve(__dirname, '../src-tauri/Cargo.lock');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const tauriConfigPath = path.join(root, 'src-tauri/tauri.conf.json');
+const cargoTomlPath = path.join(root, 'src-tauri/Cargo.toml');
+const cargoLockPath = path.join(root, 'src-tauri/Cargo.lock');
+const manifest = '--manifest-path src-tauri/Cargo.toml';
 
-try {
-  const newVersion = process.env.npm_package_version;
-  if (!newVersion) {
-    console.error('Error: npm_package_version not found.');
-    process.exit(1);
-  }
-
-  // 1. Update tauri.conf.json
-  const config = JSON.parse(fs.readFileSync(tauriConfigPath, 'utf8'));
-  config.version = newVersion;
-  fs.writeFileSync(tauriConfigPath, JSON.stringify(config, null, 2) + '\n');
-
-  // 2. Update Cargo.toml version string
-  let cargoContent = fs.readFileSync(cargoTomlPath, 'utf8');
-  cargoContent = cargoContent.replace(
-    /(\[package\][\s\S]*?version\s*=\s*")(.+?)(")/,
-    `$1${newVersion}$3`
-  );
-  fs.writeFileSync(cargoTomlPath, cargoContent);
-
-  // 3. Trigger Cargo.lock update via metadata
-  console.log(`Syncing Cargo.lock to v${newVersion}...`);
-  execSync('cargo metadata --format-version 1 --no-deps --manifest-path src-tauri/Cargo.toml', { stdio: 'ignore' });
-
-  // 4. Polling: Wait until Cargo.lock physically reflects the new version
-  let synced = false;
-  for (let i = 0; i < 5; i++) {
-    const lockContent = fs.readFileSync(cargoLockPath, 'utf8');
-    if (lockContent.includes(`name = "aivys"\nversion = "${newVersion}"`)) {
-      synced = true;
-      break;
-    }
-    console.log(`Waiting for file system sync (attempt ${i + 1}/5)...`);
-
-    // Synchronous sleep without external 'timeout' command
-    const waitTill = new Date(new Date().getTime() + 1000);
-    while (waitTill > new Date()) { /* wait */ }
-  }
-
-  if (synced) {
-    console.log(`Successfully synced all configs to v${newVersion}`);
-  } else {
-    console.warn('Warning: Cargo.lock sync timed out. Manual check recommended.');
-  }
-} catch (err) {
-  console.error('Sync failed:', err.message);
+const fail = (message) => {
+  console.error(`sync-version: ${message}`);
   process.exit(1);
+};
+
+const version = process.env.npm_package_version;
+if (!version) fail('npm_package_version is not set; run this through `npm version`.');
+
+// 1. tauri.conf.json
+const config = JSON.parse(fs.readFileSync(tauriConfigPath, 'utf8'));
+config.version = version;
+fs.writeFileSync(tauriConfigPath, JSON.stringify(config, null, 2) + '\n');
+
+// 2. Cargo.toml: the first `version` of the [package] table.
+const cargoToml = fs.readFileSync(cargoTomlPath, 'utf8');
+const updatedToml = cargoToml.replace(/(\[package\][\s\S]*?\nversion\s*=\s*")[^"]*(")/, `$1${version}$2`);
+if (updatedToml === cargoToml && !cargoToml.includes(`version = "${version}"`)) {
+  fail('no [package] version found in Cargo.toml.');
 }
+fs.writeFileSync(cargoTomlPath, updatedToml);
+
+// 3. Cargo.lock: `cargo update --workspace` rewrites only this package's entry
+// (dependencies are left as they are). `cargo metadata --no-deps` would not
+// touch the lock at all. Offline first: no network needed once dependencies
+// are cached.
+const run = (command) => execSync(command, { cwd: root, stdio: 'pipe' });
+try {
+  run(`cargo update --workspace --offline ${manifest}`);
+} catch {
+  try {
+    run(`cargo update --workspace ${manifest}`);
+  } catch (err) {
+    fail(`cargo update failed: ${err.stderr?.toString().trim() || err.message}`);
+  }
+}
+
+// cargo has finished writing when it exits; check the result anyway.
+const lock = fs.readFileSync(cargoLockPath, 'utf8');
+if (!new RegExp(`name = "aivys"\\r?\\nversion = "${version.replace(/\./g, '\\.')}"`).test(lock)) {
+  fail(`Cargo.lock does not list aivys ${version}.`);
+}
+
+console.log(`sync-version: tauri.conf.json, Cargo.toml and Cargo.lock are at ${version}`);
