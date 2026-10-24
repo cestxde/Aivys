@@ -1,0 +1,81 @@
+/* Same place and height as the toolbar it replaces. */
+.selection-bar {
+    gap: 8px;
+    min-height: 36px;
+    box-sizing: content-box;
+}
+
+.selection-clear {
+    display: flex;
+    flex-shrink: 0;
+    padding: 6px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-h);
+    cursor: pointer;
+}
+
+.selection-clear:hover {
+    background: var(--surface);
+}
+
+.selection-count {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    color: var(--text-h);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.selection-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.selection-action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text-h);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.selection-action.icon {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+}
+
+.selection-action:hover {
+    background: var(--surface);
+}
+
+.selection-action.danger {
+    color: var(--danger);
+}
+
+/* Narrow windows: only the icons. */
+@media (max-width: 760px) {
+    .selection-action span {
+        display: none;
+    }
+
+    .selection-action {
+        width: 36px;
+        padding: 0;
+        justify-content: center;
+    }
+}

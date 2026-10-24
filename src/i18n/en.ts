@@ -67,6 +67,10 @@ export const en = {
 
     // Track list
     "list.similar": "Similar matches",
+    "selection.count": { one: "{count} track selected", other: "{count} tracks selected" },
+    "selection.select": "Select",
+    "selection.clear": "Clear selection",
+    "selection.selectAll": "Select all",
     "list.dragToReorder": "Drag to reorder",
     "player.noTrack": "No track",
     "player.shuffle": "Shuffle",

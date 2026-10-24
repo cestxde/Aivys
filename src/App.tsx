@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import {
-	Heart, ListPlus, ListX, Play, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
+	Heart, ListPlus, ListX, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
 } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
@@ -33,6 +33,7 @@ import { SmartPlaylistEditor } from "./components/SmartPlaylistEditor/SmartPlayl
 import { PlaylistsPage, type PinnedPlaylist } from "./components/PlaylistsPage/PlaylistsPage";
 import { CollectionPage, type CollectionSection, type CollectionSort } from "./components/CollectionPage/CollectionPage";
 import { AlbumStrip } from "./components/AlbumStrip/AlbumStrip";
+import { SelectionBar } from "./components/SelectionBar/SelectionBar";
 import { FolderGrid, GroupHeader, type Crumb } from "./components/GroupHeader/GroupHeader";
 import { AddToDialog } from "./components/AddToDialog/AddToDialog";
 import { TagsPage } from "./components/TagsPage/TagsPage";
@@ -141,6 +142,19 @@ const trackCountSections = (): CollectionSection[] => [
 const viewKeyOf = (view: View): string => ("id" in view ? `${view.kind}:${view.id}` : view.kind);
 
 type Screen = "loading" | "picker" | "library";
+
+/** Selected rows (by key) of the list they were made in (`scope`: view and search). */
+interface Selection {
+	scope: string;
+	keys: Set<string>;
+	/** Where a Shift+click range starts. */
+	anchor: string | null;
+}
+
+const NO_SELECTION: Selection = { scope: "", keys: new Set(), anchor: null };
+
+/** Pages that show cards rather than a track list. */
+const CARD_PAGES: View["kind"][] = ["playlists", "tags", "settings", "artists", "albums"];
 
 /** The smart-playlist editor: creating a new one, or editing `playlist`. */
 interface EditorState {
@@ -428,6 +442,32 @@ function App() {
 	} = useTrackListLogic(viewRows, playTrack);
 	const { ref: listRef, onScroll: onListScroll } = useSearchScroll(searchQuery, viewKey);
 
+	// Selection lasts as long as the list it was made in (view and search).
+	const [selection, setSelection] = useState<Selection>(NO_SELECTION);
+	const selectionScope = `${viewKey}|${searchQuery}`;
+	const selectedKeys = selection.scope === selectionScope ? selection.keys : NO_SELECTION.keys;
+	const selectedRows = useMemo(() => displayRows.filter(row => selectedKeys.has(row.key)), [displayRows, selectedKeys]);
+	const selectedTracks = useMemo(() => selectedRows.map(row => row.track), [selectedRows]);
+	const clearSelection = () => setSelection(NO_SELECTION);
+	const selectAll = () =>
+		setSelection({ scope: selectionScope, keys: new Set(displayRows.map(row => row.key)), anchor: null });
+
+	/** Ctrl/Cmd+click (`additive`) toggles a row, Shift+click selects from the anchor to it. */
+	const selectRow = (row: ListRow, index: number, how: { range: boolean; additive: boolean }) => {
+		const keys = new Set(how.additive ? selectedKeys : []);
+		let anchor: string | null = row.key;
+		if (how.range) {
+			const anchorKey = selection.scope === selectionScope ? selection.anchor : null;
+			const from = anchorKey ? displayRows.findIndex(r => r.key === anchorKey) : -1;
+			const [low, high] = from < 0 ? [index, index] : [Math.min(from, index), Math.max(from, index)];
+			for (let i = low; i <= high; i++) keys.add(displayRows[i].key);
+			anchor = from < 0 ? row.key : anchorKey;
+		} else if (!keys.delete(row.key)) {
+			keys.add(row.key);
+		}
+		setSelection({ scope: selectionScope, keys, anchor });
+	};
+
 	const editablePlaylist = playlist && !playlist.readOnly ? playlist : null;
 	const manualPlaylist = editablePlaylist?.type === "manual" ? editablePlaylist : null;
 
@@ -482,11 +522,29 @@ function App() {
 	useEffect(() => {
 		if (!parent) return;
 		const onKey = (e: KeyboardEvent) => {
-			if (e.key !== "Escape" || e.defaultPrevented) return;
+			if (e.key !== "Escape" || e.defaultPrevented || selectedRows.length > 0) return;
 			if (document.querySelector(".dialog-backdrop, .context-menu, .cover-viewer-backdrop")) return;
 			const target = e.target as HTMLElement | null;
 			if (target?.matches("input, textarea, select, [contenteditable]") && !target.matches(".track-search")) return;
 			showView(parent);
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	});
+
+	// Ctrl+A selects the whole list, Esc clears the selection (before going back).
+	const showsTrackList = !CARD_PAGES.includes(listView.kind);
+	useEffect(() => {
+		if (!showsTrackList) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.defaultPrevented || document.querySelector(".dialog-backdrop, .context-menu, .cover-viewer-backdrop")) return;
+			if ((e.target as HTMLElement | null)?.matches("input, textarea, select, [contenteditable]")) return;
+			if (e.key === "Escape" && selectedRows.length > 0) {
+				clearSelection();
+			} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a" && displayRows.length > 0) {
+				e.preventDefault();
+				selectAll();
+			}
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
@@ -670,6 +728,13 @@ function App() {
 		const favorite = trackStats.stats[row.track.relPath]?.favorite ?? false;
 		const entries: MenuEntry[] = [
 			{ kind: "item", label: t("common.play"), icon: <Play size={16} />, onSelect: () => playFrom(viewKey, row.track, displayFiles) },
+			{
+				kind: "item",
+				label: t("selection.select"),
+				icon: <SquareCheck size={16} />,
+				// Starts a selection with this track (also the way in without Ctrl or a long press).
+				onSelect: () => selectRow(row, displayRows.findIndex(r => r.key === row.key), { range: false, additive: true }),
+			},
 			{ kind: "separator" },
 			{
 				kind: "item",
@@ -710,6 +775,64 @@ function App() {
 			danger: true,
 			onSelect: () => deleteTracks([row.track]),
 		});
+		return entries;
+	};
+
+	/** Favorite or not: all of them if any is not yet, otherwise none. */
+	const toggleFavorites = (tracks: Track[]) =>
+		trackStats.setFavorite(tracks, !tracks.every(track => trackStats.stats[track.relPath]?.favorite));
+
+	const removeRowsFromPlaylist = (rows: ListRow[]) => {
+		if (manualPlaylist) playlists.removeItems(manualPlaylist.id, rows.flatMap(row => row.itemId ?? []));
+	};
+
+	const deleteSelected = async () => {
+		await deleteTracks(selectedTracks);
+		clearSelection();
+	};
+
+	/** The menu of a selected row: for all the selected tracks. */
+	const selectionMenu = (): MenuEntry[] => {
+		const tracks = selectedTracks;
+		const allFavorite = tracks.every(track => trackStats.stats[track.relPath]?.favorite);
+		const entries: MenuEntry[] = [
+			{ kind: "label", label: t("selection.count", { count: tracks.length }) },
+			{ kind: "item", label: t("common.play"), icon: <Play size={16} />, onSelect: () => playFrom(viewKey, tracks[0], tracks) },
+			{ kind: "separator" },
+			{
+				kind: "item",
+				label: allFavorite ? t("common.removeFromFavorites") : t("common.addToFavorites"),
+				icon: <Heart size={16} fill={allFavorite ? "currentColor" : "none"} />,
+				onSelect: () => toggleFavorites(tracks),
+			},
+			{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo(tracks) },
+			{ kind: "item", label: t("common.tags"), icon: <Tag size={16} />, onSelect: () => setTagPicker(tracks) },
+			{ kind: "separator" },
+		];
+		if (currentTag) {
+			const tag = currentTag;
+			entries.push({
+				kind: "item",
+				label: t("menu.removeTag", { name: tag.name }),
+				icon: <X size={16} />,
+				danger: true,
+				onSelect: () => trackStats.setTrackTag(tracks, tag.id, false),
+			});
+		}
+		if (manualPlaylist) {
+			const rows = selectedRows;
+			entries.push({
+				kind: "item",
+				label: t("menu.removeFromPlaylist"),
+				icon: <ListX size={16} />,
+				danger: true,
+				onSelect: () => {
+					removeRowsFromPlaylist(rows);
+					clearSelection();
+				},
+			});
+		}
+		entries.push({ kind: "item", label: t("menu.deleteFromDisk"), icon: <Trash2 size={16} />, danger: true, onSelect: deleteSelected });
 		return entries;
 	};
 
@@ -1029,6 +1152,24 @@ function App() {
 								</div>
 							)}
 
+							{selectedRows.length > 0 ? (
+								<SelectionBar
+									count={selectedRows.length}
+									allFavorite={selectedTracks.every(track => trackStats.stats[track.relPath]?.favorite)}
+									canSelectMore={selectedRows.length < displayRows.length}
+									onPlay={() => playFrom(viewKey, selectedTracks[0], selectedTracks)}
+									onAddTo={() => setAddTo(selectedTracks)}
+									onTags={() => setTagPicker(selectedTracks)}
+									onToggleFavorite={() => toggleFavorites(selectedTracks)}
+									onRemoveFromPlaylist={manualPlaylist ? () => {
+										removeRowsFromPlaylist(selectedRows);
+										clearSelection();
+									} : undefined}
+									onDelete={deleteSelected}
+									onSelectAll={selectAll}
+									onClear={clearSelection}
+								/>
+							) : (
 							<Toolbar
 								searchQuery={searchQuery}
 								onSearchChange={setSearchQuery}
@@ -1042,6 +1183,7 @@ function App() {
 								onShuffleAll={handleShuffleView}
 								onPlayAll={handlePlayAll}
 							/>
+							)}
 
 							<div className="track-list-wrapper" ref={listRef} onScroll={onListScroll}>
 								{!isSearching && artistAlbums.length > 0 && (
@@ -1079,8 +1221,21 @@ function App() {
 									hintOf={!isSearching && viewSorts.display === "inline" ? rowHint : null}
 									numberOf={!isSearching && viewSort.field === "default" ? albumNumber : null}
 									emptyText={emptyText}
-									onPlay={(track) => playFrom(viewKey, track, displayFiles)}
-									onOpenMenu={(row, x, y) => setMenu({ x, y, entries: trackMenu(row) })}
+									onPlay={(track) => {
+										clearSelection();
+										playFrom(viewKey, track, displayFiles);
+									}}
+									selected={selectedKeys}
+									onSelect={selectRow}
+									onOpenMenu={(row, x, y) => {
+										// A selected row's menu acts on the whole selection; any other row's, on that row.
+										if (selectedKeys.has(row.key) && selectedRows.length > 1) {
+											setMenu({ x, y, entries: selectionMenu() });
+											return;
+										}
+										clearSelection();
+										setMenu({ x, y, entries: trackMenu(row) });
+									}}
 									onReorder={manualPlaylist && viewSort.field === "default" && !isSearching
 										? (itemIds) => playlists.reorder(
 											manualPlaylist.id,

@@ -35,6 +35,15 @@
     color: var(--accent);
 }
 
+/* Selected rows: a stronger tint than the playing one, which keeps its bar. */
+.audio-item.selected {
+    background: color-mix(in srgb, var(--accent) 14%, var(--bg));
+}
+
+.audio-item.selected:hover {
+    background: color-mix(in srgb, var(--accent) 20%, var(--bg));
+}
+
 .track-cover {
     border-radius: 3px;
 }

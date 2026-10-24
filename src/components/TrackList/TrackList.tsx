@@ -26,7 +26,18 @@ interface TrackListProps {
     onOpenMenu?: (row: ListRow, x: number, y: number) => void;
     /** Rows can be dragged into a new order (manual playlist, manual sort). */
     onReorder?: (itemIds: string[]) => void;
+    /** Keys of the selected rows. */
+    selected?: Set<string>;
+    /**
+     * Select a row instead of playing it: Ctrl/Cmd+click adds or removes it,
+     * Shift+click takes the range from the last one, and by touch a long press
+     * starts selecting and taps go on.
+     */
+    onSelect?: (row: ListRow, index: number, how: { range: boolean; additive: boolean }) => void;
 }
+
+/** What a row press does when nothing is selected yet. */
+const NO_SELECTION: Set<string> = new Set();
 
 interface DropTarget {
     key: string;
@@ -49,7 +60,7 @@ const AUTOSCROLL_EDGE = 48;
 type Entry =
     | { kind: "separator"; key: string }
     | { kind: "section"; key: string; section: SortSection; count: number; hidden: boolean }
-    | { kind: "row"; key: string; row: ListRow };
+    | { kind: "row"; key: string; row: ListRow; index: number };
 
 type Heights = Record<Entry["kind"], number>;
 
@@ -85,7 +96,11 @@ export const TrackList = ({
     onPlay,
     onOpenMenu,
     onReorder,
+    selected = NO_SELECTION,
+    onSelect,
 }: TrackListProps) => {
+    // Touch and mouse differ: a long press (contextmenu by touch) selects.
+    const lastPointer = useRef<string>("mouse");
     // Reordering with pointer events (mouse and touch alike): the handle
     // captures the pointer, the row under it becomes the drop target.
     const [dragging, setDragging] = useState<string | null>(null);
@@ -172,7 +187,7 @@ export const TrackList = ({
             const hidden = key !== null && collapsed.has(key);
             if (index === looseFromIndex && !hidden) list.push({ kind: "separator", key: "~similar" });
             if (start) list.push({ kind: "section", key: `~section:${index}`, ...start, hidden });
-            if (!hidden) list.push({ kind: "row", key: row.key, row });
+            if (!hidden) list.push({ kind: "row", key: row.key, row, index });
         });
         return list;
     }, [rows, starts, keys, collapsed, looseFromIndex]);
@@ -264,7 +279,8 @@ export const TrackList = ({
                 </button>
             );
         }
-        const row = entry.row;
+        const { row, index } = entry;
+        const isSelected = selected.has(row.key);
         const file = row.track;
         const hint = hintOf?.(file);
         const title = displayTitle(file);
@@ -276,12 +292,30 @@ export const TrackList = ({
             <div
                 key={row.key}
                 data-row-key={row.key}
-                onClick={() => onPlay(file)}
-                onContextMenu={onOpenMenu && ((e) => {
+                onPointerDown={(e) => {
+                    lastPointer.current = e.pointerType;
+                }}
+                // Shift+click would also select text.
+                onMouseDown={(e) => e.shiftKey && e.preventDefault()}
+                onClick={(e) => {
+                    const additive = e.ctrlKey || e.metaKey;
+                    const touchSelecting = selected.size > 0 && lastPointer.current === "touch";
+                    if (onSelect && (additive || e.shiftKey || touchSelecting)) {
+                        onSelect(row, index, { range: e.shiftKey, additive: additive || touchSelecting });
+                        return;
+                    }
+                    onPlay(file);
+                }}
+                onContextMenu={(e) => {
                     e.preventDefault();
+                    if (onSelect && lastPointer.current === "touch") {
+                        onSelect(row, index, { range: false, additive: true });
+                        return;
+                    }
                     openMenuAt(row, e.clientX, e.clientY);
-                })}
-                className={`audio-item ${activePath === file.path ? 'active' : ''} ${dragging === row.key ? 'dragging' : ''} ${drop}`}
+                }}
+                aria-selected={onSelect ? isSelected : undefined}
+                className={`audio-item ${activePath === file.path ? 'active' : ''} ${isSelected ? 'selected' : ''} ${dragging === row.key ? 'dragging' : ''} ${drop}`}
             >
                 {onReorder && row.itemId && (
                     <span

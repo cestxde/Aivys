@@ -63,6 +63,15 @@ export const ru: Record<MessageKey, Message> = {
 
     // Track list
     "list.similar": "Похожие совпадения",
+    "selection.count": {
+        one: "Выбран {count} трек",
+        few: "Выбрано {count} трека",
+        many: "Выбрано {count} треков",
+        other: "Выбрано {count} трека",
+    },
+    "selection.select": "Выбрать",
+    "selection.clear": "Снять выделение",
+    "selection.selectAll": "Выбрать все",
     "list.dragToReorder": "Перетащите, чтобы изменить порядок",
     "player.noTrack": "Нет трека",
     "player.shuffle": "Перемешивание",
