@@ -116,6 +116,9 @@ export const ru: Record<MessageKey, Message> = {
     // Track menu and actions
     "menu.goTo": "Перейти",
     "menu.openFolder": "Папка",
+    "menu.revealWindows": "Показать в проводнике",
+    "menu.revealMac": "Показать в Finder",
+    "menu.revealOther": "Показать в папке",
     "menu.removeTag": "Снять тег «{name}»",
     "menu.removeFromPlaylist": "Убрать из этого плейлиста",
     "menu.deleteFromDisk": "Удалить с диска…",
@@ -175,6 +178,7 @@ export const ru: Record<MessageKey, Message> = {
     "error.deletePlaylist": "Не удалось удалить плейлист",
     "error.evaluateSmart": "Не удалось вычислить умный плейлист",
     "error.deleteFile": "Не удалось удалить файл",
+    "error.reveal": "Не удалось показать файл",
     "error.loadArtistRules": "Не удалось загрузить правила исполнителей",
     "error.saveArtistRules": "Не удалось сохранить правила исполнителей",
 

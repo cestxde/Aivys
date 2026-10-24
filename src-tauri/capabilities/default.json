@@ -12,6 +12,7 @@
     "core:window:allow-set-theme",
     "log:default",
     "dialog:default",
+    "opener:allow-reveal-item-in-dir",
     "allow-scan-directory",
     "allow-library-store"
   ]

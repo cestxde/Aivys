@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import {
-	Heart, ListPlus, ListX, Play, Trash2, FolderOpen, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
+	Heart, ListPlus, ListX, Play, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
 } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
@@ -49,6 +49,7 @@ import {
 import { nextTagColor } from "./utils/tags";
 import { notifyError, notifyInfo } from "./utils/notify";
 import { displayTitle } from "./utils/track";
+import { revealFile, revealLabel } from "./utils/reveal";
 import { t, useI18n, type MessageKey } from "./i18n";
 import {
 	addRecentPath, removeRecentPath,
@@ -600,7 +601,8 @@ function App() {
 				onSelect: () => showView({ kind: "folder", id: folder }, listView),
 			});
 		}
-		return entries.length > 0 ? [{ kind: "label", label: t("menu.goTo") }, ...entries, { kind: "separator" }] : [];
+		entries.push({ kind: "item", label: revealLabel(), icon: <FolderSearch size={16} />, onSelect: () => revealFile(track.path) });
+		return [{ kind: "label", label: t("menu.goTo") }, ...entries, { kind: "separator" }];
 	};
 
 	const trackMenu = (row: ListRow): MenuEntry[] => {

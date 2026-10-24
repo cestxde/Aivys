@@ -4,6 +4,7 @@ import type { Track, TrackStats, UserTag } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { formatDateTime, formatDuration, formatFileSize } from "../../utils/format";
 import { tagsOf } from "../../utils/tags";
+import { revealFile, revealLabel } from "../../utils/reveal";
 import { CoverArt } from "../CoverArt";
 import { ArtistLinks } from "../ArtistLinks/ArtistLinks";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
@@ -175,7 +176,9 @@ export const TrackDetailPanel = ({
                 <DetailRow label={t("detail.size")} value={track.fileSize > 0 ? formatFileSize(track.fileSize) : null} />
                 <div className="detail-row">
                     <span className="detail-label">{t("detail.path")}</span>
-                    <span className="detail-value detail-path" title={track.path}>{track.path}</span>
+                    <button className="detail-value detail-path artist-link" title={revealLabel()} onClick={() => revealFile(track.path)}>
+                        {track.path}
+                    </button>
                 </div>
             </div>
 

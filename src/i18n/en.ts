@@ -120,6 +120,9 @@ export const en = {
     // Track menu and actions
     "menu.goTo": "Go to",
     "menu.openFolder": "Folder",
+    "menu.revealWindows": "Show in Explorer",
+    "menu.revealMac": "Show in Finder",
+    "menu.revealOther": "Show in folder",
     "menu.removeTag": "Remove tag \"{name}\"",
     "menu.removeFromPlaylist": "Remove from this playlist",
     "menu.deleteFromDisk": "Delete from disk…",
@@ -170,6 +173,7 @@ export const en = {
     "error.deletePlaylist": "Could not delete the playlist",
     "error.evaluateSmart": "Could not evaluate the smart playlist",
     "error.deleteFile": "Could not delete the file",
+    "error.reveal": "Could not show the file",
     "error.loadArtistRules": "Could not load the artist rules",
     "error.saveArtistRules": "Could not save the artist rules",
 

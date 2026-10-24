@@ -20,7 +20,9 @@ fn show_main_window(window: tauri::Window) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init());
 
     // Reopen the window where and as big as it was closed. Visibility is not
     // restored: the window stays hidden until the frontend has painted.
