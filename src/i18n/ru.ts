@@ -37,8 +37,8 @@ export const ru: Record<MessageKey, Message> = {
     "nav.albums": "Альбомы",
     "nav.tags": "Теги",
     "nav.folders": "Папки",
-    "nav.mostPlayed": "Часто слушаемые",
-    "nav.recentlyPlayed": "Недавно слушали",
+    "nav.mostPlayed": "Часто прослушиваемые",
+    "nav.recentlyPlayed": "Недавно воспроизведённые",
     "nav.settings": "Настройки",
 
     // Start screen
@@ -98,8 +98,8 @@ export const ru: Record<MessageKey, Message> = {
     "sort.longestFirst": "Сначала длинные",
     "sort.reversed": "{order}, в обратном порядке",
     "sort.recentlyFavorited": "Недавно добавленные в избранное",
-    "sort.recentlyPlayed": "Недавно прослушанные",
-    "sort.mostPlayed": "Часто слушаемые",
+    "sort.recentlyPlayed": "Недавно воспроизведённые",
+    "sort.mostPlayed": "Часто прослушиваемые",
     "sort.albumOrder": "Порядок альбомов",
     "sort.trackOrder": "Порядок треков",
     "sort.folderOrder": "Порядок в папке",
@@ -292,6 +292,7 @@ export const ru: Record<MessageKey, Message> = {
     "group.allAlbums": "Все альбомы",
     "group.parentFolder": "Родительская папка",
     "group.folderPath": "Путь к папке",
+    "group.tracksOf": { one: "{have} из {count} трека", other: "{have} из {count} треков" },
     "group.showAll": "Показать все",
     "group.showLess": "Свернуть",
 
@@ -336,6 +337,13 @@ export const ru: Record<MessageKey, Message> = {
     "detail.duration": "Длительность",
     "detail.format": "Формат",
     "detail.plays": "Прослушиваний",
+    "detail.playCount": {
+        one: "{count} прослушивание",
+        few: "{count} прослушивания",
+        many: "{count} прослушиваний",
+        other: "{count} прослушивания",
+    },
+    "time.hoursMinutes": "{hours} ч {minutes} мин",
     "detail.lastPlayed": "Последнее прослушивание",
     "detail.kbps": "{value} кбит/с",
     "detail.khz": "{value} кГц",

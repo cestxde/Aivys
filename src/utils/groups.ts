@@ -13,7 +13,18 @@ export interface TrackGroup {
     tracks: Track[];
     /** Shown in the list of its kind (an artist met too rarely is not). */
     listed: boolean;
+    /** Albums: how many tracks the album has by its tags, if they say. */
+    total?: number | null;
 }
+
+/** An album's track count by its tags: per disc the largest total, summed. */
+const albumTotal = (tracks: Track[]): number | null => {
+    const perDisc = new Map<number, number>();
+    for (const track of tracks) {
+        if (track.trackTotal) perDisc.set(track.discNumber ?? 1, Math.max(perDisc.get(track.discNumber ?? 1) ?? 0, track.trackTotal));
+    }
+    return perDisc.size > 0 ? [...perDisc.values()].reduce((sum, total) => sum + total, 0) : null;
+};
 
 // Tracks without an artist; a fixed key, so an open view survives a language change.
 const UNKNOWN_ARTIST_KEY = "\u0000unknown";
@@ -101,6 +112,7 @@ export const groupAlbums = (files: Track[]): TrackGroup[] => {
         group.subtitle = first.albumArtist?.trim()
             || (artists.size === 1 ? first.artists[0] ?? null : artists.size > 1 ? t("common.variousArtists") : null);
         group.year = group.tracks.find(t => t.year != null)?.year ?? null;
+        group.total = albumTotal(group.tracks);
     }
     return [...groups.values()].sort(byName);
 };

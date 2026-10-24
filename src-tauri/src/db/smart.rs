@@ -281,6 +281,7 @@ mod tests {
                 album: None,
                 album_artist: None,
                 track_number: None,
+                track_total: None,
                 disc_number: None,
                 year,
                 genre: genres.iter().map(|g| (*g).to_owned()).collect(),

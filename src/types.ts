@@ -10,6 +10,8 @@ export interface Track {
     album: string | null;
     albumArtist: string | null;
     trackNumber: number | null;
+    // How many tracks the album (or its disc) has, by the tags ("4/12").
+    trackTotal: number | null;
     discNumber: number | null;
     year: number | null;
     genre: string[];

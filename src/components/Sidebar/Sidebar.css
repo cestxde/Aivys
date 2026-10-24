@@ -48,12 +48,15 @@
     flex-shrink: 0;
 }
 
-/* A label too long for the rail is cut with an ellipsis (the full text is the tooltip). */
+/* A label too long for the rail takes a second line, then is cut (the full
+   text is the tooltip). */
 .sidebar-label {
     min-width: 0;
-    white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.25;
 }
 
 .sidebar-brand {

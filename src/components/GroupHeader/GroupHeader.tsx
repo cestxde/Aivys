@@ -1,7 +1,7 @@
 import { Fragment, type ComponentType } from "react";
 import { ArrowLeft, ChevronRight, Folder, MoreVertical } from "lucide-react";
 import type { ListRow } from "../../types";
-import { formatDuration } from "../../utils/format";
+import { formatTotalDuration } from "../../utils/format";
 import type { TrackGroup } from "../../utils/groups";
 import { CoverMosaic } from "../PlaylistCover/PlaylistCover";
 import { CardPlayButton, PlayingMark } from "../CardPlayButton/CardPlayButton";
@@ -23,6 +23,8 @@ interface GroupHeaderProps {
     details?: (string | null)[];
     covers: string[];
     round?: boolean;
+    /** How many tracks there should be (an album's tags): shown as "4 of 12". */
+    trackTotal?: number | null;
     rows: ListRow[];
     backTitle: string;
     onBack?: () => void;
@@ -40,6 +42,7 @@ export const GroupHeader = ({
     details = [],
     covers,
     round = false,
+    trackTotal,
     rows,
     backTitle,
     onBack,
@@ -48,8 +51,10 @@ export const GroupHeader = ({
     const totalSeconds = rows.reduce((sum, row) => sum + row.track.duration, 0);
     const summary = [
         ...details,
-        t("common.tracks", { count: rows.length }),
-        rows.length > 0 ? formatDuration(totalSeconds) : null,
+        trackTotal && trackTotal >= rows.length
+            ? t("group.tracksOf", { have: rows.length, count: trackTotal })
+            : t("common.tracks", { count: rows.length }),
+        rows.length > 0 ? formatTotalDuration(totalSeconds) : null,
     ].filter(Boolean).join(" · ");
 
     return (

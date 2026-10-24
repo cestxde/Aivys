@@ -24,6 +24,8 @@ pub(crate) struct Track {
     pub(crate) album: Option<String>,
     pub(crate) album_artist: Option<String>,
     pub(crate) track_number: Option<u32>,
+    // How many tracks the album (or its disc) has, by the tags ("4/12").
+    pub(crate) track_total: Option<u32>,
     pub(crate) disc_number: Option<u32>,
     pub(crate) year: Option<u32>,
     pub(crate) genre: Vec<String>,
@@ -95,6 +97,7 @@ pub(crate) fn read_track(path: &Path, covers_dir: &Path, date_created: u64, spli
     let mut album = None;
     let mut album_artist = None;
     let mut track_number = None;
+    let mut track_total = None;
     let mut disc_number = None;
     let mut year = None;
     let mut genre = Vec::new();
@@ -124,9 +127,16 @@ pub(crate) fn read_track(path: &Path, covers_dir: &Path, date_created: u64, spli
 
         album_artist = tag.get_string(ItemKey::AlbumArtist).map(str::to_owned);
 
-        track_number = tag
-            .get_string(ItemKey::TrackNumber)
+        // "4" or "4/12".
+        let track_field = tag.get_string(ItemKey::TrackNumber).map(|value| value.trim().to_owned());
+        track_number = track_field
+            .as_deref()
+            .and_then(|value| value.split('/').next())
             .and_then(|value| value.trim().parse::<u32>().ok());
+        track_total = tag
+            .track_total()
+            .or_else(|| track_field.as_deref()?.split('/').nth(1)?.trim().parse::<u32>().ok())
+            .filter(|total| *total > 0);
 
         disc_number = tag
             .get_string(ItemKey::DiscNumber)
@@ -157,6 +167,7 @@ pub(crate) fn read_track(path: &Path, covers_dir: &Path, date_created: u64, spli
         album: repair_opt(album),
         album_artist: repair_opt(album_artist),
         track_number,
+        track_total,
         disc_number,
         year,
         genre: genre.iter().map(|g| repair_mojibake(g)).collect(),

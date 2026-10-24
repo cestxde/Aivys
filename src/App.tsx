@@ -51,6 +51,7 @@ import { nextTagColor } from "./utils/tags";
 import { notifyError, notifyInfo } from "./utils/notify";
 import { displayTitle } from "./utils/track";
 import { revealFile, revealLabel } from "./utils/reveal";
+import { formatDateTime, formatDuration, formatTotalDuration } from "./utils/format";
 import { compareText, t, useI18n, type MessageKey } from "./i18n";
 import {
 	addRecentPath, removeRecentPath,
@@ -65,6 +66,13 @@ const EMPTY_TEXT: Record<SystemView, MessageKey> = {
 };
 
 const LIBRARY_VIEW: View = { kind: "system", id: "library" };
+
+const SYSTEM_TITLES: Record<SystemView, MessageKey> = {
+	library: "nav.library",
+	favorites: "nav.favorites",
+	recentlyPlayed: "nav.recentlyPlayed",
+	mostPlayed: "nav.mostPlayed",
+};
 const PLAYLISTS_VIEW: View = { kind: "playlists" };
 const TAGS_VIEW: View = { kind: "tags" };
 const ARTISTS_VIEW: View = { kind: "artists" };
@@ -98,6 +106,15 @@ const countTracks = (count: number) => t("common.tracks", { count });
 /** When a group's newest track was added. */
 const latestAdded = (group: TrackGroup) => group.tracks.reduce((latest, track) => Math.max(latest, track.dateCreated), 0);
 const byGroupName = (a: TrackGroup, b: TrackGroup) => compareText(a.name, b.name);
+
+/** An album card's counts: "4 of 12 tracks · 45:12". */
+const albumDetail = (group: TrackGroup): string => {
+	const have = group.tracks.length;
+	const count = group.total && group.total >= have
+		? t("group.tracksOf", { have, count: group.total })
+		: t("common.tracks", { count: have });
+	return `${count} · ${formatDuration(group.tracks.reduce((sum, track) => sum + track.duration, 0))}`;
+};
 
 /** Orders of the artists page; each compare is in its natural direction. */
 const artistSorts = (): CollectionSort[] => [
@@ -377,8 +394,23 @@ function App() {
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- labels are translated
 	}, [viewSort.field, listView, currentGroup, language]);
-	// eslint-disable-next-line react-hooks/exhaustive-deps -- dates are formatted per language
-	const rowHint = useMemo(() => hintOf(viewSort.field), [viewSort.field, language]);
+	// The gray detail next to each track: the sort field's value, or for the
+	// history views in their own order how often / when it was played.
+	const historyView = viewSort.field === "default" && listView.kind === "system" ? listView.id : null;
+	const rowHint = useMemo(() => {
+		const stats = trackStats.stats;
+		if (historyView === "mostPlayed") {
+			return (track: Track) => t("detail.playCount", { count: stats[track.relPath]?.playCount ?? 0 });
+		}
+		if (historyView === "recentlyPlayed") {
+			return (track: Track) => {
+				const at = stats[track.relPath]?.lastPlayedAt;
+				return at ? formatDateTime(at) : null;
+			};
+		}
+		return hintOf(viewSort.field);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- dates are formatted per language
+	}, [viewSort.field, historyView, trackStats.stats, language]);
 	const viewKey = viewKeyOf(listView);
 
 	// An album in its own order numbers its tracks; with several discs as "disc.track".
@@ -906,6 +938,7 @@ function App() {
 							groups={albums}
 							icon={Disc3}
 							describe={(group) => [group.subtitle ?? t("common.unknownArtist"), group.year].filter(Boolean).join(" · ")}
+							detail={albumDetail}
 							emptyText={t("collection.noAlbums")}
 							filterPlaceholder={t("collection.filterAlbums")}
 							noMatchText={t("collection.noMatchAlbums")}
@@ -948,6 +981,7 @@ function App() {
 									icon={Disc3}
 									title={currentGroup.name}
 									details={[currentGroup.subtitle, currentGroup.year != null ? String(currentGroup.year) : null]}
+									trackTotal={currentGroup.total}
 									covers={groupCovers(currentGroup, 1)}
 									rows={viewRows}
 									backTitle={t("group.allAlbums")}
@@ -984,6 +1018,20 @@ function App() {
 									onSetCover={(path) => playlists.setCover(playlist.id, path)}
 									onClearCover={() => playlists.clearCover(playlist.id)}
 								/>
+							)}
+
+							{listView.kind === "system" && (
+								<div className="view-heading">
+									<h1 className="view-heading-title">{t(SYSTEM_TITLES[listView.id])}</h1>
+									<span className="view-heading-summary">
+										{[
+											countTracks(viewRows.length),
+											viewRows.length > 0
+												? formatTotalDuration(viewRows.reduce((sum, row) => sum + row.track.duration, 0))
+												: null,
+										].filter(Boolean).join(" · ")}
+									</span>
+								</div>
 							)}
 
 							<Toolbar

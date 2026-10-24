@@ -1,4 +1,4 @@
-import { getLanguage } from "../i18n";
+import { getLanguage, t } from "../i18n";
 
 /** Format a number of seconds as "m:ss" (or "0:00" for invalid input). */
 export const formatDuration = (seconds: number): string => {
@@ -27,4 +27,12 @@ export const formatFileSize = (bytes: number): string => {
     const unit = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), SIZE_UNITS.length - 1);
     const value = bytes / 1024 ** unit;
     return `${unit === 0 ? value : value.toFixed(value < 10 ? 1 : 0)} ${SIZE_UNITS[unit]}`;
+};
+
+/** A total length: "m:ss" under an hour, "2 h 05 min" from an hour on. */
+export const formatTotalDuration = (seconds: number): string => {
+    if (!seconds || seconds < 3600) return formatDuration(seconds);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return t("time.hoursMinutes", { hours, minutes: String(minutes).padStart(2, "0") });
 };

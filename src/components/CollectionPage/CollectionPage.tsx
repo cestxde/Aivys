@@ -45,6 +45,8 @@ interface CollectionPageProps {
     /** Round covers (artists). */
     round?: boolean;
     describe: (group: TrackGroup) => string;
+    /** A further line on the card (on a list row, after `describe`). */
+    detail?: (group: TrackGroup) => string | null;
     emptyText: string;
     filterPlaceholder: string;
     noMatchText: string;
@@ -72,6 +74,7 @@ export const CollectionPage = ({
     icon,
     round = false,
     describe,
+    detail,
     emptyText,
     filterPlaceholder,
     noMatchText,
@@ -172,6 +175,7 @@ export const CollectionPage = ({
                                 {group.name}
                             </span>
                             <span className="playlist-card-meta" title={describe(group)}>{describe(group)}</span>
+                            {detail?.(group) && <span className="playlist-card-meta">{detail(group)}</span>}
                         </div>
                         {actions(group)}
                     </div>
@@ -188,7 +192,9 @@ export const CollectionPage = ({
                             {group.key === playingKey && <PlayingMark />}
                             {group.name}
                         </span>
-                        <span className="track-artist" title={describe(group)}>{describe(group)}</span>
+                        <span className="track-artist" title={describe(group)}>
+                            {[describe(group), detail?.(group)].filter(Boolean).join(" · ")}
+                        </span>
                     </div>
                     {actions(group)}
                 </div>

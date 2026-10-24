@@ -498,6 +498,7 @@ mod tests {
                 album: Some(album.to_owned()),
                 album_artist: None,
                 track_number: None,
+                track_total: None,
                 disc_number: None,
                 year: None,
                 genre: Vec::new(),

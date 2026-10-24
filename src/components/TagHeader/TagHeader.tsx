@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { ArrowLeft, Pencil, Tag, Trash2 } from "lucide-react";
 import type { ListRow, UserTag } from "../../types";
-import { formatDuration } from "../../utils/format";
+import { formatTotalDuration } from "../../utils/format";
 import { t } from "../../i18n";
 import "../PlaylistHeader/PlaylistHeader.css";
 import "./TagHeader.css";
@@ -20,7 +20,7 @@ export const TagHeader = ({ tag, rows, onBack, onEdit, onDelete }: TagHeaderProp
     const totalSeconds = rows.reduce((sum, row) => sum + row.track.duration, 0);
     const summary = [
         t("common.tracks", { count: rows.length }),
-        rows.length > 0 ? formatDuration(totalSeconds) : null,
+        rows.length > 0 ? formatTotalDuration(totalSeconds) : null,
     ].filter(Boolean).join(" · ");
 
     return (

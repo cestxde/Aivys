@@ -23,10 +23,10 @@ const UNLISTED_ARTISTS: &str = "CREATE TABLE IF NOT EXISTS unlisted_artists (nam
 /// Bump on any schema change. A database with another version is deleted and
 /// rebuilt from scratch: it only holds rebuildable data, so no migrations.
 /// Also bump when the event vocabulary changes, so journals are re-ingested,
-/// or when reading tags changes, so files are read again (6: raw artist tags
-/// kept, artists derived from them by the library's rules; 4 and 5 were
-/// development builds).
-const SCHEMA_VERSION: i32 = 6;
+/// or when reading tags changes, so files are read again (7: the album's track
+/// total; 6: raw artist tags kept, artists derived from them by the library's
+/// rules; 4 and 5 were development builds).
+const SCHEMA_VERSION: i32 = 7;
 
 const SCHEMA: &str = "
 CREATE TABLE meta (
@@ -47,6 +47,7 @@ CREATE TABLE tracks (
     album TEXT,
     album_artist TEXT,
     track_number INTEGER,
+    track_total INTEGER,
     disc_number INTEGER,
     year INTEGER,
     bitrate INTEGER,
@@ -352,7 +353,7 @@ impl LibraryDb {
         let mut stmt = self.conn.prepare(
             "SELECT id, rel_path, name, duration, title, album, album_artist, track_number,
                     disc_number, year, bitrate, sample_rate, format, cover_path, added_at,
-                    file_mtime, size
+                    file_mtime, size, track_total
              FROM tracks
              ORDER BY rel_path COLLATE NOCASE",
         )?;
@@ -378,6 +379,7 @@ impl LibraryDb {
                 album: row.get(5)?,
                 album_artist: row.get(6)?,
                 track_number: row.get(7)?,
+                track_total: row.get(17)?,
                 disc_number: row.get(8)?,
                 year: row.get(9)?,
                 genre: genres.get(&id).cloned().unwrap_or_default(),
@@ -418,8 +420,8 @@ fn upsert_track(tx: &Transaction, scanned: &ScannedTrack) -> rusqlite::Result<()
         .query_row(
             "INSERT INTO tracks (rel_path, mtime_ns, size, name, duration, title, album,
                                  album_artist, track_number, disc_number, year, bitrate,
-                                 sample_rate, format, cover_path, added_at, file_mtime)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+                                 sample_rate, format, cover_path, added_at, file_mtime, track_total)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
              ON CONFLICT (rel_path) DO UPDATE SET
                  mtime_ns = excluded.mtime_ns, size = excluded.size, name = excluded.name,
                  duration = excluded.duration, title = excluded.title, album = excluded.album,
@@ -427,7 +429,8 @@ fn upsert_track(tx: &Transaction, scanned: &ScannedTrack) -> rusqlite::Result<()
                  disc_number = excluded.disc_number, year = excluded.year,
                  bitrate = excluded.bitrate, sample_rate = excluded.sample_rate,
                  format = excluded.format, cover_path = excluded.cover_path,
-                 added_at = excluded.added_at, file_mtime = excluded.file_mtime
+                 added_at = excluded.added_at, file_mtime = excluded.file_mtime,
+                 track_total = excluded.track_total
              RETURNING id",
             params![
                 track.rel_path,
@@ -447,6 +450,7 @@ fn upsert_track(tx: &Transaction, scanned: &ScannedTrack) -> rusqlite::Result<()
                 track.cover_path,
                 track.date_created,
                 track.file_mtime,
+                track.track_total,
             ],
             |row| row.get(0),
         )?;
@@ -484,6 +488,7 @@ mod tests {
                 album: None,
                 album_artist: None,
                 track_number: Some(1),
+                track_total: None,
                 disc_number: None,
                 year: Some(2001),
                 genre: vec!["Rock".into()],

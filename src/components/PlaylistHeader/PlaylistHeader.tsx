@@ -2,7 +2,7 @@ import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { ArrowLeft, ImagePlus, ListMusic, Pencil, Sparkles, Trash2, SlidersHorizontal } from "lucide-react";
 import type { ListRow, Playlist } from "../../types";
-import { formatDuration } from "../../utils/format";
+import { formatTotalDuration } from "../../utils/format";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
 import { t } from "../../i18n";
 import "./PlaylistHeader.css";
@@ -57,7 +57,7 @@ export const PlaylistHeader = ({
     const totalSeconds = rows.reduce((sum, row) => sum + row.track.duration, 0);
     const summary = [
         t("common.tracks", { count: rows.length }),
-        rows.length > 0 ? formatDuration(totalSeconds) : null,
+        rows.length > 0 ? formatTotalDuration(totalSeconds) : null,
         missingCount > 0 ? t("playlist.missing", { count: missingCount }) : null,
     ].filter(Boolean).join(" · ");
 

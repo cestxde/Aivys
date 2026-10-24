@@ -282,6 +282,7 @@ export const en = {
     "group.allAlbums": "All albums",
     "group.parentFolder": "Parent folder",
     "group.folderPath": "Folder path",
+    "group.tracksOf": { one: "{have} of {count} track", other: "{have} of {count} tracks" },
     "group.showAll": "Show all",
     "group.showLess": "Show less",
 
@@ -326,6 +327,8 @@ export const en = {
     "detail.duration": "Duration",
     "detail.format": "Format",
     "detail.plays": "Plays",
+    "detail.playCount": { one: "{count} play", other: "{count} plays" },
+    "time.hoursMinutes": "{hours} h {minutes} min",
     "detail.lastPlayed": "Last played",
     "detail.kbps": "{value} kbps",
     "detail.khz": "{value} kHz",

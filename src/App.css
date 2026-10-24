@@ -97,3 +97,28 @@
   min-width: 0;
   overflow-y: auto;
 }
+/* Name and size of a built-in view, above its toolbar. */
+.view-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.view-heading-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-h);
+  white-space: nowrap;
+}
+
+.view-heading-summary {
+  font-size: 0.85rem;
+  color: var(--text);
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
