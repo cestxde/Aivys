@@ -38,7 +38,8 @@ export const compareAlbumOrder = (a: Track, b: Track): number =>
 export const compareByAlbum = (a: Track, b: Track): number =>
     compareText(a.album ?? "", b.album ?? "") || compareAlbumOrder(a, b);
 
-const artistKey = (name: string) => name.trim().toLowerCase();
+/** Id of the artist group `name` belongs to. */
+export const artistKey = (name: string) => name.trim().toLowerCase();
 
 /** One group per artist (a track with several artists is in each of them). */
 export const groupArtists = (files: Track[]): TrackGroup[] => {
@@ -69,6 +70,12 @@ export const groupArtists = (files: Track[]): TrackGroup[] => {
 const albumKey = (track: Track, album: string): string => {
     const owner = track.albumArtist?.trim().toLowerCase() || `dir:${folderOf(track.relPath)}`;
     return `${owner}\u001f${album.toLowerCase()}`;
+};
+
+/** Id of the album group a track belongs to; null without an album tag. */
+export const albumKeyOf = (track: Track): string | null => {
+    const album = track.album?.trim();
+    return album ? albumKey(track, album) : null;
 };
 
 /** One group per album; tracks without an album tag are left out. */

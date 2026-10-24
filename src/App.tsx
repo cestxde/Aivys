@@ -44,7 +44,7 @@ import {
 	compareBy, hintOf, sectionOf, sortSpecOf, viewSortOf, DEFAULT_SORT, type SortSection, type ViewSort,
 } from "./utils/sort";
 import {
-	folderOf, folderTracks, groupAlbums, groupArtists, groupCovers, hasFolders, subfolders, type TrackGroup,
+	albumKeyOf, artistKey, folderOf, folderTracks, groupAlbums, groupArtists, groupCovers, hasFolders, subfolders, type TrackGroup,
 } from "./utils/groups";
 import { nextTagColor } from "./utils/tags";
 import { notifyError, notifyInfo } from "./utils/notify";
@@ -392,17 +392,18 @@ function App() {
 	};
 
 	/**
-	 * Where "back" leads from the current view: an opened item to its list (the
-	 * header's back button), a top-level view to the library; none from it.
+	 * Where "back" (Esc, the header's back button) leads from the current view:
+	 * an item opened by a link back where it was opened, otherwise to its list;
+	 * a top-level view to the library; nowhere from the library.
 	 */
 	const parentView = (): View | null => {
 		switch (listView.kind) {
-			case "playlist": return PLAYLISTS_VIEW;
-			case "tag": return TAGS_VIEW;
-			case "artist": return ARTISTS_VIEW;
-			case "album": return ALBUMS_VIEW;
+			case "playlist": return backTo ?? PLAYLISTS_VIEW;
+			case "tag": return backTo ?? TAGS_VIEW;
+			case "artist": return backTo ?? ARTISTS_VIEW;
+			case "album": return backTo ?? ALBUMS_VIEW;
 			case "folder":
-				return listView.id ? { kind: "folder", id: listView.id.split("/").slice(0, -1).join("/") } : LIBRARY_VIEW;
+				return backTo ?? (listView.id ? { kind: "folder", id: listView.id.split("/").slice(0, -1).join("/") } : LIBRARY_VIEW);
 			case "settings": return backTo ?? LIBRARY_VIEW;
 			case "system": return listView.id === "library" ? null : backTo ?? LIBRARY_VIEW;
 			default: return LIBRARY_VIEW;
@@ -558,6 +559,47 @@ function App() {
 
 	const closeMenu = useCallback(() => setMenu(null), []);
 
+	const goBack = () => {
+		const parent = parentView();
+		if (parent) showView(parent);
+	};
+
+	/** Open an artist's page from a link; back returns here. */
+	const canOpenArtist = (name: string) => artistsByKey.has(artistKey(name));
+	const openArtist = (name: string) => {
+		if (canOpenArtist(name)) showView({ kind: "artist", id: artistKey(name) }, listView);
+	};
+	const openAlbum = (track: Track) => {
+		const key = albumKeyOf(track);
+		if (key && albumsByKey.has(key)) showView({ kind: "album", id: key }, listView);
+	};
+
+	/** "Go to" entries of a track: its artists, album and folder, except the page open now. */
+	const goToEntries = (track: Track): MenuEntry[] => {
+		const here = (kind: View["kind"], id: string) => listView.kind === kind && "id" in listView && listView.id === id;
+		const entries: MenuEntry[] = [];
+		for (const name of track.artists) {
+			const key = artistKey(name);
+			if (artistsByKey.has(key) && !here("artist", key)) {
+				entries.push({ kind: "item", label: name, icon: <MicVocal size={16} />, onSelect: () => openArtist(name) });
+			}
+		}
+		const album = albumKeyOf(track);
+		if (album && albumsByKey.has(album) && !here("album", album)) {
+			entries.push({ kind: "item", label: track.album ?? "", icon: <Disc3 size={16} />, onSelect: () => openAlbum(track) });
+		}
+		const folder = folderOf(track.relPath);
+		if (showFolders && !here("folder", folder)) {
+			entries.push({
+				kind: "item",
+				label: folder ? lastSegment(folder) : lastSegment(settings.lastPath),
+				icon: <Folder size={16} />,
+				onSelect: () => showView({ kind: "folder", id: folder }, listView),
+			});
+		}
+		return entries.length > 0 ? [{ kind: "label", label: t("menu.goTo") }, ...entries, { kind: "separator" }] : [];
+	};
+
 	const trackMenu = (row: ListRow): MenuEntry[] => {
 		const favorite = trackStats.stats[row.track.relPath]?.favorite ?? false;
 		const entries: MenuEntry[] = [
@@ -572,6 +614,7 @@ function App() {
 			{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo([row.track]) },
 			{ kind: "item", label: t("common.tags"), icon: <Tag size={16} />, onSelect: () => setTagPicker([row.track]) },
 			{ kind: "separator" },
+			...goToEntries(row.track),
 		];
 		// Danger zone: removals, then the file itself.
 		if (currentTag) {
@@ -837,7 +880,7 @@ function App() {
 								<TagHeader
 									tag={currentTag}
 									rows={viewRows}
-									onBack={() => showView(TAGS_VIEW)}
+									onBack={goBack}
 									onEdit={() => setTagDialog({ tag: currentTag })}
 									onDelete={() => deleteTag(currentTag)}
 								/>
@@ -853,7 +896,7 @@ function App() {
 									covers={groupCovers(currentGroup, 1)}
 									rows={viewRows}
 									backTitle={t("group.allArtists")}
-									onBack={() => showView(ARTISTS_VIEW)}
+									onBack={goBack}
 								/>
 							)}
 							{currentGroup && listView.kind === "album" && (
@@ -865,7 +908,7 @@ function App() {
 									covers={groupCovers(currentGroup, 1)}
 									rows={viewRows}
 									backTitle={t("group.allAlbums")}
-									onBack={() => showView(ALBUMS_VIEW)}
+									onBack={goBack}
 								/>
 							)}
 							{currentGroup && listView.kind === "folder" && (
@@ -877,9 +920,7 @@ function App() {
 									rows={viewRows}
 									crumbs={listView.id ? folderCrumbs(listView.id).slice(0, -1) : undefined}
 									backTitle={t("group.parentFolder")}
-									onBack={listView.id
-										? () => showView({ kind: "folder", id: listView.id.split("/").slice(0, -1).join("/") })
-										: undefined}
+									onBack={listView.id || backTo ? goBack : undefined}
 								/>
 							)}
 
@@ -890,7 +931,7 @@ function App() {
 									rows={viewRows}
 									missingCount={missingCount}
 									startRenaming={renamingId === playlist.id}
-									onBack={() => showView(PLAYLISTS_VIEW)}
+									onBack={goBack}
 									onRename={(name) => {
 										setRenamingId(null);
 										playlists.rename(playlist.id, name);
@@ -964,12 +1005,18 @@ function App() {
 					onSetRating={trackStats.setRating}
 					tagsById={tags.byId}
 					onEditTags={(track) => setTagPicker([track])}
-					onOpenTag={(target) => showView({ kind: "tag", id: target.id })}
+					onOpenTag={(target) => showView({ kind: "tag", id: target.id }, listView)}
+					canOpenArtist={canOpenArtist}
+					onOpenArtist={openArtist}
+					canOpenAlbum={(track) => { const key = albumKeyOf(track); return !!key && albumsByKey.has(key); }}
+					onOpenAlbum={openAlbum}
 				/>
 			</div>
 
 			<PlayerBar
 				currentTrack={currentTrack ?? null}
+				canOpenArtist={canOpenArtist}
+				onOpenArtist={openArtist}
 				isPlaying={isPlaying}
 				volume={volume}
 				onTogglePlay={togglePlay}

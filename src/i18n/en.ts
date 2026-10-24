@@ -118,6 +118,8 @@ export const en = {
     "section.unknownYear": "Unknown year",
 
     // Track menu and actions
+    "menu.goTo": "Go to",
+    "menu.openFolder": "Folder",
     "menu.removeTag": "Remove tag \"{name}\"",
     "menu.removeFromPlaylist": "Remove from this playlist",
     "menu.deleteFromDisk": "Delete from disk…",

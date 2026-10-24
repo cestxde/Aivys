@@ -11,6 +11,7 @@ import { useRef, useEffect, useState } from "react";
 import type { Track } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { CoverArt } from "../CoverArt";
+import { ArtistLinks } from "../ArtistLinks/ArtistLinks";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { TrackSlider } from "./TrackSlider";
 import { VolumeControl } from "./VolumeControl";
@@ -19,6 +20,8 @@ import "./PlayerBar.css";
 
 interface PlayerBarProps {
     currentTrack: Track | null;
+    canOpenArtist: (name: string) => boolean;
+    onOpenArtist: (name: string) => void;
     isPlaying: boolean;
     volume: number;
     currentTime: number;
@@ -95,8 +98,15 @@ export const PlayerBar = (props: PlayerBarProps) => {
                                 </span>
                             )}
                         </span>
-                        {artist && (
-                            <span className="track-artist-display">{artist}</span>
+                        {artist && props.currentTrack && (
+                            <span className="track-artist-display">
+                                <ArtistLinks
+                                    line={artist}
+                                    artists={props.currentTrack.artists}
+                                    canOpen={props.canOpenArtist}
+                                    onOpen={props.onOpenArtist}
+                                />
+                            </span>
                         )}
                     </div>
                 </div>

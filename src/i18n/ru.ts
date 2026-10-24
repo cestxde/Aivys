@@ -114,6 +114,8 @@ export const ru: Record<MessageKey, Message> = {
     "section.unknownYear": "Год неизвестен",
 
     // Track menu and actions
+    "menu.goTo": "Перейти",
+    "menu.openFolder": "Папка",
     "menu.removeTag": "Снять тег «{name}»",
     "menu.removeFromPlaylist": "Убрать из этого плейлиста",
     "menu.deleteFromDisk": "Удалить с диска…",

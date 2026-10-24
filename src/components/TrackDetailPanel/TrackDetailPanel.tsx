@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Heart, Star, Tag } from "lucide-react";
 import type { Track, TrackStats, UserTag } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { formatDateTime, formatDuration, formatFileSize } from "../../utils/format";
 import { tagsOf } from "../../utils/tags";
 import { CoverArt } from "../CoverArt";
+import { ArtistLinks } from "../ArtistLinks/ArtistLinks";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { TagChip } from "../TagChip/TagChip";
 import { t } from "../../i18n";
@@ -21,10 +22,14 @@ interface TrackDetailPanelProps {
     /** Open the tag picker for the track. */
     onEditTags: (track: Track) => void;
     onOpenTag: (tag: UserTag) => void;
+    canOpenArtist: (name: string) => boolean;
+    onOpenArtist: (name: string) => void;
+    canOpenAlbum: (track: Track) => boolean;
+    onOpenAlbum: (track: Track) => void;
 }
 
 /** A labelled "label: value" row, hidden when there is no value. */
-const DetailRow = ({ label, value }: { label: string; value: string | null | undefined }) => {
+const DetailRow = ({ label, value }: { label: string; value: ReactNode }) => {
     if (!value) return null;
     return (
         <div className="detail-row">
@@ -69,6 +74,10 @@ export const TrackDetailPanel = ({
     tagsById,
     onEditTags,
     onOpenTag,
+    canOpenArtist,
+    onOpenArtist,
+    canOpenAlbum,
+    onOpenAlbum,
 }: TrackDetailPanelProps) => {
     const [showCover, setShowCover] = useState(false);
 
@@ -106,7 +115,11 @@ export const TrackDetailPanel = ({
 
             <div className="detail-heading">
                 <h2 className="detail-title">{displayTitle(track)}</h2>
-                {artists && <span className="detail-artist">{artists}</span>}
+                {artists && (
+                    <span className="detail-artist">
+                        <ArtistLinks line={artists} artists={track.artists} canOpen={canOpenArtist} onOpen={onOpenArtist} />
+                    </span>
+                )}
             </div>
 
             <div className="detail-actions">
@@ -134,8 +147,18 @@ export const TrackDetailPanel = ({
             </div>
 
             <div className="detail-rows">
-                <DetailRow label={t("detail.album")} value={track.album} />
-                <DetailRow label={t("detail.albumArtist")} value={track.albumArtist} />
+                <DetailRow
+                    label={t("detail.album")}
+                    value={track.album && canOpenAlbum(track)
+                        ? <button className="artist-link" onClick={() => onOpenAlbum(track)}>{track.album}</button>
+                        : track.album}
+                />
+                <DetailRow
+                    label={t("detail.albumArtist")}
+                    value={track.albumArtist && (
+                        <ArtistLinks line={track.albumArtist} artists={[track.albumArtist]} canOpen={canOpenArtist} onOpen={onOpenArtist} />
+                    )}
+                />
                 <DetailRow label={t("detail.year")} value={track.year != null ? String(track.year) : null} />
                 <DetailRow label={t("detail.trackDisc")} value={trackDisc || null} />
                 <DetailRow label={t("detail.genre")} value={track.genre.length ? track.genre.join(", ") : null} />

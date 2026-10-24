@@ -1,0 +1,18 @@
+/* A name that opens its page: looks like the text around it until hovered. */
+.artist-link {
+    display: inline;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
+    cursor: pointer;
+}
+
+.artist-link:hover,
+.artist-link:focus-visible {
+    text-decoration: underline;
+    color: var(--text-h);
+    outline: none;
+}
