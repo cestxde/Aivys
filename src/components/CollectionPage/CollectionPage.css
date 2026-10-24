@@ -18,3 +18,50 @@
 .collection-more:hover {
     background: var(--surface);
 }
+
+.collection-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.collection-section-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    padding: 2px 6px 2px 2px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+}
+
+.collection-section-title:hover:not(:disabled) {
+    background: var(--surface);
+    color: var(--text-h);
+}
+
+.collection-section-title:disabled {
+    cursor: default;
+}
+
+.collection-section-chevron {
+    transition: transform 0.15s;
+}
+
+.collection-section-title.open .collection-section-chevron {
+    transform: rotate(90deg);
+}
+
+.collection-section-count {
+    margin-left: 2px;
+    font-weight: 400;
+    opacity: 0.7;
+}

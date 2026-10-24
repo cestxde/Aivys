@@ -33,3 +33,25 @@ export const useRememberedScroll = (key: string) => {
 
     return { ref, onScroll };
 };
+
+/** `useState` kept on this device across launches (a view preference), as JSON under `aivys.<key>`. */
+export const useStoredState = <T,>(key: string, initial: T, valid: (value: unknown) => value is T) => {
+    const storageKey = `aivys.${key}`;
+    const [value, setValue] = useState<T>(() => {
+        try {
+            const stored: unknown = JSON.parse(localStorage.getItem(storageKey) ?? "null");
+            return valid(stored) ? stored : initial;
+        } catch {
+            return initial;
+        }
+    });
+    const set = useCallback((next: T) => {
+        setValue(next);
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(next));
+        } catch {
+            // Not remembered; fine.
+        }
+    }, [storageKey]);
+    return [value, set] as const;
+};

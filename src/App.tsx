@@ -31,7 +31,7 @@ import { PlaylistHeader } from "./components/PlaylistHeader/PlaylistHeader";
 import { ContextMenu, type MenuEntry } from "./components/ContextMenu/ContextMenu";
 import { SmartPlaylistEditor } from "./components/SmartPlaylistEditor/SmartPlaylistEditor";
 import { PlaylistsPage, type PinnedPlaylist } from "./components/PlaylistsPage/PlaylistsPage";
-import { CollectionPage } from "./components/CollectionPage/CollectionPage";
+import { CollectionPage, type CollectionSection, type CollectionSort } from "./components/CollectionPage/CollectionPage";
 import { AlbumStrip } from "./components/AlbumStrip/AlbumStrip";
 import { FolderGrid, GroupHeader, type Crumb } from "./components/GroupHeader/GroupHeader";
 import { AddToDialog } from "./components/AddToDialog/AddToDialog";
@@ -51,7 +51,7 @@ import { nextTagColor } from "./utils/tags";
 import { notifyError, notifyInfo } from "./utils/notify";
 import { displayTitle } from "./utils/track";
 import { revealFile, revealLabel } from "./utils/reveal";
-import { t, useI18n, type MessageKey } from "./i18n";
+import { compareText, t, useI18n, type MessageKey } from "./i18n";
 import {
 	addRecentPath, removeRecentPath,
 	type ConflictReport, type ListRow, type Playlist, type SmartRules, type SystemView, type Track, type UserTag, type View,
@@ -94,6 +94,30 @@ const defaultSortLabel = (view: View, playlist: Playlist | null): string | null 
 };
 
 const countTracks = (count: number) => t("common.tracks", { count });
+
+/** When a group's newest track was added. */
+const latestAdded = (group: TrackGroup) => group.tracks.reduce((latest, track) => Math.max(latest, track.dateCreated), 0);
+const byGroupName = (a: TrackGroup, b: TrackGroup) => compareText(a.name, b.name);
+
+/** Orders of the artists page; each compare is in its natural direction. */
+const artistSorts = (): CollectionSort[] => [
+	{ id: "name", label: t("collection.sortName"), compare: byGroupName },
+	{ id: "tracks", label: t("collection.sortTracks"), compare: (a, b) => b.tracks.length - a.tracks.length || byGroupName(a, b) },
+	{ id: "added", label: t("collection.sortAdded"), compare: (a, b) => latestAdded(b) - latestAdded(a) || byGroupName(a, b) },
+];
+
+const albumSorts = (): CollectionSort[] => [
+	{ id: "name", label: t("collection.sortTitle"), compare: byGroupName },
+	{ id: "artist", label: t("collection.sortArtist"), compare: (a, b) => compareText(a.subtitle ?? "", b.subtitle ?? "") || byGroupName(a, b) },
+	{ id: "year", label: t("collection.sortYear"), compare: (a, b) => (b.year ?? 0) - (a.year ?? 0) || byGroupName(a, b) },
+	{ id: "added", label: t("collection.sortAdded"), compare: (a, b) => latestAdded(b) - latestAdded(a) || byGroupName(a, b) },
+];
+
+/** Artists with one track are folded away, so they do not crowd the rest. */
+const artistSections = (): CollectionSection[] => [
+	{ id: "many", label: t("collection.manyTracks"), test: group => group.tracks.length > 1 },
+	{ id: "one", label: t("collection.oneTrack"), test: group => group.tracks.length === 1, folded: true },
+];
 
 /** A view as a short key, e.g. "album:<key>" or "playlists". */
 const viewKeyOf = (view: View): string => ("id" in view ? `${view.kind}:${view.id}` : view.kind);
@@ -854,6 +878,8 @@ function App() {
 					) : listView.kind === "artists" ? (
 						<CollectionPage
 							memoryKey="artists"
+							sorts={artistSorts()}
+							sections={artistSections()}
 							title={t("nav.artists")}
 							groups={listedArtists}
 							icon={MicVocal}
@@ -873,6 +899,7 @@ function App() {
 					) : listView.kind === "albums" ? (
 						<CollectionPage
 							memoryKey="albums"
+							sorts={albumSorts()}
 							title={t("nav.albums")}
 							groups={albums}
 							icon={Disc3}
