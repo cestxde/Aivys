@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { getVersion } from "@tauri-apps/api/app";
-import { FolderOpen, Info, MicVocal, Palette, RefreshCw, Library, Share2 } from "lucide-react";
+import { FolderOpen, Info, Keyboard, MicVocal, Palette, RefreshCw, Library, Share2 } from "lucide-react";
 import { ArtistRulesEditor } from "./ArtistRules";
+import { ShortcutSettings } from "./ShortcutSettings";
 import type { ThemePreference } from "../../utils/theme";
 import {
     getLanguagePreference, getLogoPreference, setLanguagePreference, setLogoPreference, t,
@@ -166,6 +167,10 @@ export const SettingsPage = ({
                     <span className="settings-row-description">{t("settings.artistsHint")}</span>
                     <ArtistRulesEditor onApply={onRescan} />
                 </div>
+            </Section>
+
+            <Section icon={<Keyboard size={16} />} title={t("settings.shortcuts")}>
+                <ShortcutSettings />
             </Section>
 
             <Section icon={<Share2 size={16} />} title={t("settings.sync")}>

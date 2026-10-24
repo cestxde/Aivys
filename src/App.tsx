@@ -25,6 +25,7 @@ import { sortScopeOf, useViewSorts } from "./hooks/useViewSorts";
 import { useTrackStats } from "./hooks/useTrackStats";
 import { usePlayTracking } from "./hooks/usePlayTracking";
 import { useTaskbar } from "./hooks/useTaskbar";
+import { useShortcutActions } from "./hooks/useShortcutActions";
 import { usePlaylists } from "./hooks/usePlaylists";
 import { useTags } from "./hooks/useTags";
 import { useViewRows } from "./hooks/useViewRows";
@@ -155,6 +156,9 @@ interface Selection {
 }
 
 const NO_SELECTION: Selection = { scope: "", keys: new Set(), anchor: null };
+
+/** How much the volume shortcuts change the volume (of 1). */
+const VOLUME_STEP = 0.05;
 
 /** Pages that show cards rather than a track list. */
 const CARD_PAGES: View["kind"][] = ["playlists", "tags", "settings", "artists", "albums"];
@@ -492,9 +496,17 @@ function App() {
 	// settings were opened from, or the playlists page for a built-in playlist
 	// opened from its card.
 	const [backTo, setBackTo] = useState<View | null>(null);
+	// Views left by going back, the latest last: "forward" reopens them, any
+	// other navigation forgets them.
+	const [forwardViews, setForwardViews] = useState<{ view: View; backTo: View | null }[]>([]);
 
 	/** Open `next`; `from` is where going back should return to, if not the usual place. */
 	const showView = (next: View, from?: View) => {
+		setForwardViews([]);
+		openView(next, from);
+	};
+
+	const openView = (next: View, from?: View) => {
 		if (next.kind === "settings") {
 			if (listView.kind !== "settings") setBackTo(listView);
 		} else {
@@ -524,6 +536,23 @@ function App() {
 		}
 	};
 
+	const goBack = () => {
+		const parent = parentView();
+		if (!parent) return;
+		setForwardViews(views => [...views, { view: listView, backTo }]);
+		openView(parent);
+	};
+
+	const goForward = () => {
+		const entry = forwardViews[forwardViews.length - 1];
+		if (!entry) return;
+		setForwardViews(views => views.slice(0, -1));
+		setRenamingId(null);
+		setSearchQuery("");
+		setListView(entry.view);
+		setBackTo(entry.backTo);
+	};
+
 	// Esc goes back, unless something else uses it: an open menu, dialog or
 	// cover viewer closes itself, and a text field keeps its own Esc (except
 	// the empty track search, see the toolbar).
@@ -535,7 +564,7 @@ function App() {
 			if (document.querySelector(".dialog-backdrop, .context-menu, .cover-viewer-backdrop")) return;
 			const target = e.target as HTMLElement | null;
 			if (target?.matches("input, textarea, select, [contenteditable]") && !target.matches(".track-search")) return;
-			showView(parent);
+			goBack();
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
@@ -691,10 +720,17 @@ function App() {
 
 	const closeMenu = useCallback(() => setMenu(null), []);
 
-	const goBack = () => {
-		const parent = parentView();
-		if (parent) showView(parent);
-	};
+	// Back and forward only within the open library (not on the picker).
+	const inLibrary = view === "library";
+	useShortcutActions({
+		back: () => inLibrary && goBack(),
+		forward: () => inLibrary && goForward(),
+		playPause: () => activePath && togglePlay(),
+		previous: () => activePath && onPrev(),
+		next: () => activePath && onNext(),
+		volumeUp: () => setVolume(Math.min(1, volume + VOLUME_STEP)),
+		volumeDown: () => setVolume(Math.max(0, volume - VOLUME_STEP)),
+	});
 
 	/** Open an artist's page from a link; back returns here. */
 	const canOpenArtist = (name: string) => artistsByKey.has(artistKey(name));
