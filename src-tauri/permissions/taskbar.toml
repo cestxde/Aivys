@@ -1,4 +1,4 @@
 [[permission]]
 identifier = "allow-taskbar"
-description = "Allows showing whether a track plays on the taskbar's thumbnail buttons (Windows)"
-commands.allow = ["set_taskbar_state"]
+description = "Allows showing what plays on the taskbar's thumbnail buttons and in the system media controls (Windows)"
+commands.allow = ["set_taskbar_state", "set_media_state"]

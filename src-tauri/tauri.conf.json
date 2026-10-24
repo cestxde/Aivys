@@ -18,7 +18,8 @@
         "minWidth": 700,
         "minHeight": 450,
         "fullscreen": false,
-        "visible": false
+        "visible": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,HardwareMediaKeyHandling --autoplay-policy=no-user-gesture-required"
       }
     ],
     "security": {

@@ -25,6 +25,7 @@ import { sortScopeOf, useViewSorts } from "./hooks/useViewSorts";
 import { useTrackStats } from "./hooks/useTrackStats";
 import { usePlayTracking } from "./hooks/usePlayTracking";
 import { useTaskbar } from "./hooks/useTaskbar";
+import { useMediaControls } from "./hooks/useMediaControls";
 import { useShortcutActions } from "./hooks/useShortcutActions";
 import { usePlaylists } from "./hooks/usePlaylists";
 import { useTags } from "./hooks/useTags";
@@ -227,6 +228,13 @@ function App() {
 	const trackStats = useTrackStats(files);
 	usePlayTracking(element, currentTrack ?? null, trackStats.recordPlay, trackStats.recordComplete);
 	useTaskbar(isPlaying, !!activePath, language, { previous: onPrev, toggle: togglePlay, next: onNext });
+	useMediaControls(element, currentTrack ?? null, isPlaying, {
+		play: () => !isPlaying && togglePlay(),
+		pause: () => isPlaying && togglePlay(),
+		next: onNext,
+		previous: onPrev,
+		seek,
+	});
 
 	const playlists = usePlaylists(files);
 	const tags = useTags(files);

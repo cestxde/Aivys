@@ -2,6 +2,7 @@ mod artists;
 mod cover;
 mod db;
 mod library;
+mod media_controls;
 mod metadata;
 mod store;
 mod taskbar;
@@ -10,6 +11,7 @@ mod track;
 
 use library::{scan_directory, validate_directory};
 use store::commands::*;
+use media_controls::set_media_state;
 use taskbar::set_taskbar_state;
 use tauri::Manager;
 
@@ -46,6 +48,7 @@ pub fn run() {
             validate_directory,
             show_main_window,
             set_taskbar_state,
+            set_media_state,
             get_library_settings,
             set_visible_system_playlists,
             set_artist_rules,
@@ -92,6 +95,7 @@ pub fn run() {
             }
 
             taskbar::install(app);
+            media_controls::install(app);
             if let Ok(app_data) = app.path().app_data_dir() {
                 metadata::clear_undo(&app_data);
             }
