@@ -1,5 +1,6 @@
+use crate::artists::{ArtistRules, Splitter};
 use crate::db::{LibraryDb, ScannedTrack};
-use crate::store::commands::open_store;
+use crate::store::commands::{artist_rules, open_store};
 use crate::store::fsio::now_unix;
 use crate::store::index::{added_at_path, load_added_at, save_added_at};
 use crate::track::{read_modified, read_track, Track};
@@ -111,8 +112,8 @@ fn find_files(base: &Path) -> Vec<FoundFile> {
     files
 }
 
-fn read_found(file: &FoundFile, covers_dir: &Path) -> Option<Track> {
-    let mut track = read_track(&file.path, covers_dir, file.date_created)?;
+fn read_found(file: &FoundFile, covers_dir: &Path, splitter: &Splitter) -> Option<Track> {
+    let mut track = read_track(&file.path, covers_dir, file.date_created, splitter)?;
     track.rel_path = file.rel_key.clone();
     track.file_size = file.size as u64;
     Some(track)
@@ -120,8 +121,16 @@ fn read_found(file: &FoundFile, covers_dir: &Path) -> Option<Track> {
 
 /// Scan through the index: only files that are new or changed since the last
 /// scan (by mtime and size), or whose cached cover is gone, have their tags
-/// read again.
-fn scan_cached(db: &mut LibraryDb, base: &Path, files: &[FoundFile], covers_dir: &Path) -> rusqlite::Result<Vec<Track>> {
+/// read again. Artists of cached files follow `rules` without a re-read.
+fn scan_cached(
+    db: &mut LibraryDb,
+    base: &Path,
+    files: &[FoundFile],
+    covers_dir: &Path,
+    rules: &ArtistRules,
+) -> rusqlite::Result<Vec<Track>> {
+    db.apply_artist_rules(rules)?;
+    let splitter = Splitter::new(rules);
     let mut cached = db.cached_files()?;
 
     let mut upserts = Vec::new();
@@ -143,7 +152,7 @@ fn scan_cached(db: &mut LibraryDb, base: &Path, files: &[FoundFile], covers_dir:
                     added_at_updates.push((file.rel_key.clone(), file.date_created));
                 }
             }
-            None => match read_found(file, covers_dir) {
+            None => match read_found(file, covers_dir, &splitter) {
                 Some(track) => upserts.push(ScannedTrack {
                     track,
                     mtime_ns: file.mtime_ns,
@@ -168,7 +177,7 @@ fn scan_cached(db: &mut LibraryDb, base: &Path, files: &[FoundFile], covers_dir:
 /// The blocking part of a scan: walks the folder, reads tags and covers, and
 /// updates the "added-at" store and the local index. Kept synchronous so it can
 /// run on a blocking thread pool via [`scan_directory`], never on the UI thread.
-fn do_scan(base_path: &str, covers_dir: &Path, app_data: Option<&Path>) -> Vec<Track> {
+fn do_scan(base_path: &str, covers_dir: &Path, app_data: Option<&Path>, rules: &ArtistRules) -> Vec<Track> {
     let base = Path::new(base_path);
     let files = find_files(base);
 
@@ -180,13 +189,14 @@ fn do_scan(base_path: &str, covers_dir: &Path, app_data: Option<&Path>) -> Vec<T
         }
     });
     if let Some(mut db) = db {
-        match scan_cached(&mut db, base, &files, covers_dir) {
+        match scan_cached(&mut db, base, &files, covers_dir, rules) {
             Ok(tracks) => return tracks,
             Err(err) => log::warn!("library index failed, scanning without it: {err}"),
         }
     }
 
-    files.iter().filter_map(|file| read_found(file, covers_dir)).collect()
+    let splitter = Splitter::new(rules);
+    files.iter().filter_map(|file| read_found(file, covers_dir, &splitter)).collect()
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -207,7 +217,7 @@ pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String) -> 
         if let Err(err) = open_store(&app, Path::new(&base_path)) {
             log::warn!("cannot open .aivys store: {err}");
         }
-        do_scan(&base_path, &covers_dir, app_data.as_deref())
+        do_scan(&base_path, &covers_dir, app_data.as_deref(), &artist_rules(&app))
     })
     .await
     .unwrap_or_default()
@@ -254,7 +264,7 @@ mod tests {
         write_wav(&root.join("two.wav"), 8000);
         let root_str = root.to_string_lossy().into_owned();
 
-        let tracks = do_scan(&root_str, &covers, Some(&app_data));
+        let tracks = do_scan(&root_str, &covers, Some(&app_data), &ArtistRules::default());
         assert_eq!(tracks.len(), 2);
         assert_eq!(tracks[0].rel_path, "Artist/one.wav");
         assert_eq!(tracks[0].path, root.join("Artist").join("one.wav").to_string_lossy());
@@ -268,7 +278,7 @@ mod tests {
         std::fs::remove_file(root.join("Artist").join("one.wav")).unwrap();
         write_wav(&root.join("three.wav"), 8000);
 
-        let tracks = do_scan(&root_str, &covers, Some(&app_data));
+        let tracks = do_scan(&root_str, &covers, Some(&app_data), &ArtistRules::default());
         let titles: Vec<(&str, Option<&str>)> = tracks
             .iter()
             .map(|t| (t.rel_path.as_str(), t.title.as_deref()))
@@ -280,7 +290,7 @@ mod tests {
         let conn = rusqlite::Connection::open(crate::db::db_path(&app_data, &root)).unwrap();
         conn.execute("UPDATE tracks SET title = 'cached'", []).unwrap();
         drop(conn);
-        let tracks = do_scan(&root_str, &covers, Some(&app_data));
+        let tracks = do_scan(&root_str, &covers, Some(&app_data), &ArtistRules::default());
         let cached = tracks.iter().filter(|t| t.title.as_deref() == Some("cached")).count();
         assert_eq!(cached, 2, "unchanged files must come from the index");
 

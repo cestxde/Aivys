@@ -4,6 +4,8 @@ description = "Allows reading and writing the library's .aivys data (favorites, 
 commands.allow = [
   "get_library_settings",
   "set_visible_system_playlists",
+  "set_artist_rules",
+  "default_artist_rules",
   "resolve_conflicts",
   "record_play",
   "record_complete",

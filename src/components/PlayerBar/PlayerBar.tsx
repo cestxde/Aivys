@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 import type { Track } from "../../types";
-import { displayTitle } from "../../utils/track";
+import { displayArtists, displayTitle } from "../../utils/track";
 import { CoverArt } from "../CoverArt";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { TrackSlider } from "./TrackSlider";
@@ -37,9 +37,7 @@ interface PlayerBarProps {
 export const PlayerBar = (props: PlayerBarProps) => {
     const hasTrack = !!props.currentTrack;
     const title = props.currentTrack ? displayTitle(props.currentTrack) : null;
-    const artist = props.currentTrack?.artists?.length
-        ? props.currentTrack.artists.join(", ")
-        : null;
+    const artist = props.currentTrack ? displayArtists(props.currentTrack) : null;
 
     const containerRef = useRef<HTMLSpanElement>(null);
     const textRef = useRef<HTMLSpanElement>(null);

@@ -170,7 +170,7 @@ pub(super) fn index_track(tx: &Transaction, id: i64, track: &Track) -> rusqlite:
             .map(|stem| stem.to_string_lossy().into_owned())
             .unwrap_or_default()
     });
-    let mut artist = track.artists.join(" ");
+    let mut artist = track.artist_tags.join(" ");
     if let Some(album_artist) = &track.album_artist {
         artist.push(' ');
         artist.push_str(album_artist);
@@ -509,6 +509,8 @@ mod tests {
                 file_mtime: 0,
                 metadata_modified_at: 0,
                 file_size: 0,
+                artist_line: String::new(),
+                artist_tags: vec![artist.to_owned()],
             },
             mtime_ns: 0,
             size: 0,

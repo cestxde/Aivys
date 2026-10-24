@@ -1,3 +1,4 @@
+mod artists;
 mod cover;
 mod db;
 mod library;
@@ -40,6 +41,8 @@ pub fn run() {
             show_main_window,
             get_library_settings,
             set_visible_system_playlists,
+            set_artist_rules,
+            default_artist_rules,
             resolve_conflicts,
             record_play,
             record_complete,

@@ -2,7 +2,7 @@ import "./TrackList.css";
 import { Fragment, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { ChevronRight, GripVertical, MoreVertical } from "lucide-react";
 import type { ListRow, Track } from "../../types";
-import { displayTitle } from "../../utils/track";
+import { displayArtists, displayTitle } from "../../utils/track";
 import { formatDuration } from "../../utils/format";
 import type { SortSection } from "../../utils/sort";
 import { CoverArt } from "../CoverArt";
@@ -160,9 +160,7 @@ export const TrackList = ({
                     const file = row.track;
                     const hint = hintOf?.(file);
                     const title = displayTitle(file);
-                    const artist = file.artists.length > 0
-                        ? file.artists.join(", ")
-                        : t("common.unknownArtist");
+                    const artist = displayArtists(file) ?? t("common.unknownArtist");
                     const drop = dropTarget?.key === row.key && dragging !== row.key
                         ? (dropTarget.after ? "drop-after" : "drop-before")
                         : "";

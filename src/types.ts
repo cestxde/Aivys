@@ -31,6 +31,9 @@ export interface Track {
     metadataModifiedAt: number;
     // File size in bytes.
     fileSize: number;
+    // The artist tags as written, for display ("A & B"); `artists` are the
+    // separate artists split from them, for grouping.
+    artistLine: string;
 }
 
 /** Per-track state derived from the .aivys event journals (get_track_stats). */
@@ -89,6 +92,16 @@ export type View =
     // `id` is the "/"-separated folder path, "" for the library root.
     | { kind: 'folder'; id: string }
     | { kind: 'settings' };
+
+/** How artist tags are split into artists (`.aivys/library.json` → `artists`). */
+export interface ArtistRules {
+    // Off: every tag value is one artist.
+    enabled: boolean;
+    // Separators; a word ("feat.") splits only as a separate word.
+    splitOn: string[];
+    // Names never split, e.g. "AC/DC".
+    keepWhole: string[];
+}
 
 /** What `resolve_conflicts` did with sync-conflict copies in `.aivys/`. */
 export interface ConflictReport {

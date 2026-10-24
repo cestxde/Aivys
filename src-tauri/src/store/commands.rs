@@ -7,6 +7,7 @@ use super::conflicts::ConflictReport;
 use super::events::{self, EventKind, TrackStats};
 use super::playlists::{self, PlaylistView, SmartRules, SortSpec};
 use super::settings::{self, LibrarySettings};
+use crate::artists::ArtistRules;
 use super::tags::{self, TagDef};
 use super::{conflicts, system, Store, StoreError};
 use crate::db::search::SearchHit;
@@ -100,6 +101,27 @@ pub(crate) async fn set_visible_system_playlists(
     ids: Vec<String>,
 ) -> Result<LibrarySettings, StoreError> {
     with_store(&state, |store| settings::set_visible_system_playlists(store, ids))
+}
+
+/// Save how artist tags are split; a rescan applies it.
+#[tauri::command]
+pub(crate) async fn set_artist_rules(state: State<'_, StoreState>, rules: ArtistRules) -> Result<LibrarySettings, StoreError> {
+    with_store(&state, |store| settings::set_artist_rules(store, rules))
+}
+
+/// The built-in artist rules, for "reset to defaults".
+#[tauri::command]
+pub(crate) async fn default_artist_rules() -> ArtistRules {
+    ArtistRules::default()
+}
+
+/// The open library's artist rules, for the scan (defaults when unreadable).
+pub(crate) fn artist_rules(app: &tauri::AppHandle) -> ArtistRules {
+    let state = app.state::<StoreState>();
+    with_store(&state, |store| settings::load(store).map(|settings| settings.artists)).unwrap_or_else(|err| {
+        log::warn!("cannot read the artist rules: {err}");
+        ArtistRules::default()
+    })
 }
 
 #[tauri::command]

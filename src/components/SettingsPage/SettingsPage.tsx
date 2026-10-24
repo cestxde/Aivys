@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { getVersion } from "@tauri-apps/api/app";
-import { FolderOpen, Info, Palette, RefreshCw, Library, Share2 } from "lucide-react";
+import { FolderOpen, Info, MicVocal, Palette, RefreshCw, Library, Share2 } from "lucide-react";
+import { ArtistRulesEditor } from "./ArtistRules";
 import type { ThemePreference } from "../../utils/theme";
 import {
     getLanguagePreference, getLogoPreference, setLanguagePreference, setLogoPreference, t,
@@ -158,6 +159,13 @@ export const SettingsPage = ({
                         {t("settings.clear")}
                     </button>
                 </Row>
+            </Section>
+
+            <Section icon={<MicVocal size={16} />} title={t("settings.artists")}>
+                <div className="settings-row settings-row-block">
+                    <span className="settings-row-description">{t("settings.artistsHint")}</span>
+                    <ArtistRulesEditor onApply={onRescan} />
+                </div>
             </Section>
 
             <Section icon={<Share2 size={16} />} title={t("settings.sync")}>

@@ -227,12 +227,27 @@ Settings are split by **scope**, deliberately:
   "ui": {
     "visibleSystemPlaylists": ["favorites", "recentlyPlayed", "mostPlayed", "recentlyAdded"]
   },
+  "artists": {
+    "enabled": true,
+    "splitOn": ["feat.", "ft.", "&", "/", ",", "x"],
+    "keepWhole": ["AC/DC", "Simon & Garfunkel"]
+  },
   "updatedAt": 1730000000
 }
 ```
 
 Notes:
 
+- `artists` — how artist tag values are split into separate artists (for
+  artist pages and smart-playlist rules; tracks display, and search matches,
+  the tag as written, and the tags in the files are never changed). `enabled: false`
+  keeps every tag value whole. `splitOn` lists the separators, matched
+  ignoring case: a word (letters, maybe a final dot: `feat.`, `x`) splits only
+  as a separate word, after a space or an opening bracket ("A (feat. B)"),
+  anything else (`&`, `/`, `,`) wherever it appears — except `&` before
+  "the" ("Kool & the Gang"). `keepWhole` lists names never split, matched
+  ignoring case, also inside a longer value. A missing field takes the app's
+  defaults (splitting on, the built-in separator and name lists).
 - **Per-playlist sort order is NOT stored here** — it lives in each playlist's
   own file (see §8.4), so a conflict only affects that playlist.
 - `library.json` starts minimal on purpose. Application-wide preferences that

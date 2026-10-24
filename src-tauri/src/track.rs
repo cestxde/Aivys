@@ -1,3 +1,4 @@
+use crate::artists::{display_line, Splitter};
 use crate::cover::extract_cover;
 use crate::text::{repair_mojibake, repair_opt};
 use lofty::file::{AudioFile as LoftyAudioFile, FileType, TaggedFileExt};
@@ -42,6 +43,15 @@ pub(crate) struct Track {
 
     // File size in bytes.
     pub(crate) file_size: u64,
+
+    // The artist tags as written, for display ("A & B"); `artists` are the
+    // separate artists split from them, for grouping.
+    pub(crate) artist_line: String,
+
+    // The artist tag values as read, before splitting (kept by the index so
+    // new splitting rules apply without reading the file again).
+    #[serde(skip)]
+    pub(crate) artist_tags: Vec<String>,
 }
 
 /// Collect all non-empty text values for a given key, splitting on embedded NUL
@@ -65,7 +75,7 @@ pub(crate) fn read_modified(path: &Path) -> u64 {
         .unwrap_or(0)
 }
 
-pub(crate) fn read_track(path: &Path, covers_dir: &Path, date_created: u64) -> Option<Track> {
+pub(crate) fn read_track(path: &Path, covers_dir: &Path, date_created: u64, splitter: &Splitter) -> Option<Track> {
     let probed = Probe::open(path).ok()?.read().ok()?;
 
     let duration = probed.properties().duration().as_secs() as u32;
@@ -103,7 +113,6 @@ pub(crate) fn read_track(path: &Path, covers_dir: &Path, date_created: u64) -> O
                 artists.push(single.into_owned());
             }
         }
-        artists.dedup();
 
         album = tag
             .get_string(ItemKey::AlbumTitle)
@@ -132,6 +141,7 @@ pub(crate) fn read_track(path: &Path, covers_dir: &Path, date_created: u64) -> O
     let file_mtime = read_modified(path);
 
     let name = repair_mojibake(&path.file_name()?.to_string_lossy());
+    let artist_tags: Vec<String> = artists.iter().map(|a| repair_mojibake(a)).collect();
 
     Some(Track {
         name,
@@ -140,7 +150,7 @@ pub(crate) fn read_track(path: &Path, covers_dir: &Path, date_created: u64) -> O
         duration,
 
         title: repair_opt(title),
-        artists: artists.iter().map(|a| repair_mojibake(a)).collect(),
+        artists: splitter.split(&artist_tags),
         album: repair_opt(album),
         album_artist: repair_opt(album_artist),
         track_number,
@@ -159,5 +169,7 @@ pub(crate) fn read_track(path: &Path, covers_dir: &Path, date_created: u64) -> O
         file_mtime,
         metadata_modified_at: 0,
         file_size: std::fs::metadata(path).map_or(0, |meta| meta.len()),
+        artist_line: display_line(&artist_tags),
+        artist_tags,
     })
 }

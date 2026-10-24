@@ -10,6 +10,7 @@ pub(crate) mod search;
 pub(crate) mod smart;
 pub(crate) mod state;
 
+use crate::artists::{display_line, ArtistRules, Splitter};
 use crate::track::Track;
 use rusqlite::{params, Connection, Transaction};
 use std::collections::HashMap;
@@ -17,8 +18,11 @@ use std::path::{Path, PathBuf, MAIN_SEPARATOR_STR};
 
 /// Bump on any schema change. A database with another version is deleted and
 /// rebuilt from scratch: it only holds rebuildable data, so no migrations.
-/// Also bump when the event vocabulary changes, so journals are re-ingested.
-const SCHEMA_VERSION: i32 = 3;
+/// Also bump when the event vocabulary changes, so journals are re-ingested,
+/// or when reading tags changes, so files are read again (6: raw artist tags
+/// kept, artists derived from them by the library's rules; 4 and 5 were
+/// development builds).
+const SCHEMA_VERSION: i32 = 6;
 
 const SCHEMA: &str = "
 CREATE TABLE meta (
@@ -47,6 +51,15 @@ CREATE TABLE tracks (
     cover_path TEXT,
     added_at INTEGER NOT NULL,
     file_mtime INTEGER NOT NULL
+);
+
+-- Artist tag values as read; `track_artists` is derived from them by the
+-- library's splitting rules (meta `artistRules` holds the rules applied).
+CREATE TABLE track_artist_tags (
+    track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    PRIMARY KEY (track_id, position)
 );
 
 CREATE TABLE track_artists (
@@ -269,9 +282,45 @@ impl LibraryDb {
         Ok(())
     }
 
+    /// Re-derive every track's artists from its tag values when `rules`
+    /// differ from the ones last applied. Returns whether anything was redone.
+    pub(crate) fn apply_artist_rules(&mut self, rules: &ArtistRules) -> rusqlite::Result<bool> {
+        let fingerprint = rules.fingerprint();
+        let applied: Option<String> = self
+            .conn
+            .query_row("SELECT value FROM meta WHERE key = 'artistRules'", [], |row| row.get(0))
+            .ok();
+        if applied.as_deref() == Some(fingerprint.as_str()) {
+            return Ok(false);
+        }
+
+        let tags = self.load_names("track_artist_tags")?;
+        let splitter = Splitter::new(rules);
+        let tx = self.conn.transaction()?;
+        {
+            let mut clear = tx.prepare("DELETE FROM track_artists WHERE track_id = ?1")?;
+            let mut insert = tx.prepare("INSERT INTO track_artists (track_id, position, name) VALUES (?1, ?2, ?3)")?;
+            for (id, values) in &tags {
+                clear.execute([id])?;
+                for (position, name) in splitter.split(values).iter().enumerate() {
+                    insert.execute(params![id, position as i64, name])?;
+                }
+            }
+        }
+        tx.execute(
+            "INSERT INTO meta (key, value) VALUES ('artistRules', ?1)
+             ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+            [&fingerprint],
+        )?;
+        tx.commit()?;
+        log::info!("artist rules changed, re-derived artists of {} tracks", tags.len());
+        Ok(true)
+    }
+
     /// Every indexed track, with absolute paths resolved against `root`.
     pub(crate) fn load_tracks(&self, root: &Path) -> rusqlite::Result<Vec<Track>> {
         let artists = self.load_names("track_artists")?;
+        let artist_tags = self.load_names("track_artist_tags")?;
         let genres = self.load_names("track_genres")?;
 
         let mut stmt = self.conn.prepare(
@@ -308,6 +357,9 @@ impl LibraryDb {
                 file_mtime: row.get(15)?,
                 metadata_modified_at: 0,
                 file_size: row.get::<_, i64>(16)?.max(0) as u64,
+                artist_line: artist_tags.get(&id).map(|values| display_line(values)).unwrap_or_default(),
+                // Only the index needs the tag values.
+                artist_tags: Vec::new(),
             })
         })?;
         rows.collect()
@@ -366,7 +418,11 @@ fn upsert_track(tx: &Transaction, scanned: &ScannedTrack) -> rusqlite::Result<()
             |row| row.get(0),
         )?;
 
-    for (table, names) in [("track_artists", &track.artists), ("track_genres", &track.genre)] {
+    for (table, names) in [
+        ("track_artist_tags", &track.artist_tags),
+        ("track_artists", &track.artists),
+        ("track_genres", &track.genre),
+    ] {
         tx.execute(&format!("DELETE FROM {table} WHERE track_id = ?1"), [id])?;
         let mut stmt = tx.prepare_cached(&format!(
             "INSERT INTO {table} (track_id, position, name) VALUES (?1, ?2, ?3)"
@@ -406,6 +462,8 @@ mod tests {
                 file_mtime: 20,
                 metadata_modified_at: 0,
                 file_size: 0,
+                artist_line: String::new(),
+                artist_tags: vec!["A".into(), "B".into()],
             },
             mtime_ns: 1,
             size: 2,
@@ -441,6 +499,30 @@ mod tests {
         let mut db = db;
         db.apply_scan(&[], &[], &["b/2.flac".into()]).unwrap();
         assert_eq!(db.cached_files().unwrap().len(), 1);
+
+        drop(db);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn new_artist_rules_rederive_artists() {
+        let base = std::env::temp_dir().join(format!("aivys-db-test-{}", crate::store::new_uuid()));
+        let root = base.join("library");
+        std::fs::create_dir_all(&root).unwrap();
+
+        let mut db = LibraryDb::open(&base, &root).unwrap();
+        let mut scanned = track("a/1.flac", "One");
+        scanned.track.artist_tags = vec!["A & B".into()];
+        scanned.track.artists = vec!["A".into(), "B".into()];
+        db.apply_scan(&[scanned], &[], &[]).unwrap();
+
+        // The same rules again change nothing; new ones apply without a re-read.
+        let defaults = ArtistRules::default();
+        assert!(db.apply_artist_rules(&defaults).unwrap());
+        assert!(!db.apply_artist_rules(&defaults).unwrap());
+        let keep = ArtistRules { keep_whole: vec!["A & B".into()], ..ArtistRules::default() };
+        assert!(db.apply_artist_rules(&keep).unwrap());
+        assert_eq!(db.load_tracks(&root).unwrap()[0].artists, vec!["A & B".to_owned()]);
 
         drop(db);
         let _ = std::fs::remove_dir_all(&base);

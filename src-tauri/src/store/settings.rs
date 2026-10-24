@@ -1,5 +1,6 @@
 use super::fsio::{default_schema_version, now_unix, read_json_or_default, write_json, SCHEMA_VERSION};
 use super::{Store, StoreError};
+use crate::artists::ArtistRules;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -17,6 +18,9 @@ pub(crate) struct LibrarySettings {
     pub(crate) schema_version: u32,
     #[serde(default)]
     pub(crate) ui: UiSettings,
+    /// How artist tags are split into artists.
+    #[serde(default)]
+    pub(crate) artists: ArtistRules,
     #[serde(default)]
     pub(crate) updated_at: u64,
     #[serde(flatten)]
@@ -50,6 +54,7 @@ impl Default for LibrarySettings {
         LibrarySettings {
             schema_version: SCHEMA_VERSION,
             ui: UiSettings::default(),
+            artists: ArtistRules::default(),
             updated_at: 0,
             extra: Map::new(),
         }
@@ -91,6 +96,16 @@ pub(crate) fn set_visible_system_playlists(
     let mut settings = read_json_or_default::<LibrarySettings>(&path)?.writable(&path)?;
     settings.schema_version = SCHEMA_VERSION;
     settings.ui.visible_system_playlists = visible;
+    settings.updated_at = now_unix();
+    write_json(&path, &settings)?;
+    Ok(settings)
+}
+
+pub(crate) fn set_artist_rules(store: &Store, rules: ArtistRules) -> Result<LibrarySettings, StoreError> {
+    let path = store.path(FILE);
+    let mut settings = read_json_or_default::<LibrarySettings>(&path)?.writable(&path)?;
+    settings.schema_version = SCHEMA_VERSION;
+    settings.artists = rules.normalized();
     settings.updated_at = now_unix();
     write_json(&path, &settings)?;
     Ok(settings)

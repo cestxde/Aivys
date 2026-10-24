@@ -292,6 +292,8 @@ mod tests {
                 file_mtime: 0,
                 metadata_modified_at: 0,
                 file_size: 0,
+                artist_line: String::new(),
+                artist_tags: artists.iter().map(|a| (*a).to_owned()).collect(),
             },
             mtime_ns: 0,
             size: 0,

@@ -15,3 +15,7 @@ export const displayTitle = (track: Track): string => {
     const tagged = track.title?.trim();
     return tagged || stripExtension(track.name);
 };
+
+/** The artists to show for a track, as written in its tags; null if it has none. */
+export const displayArtists = (track: Track): string | null =>
+    track.artistLine || (track.artists.length > 0 ? track.artists.join(", ") : null);

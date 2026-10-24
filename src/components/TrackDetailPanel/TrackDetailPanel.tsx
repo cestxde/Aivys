@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Heart, Star, Tag } from "lucide-react";
 import type { Track, TrackStats, UserTag } from "../../types";
-import { displayTitle } from "../../utils/track";
+import { displayArtists, displayTitle } from "../../utils/track";
 import { formatDateTime, formatDuration, formatFileSize } from "../../utils/format";
 import { tagsOf } from "../../utils/tags";
 import { CoverArt } from "../CoverArt";
@@ -81,7 +81,7 @@ export const TrackDetailPanel = ({
     }
 
     const tags = tagsOf(stats?.tags, tagsById);
-    const artists = track.artists.length ? track.artists.join(", ") : null;
+    const artists = displayArtists(track);
     const technical = [
         track.format?.toUpperCase() ?? null,
         track.bitrate ? t("detail.kbps", { value: Math.round(track.bitrate / 1000) }) : null,
