@@ -309,6 +309,15 @@ function App() {
 	const rowHint = useMemo(() => hintOf(viewSort.field), [viewSort.field, language]);
 	const viewKey = "id" in listView ? `${listView.kind}:${listView.id}` : listView.kind;
 
+	// An album in its own order numbers its tracks; with several discs as "disc.track".
+	const albumNumber = useMemo(() => {
+		if (listView.kind !== "album" || !currentGroup) return null;
+		const multiDisc = new Set(currentGroup.tracks.map(track => track.discNumber ?? 1)).size > 1;
+		return (track: Track) => track.trackNumber == null ? ""
+			: multiDisc ? `${track.discNumber ?? 1}.${String(track.trackNumber).padStart(2, "0")}`
+			: String(track.trackNumber);
+	}, [listView.kind, currentGroup]);
+
 	const {
 		searchQuery, setSearchQuery,
 		displayRows, displayFiles, looseFromIndex, isSearching, handleShuffleAll
@@ -824,6 +833,7 @@ function App() {
 									looseFromIndex={looseFromIndex}
 									sectionOf={!isSearching && viewSorts.display === "sections" ? rowSection : null}
 									hintOf={!isSearching && viewSorts.display === "inline" ? rowHint : null}
+									numberOf={!isSearching && viewSort.field === "default" ? albumNumber : null}
 									emptyText={emptyText}
 									onPlay={(track) => playTrack(track, displayFiles)}
 									onOpenMenu={(row, x, y) => setMenu({ x, y, entries: trackMenu(row) })}

@@ -18,6 +18,8 @@ interface TrackListProps {
     sectionOf?: ((track: Track) => SortSection) | null;
     /** Gray detail next to each track (the value it is sorted by). */
     hintOf?: ((track: Track) => string | null) | null;
+    /** A number before each track, e.g. its position on the album. */
+    numberOf?: ((track: Track) => string) | null;
 
     onPlay: (track: Track) => void;
     /** Open the track menu at a viewport position (right click or the ⋮ button). */
@@ -50,6 +52,7 @@ export const TrackList = ({
     emptyText = t("empty.library"),
     sectionOf,
     hintOf,
+    numberOf,
     onPlay,
     onOpenMenu,
     onReorder,
@@ -191,6 +194,7 @@ export const TrackList = ({
                                         <GripVertical size={14} />
                                     </span>
                                 )}
+                                {numberOf && <span className="track-number">{numberOf(file)}</span>}
                                 <CoverArt path={file.coverPath} size={36} className="track-cover" />
                                 <div className="track-main-info">
                                     <span className="track-title">{title}</span>
