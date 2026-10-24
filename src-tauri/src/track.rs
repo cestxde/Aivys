@@ -48,6 +48,9 @@ pub(crate) struct Track {
     // separate artists split from them, for grouping.
     pub(crate) artist_line: String,
 
+    // Artists of this track left out of the artist list (met too rarely).
+    pub(crate) unlisted_artists: Vec<String>,
+
     // The artist tag values as read, before splitting (kept by the index so
     // new splitting rules apply without reading the file again).
     #[serde(skip)]
@@ -170,6 +173,7 @@ pub(crate) fn read_track(path: &Path, covers_dir: &Path, date_created: u64, spli
         metadata_modified_at: 0,
         file_size: std::fs::metadata(path).map_or(0, |meta| meta.len()),
         artist_line: display_line(&artist_tags),
+        unlisted_artists: Vec::new(),
         artist_tags,
     })
 }

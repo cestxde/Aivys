@@ -155,6 +155,8 @@ function App() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps -- names are translated
 	const albums = useMemo(() => groupAlbums(files), [files, language]);
 	const artistsByKey = useMemo(() => new Map(artists.map(g => [g.key, g])), [artists]);
+	// Rarely met artists have pages (opened from their tracks) but no card.
+	const listedArtists = useMemo(() => artists.filter(group => group.listed), [artists]);
 	const albumsByKey = useMemo(() => new Map(albums.map(g => [g.key, g])), [albums]);
 	const showFolders = useMemo(() => hasFolders(files), [files]);
 
@@ -181,6 +183,7 @@ function App() {
 				subtitle: null,
 				year: null,
 				tracks: folderTracks(files, listView.id),
+				listed: true,
 			};
 			default: return null;
 		}
@@ -841,7 +844,7 @@ function App() {
 						<CollectionPage
 							memoryKey="artists"
 							title={t("nav.artists")}
-							groups={artists}
+							groups={listedArtists}
 							icon={MicVocal}
 							round
 							describe={(group) => [countTracks(group.tracks.length), group.subtitle].filter(Boolean).join(" · ")}

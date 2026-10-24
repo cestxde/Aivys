@@ -230,7 +230,9 @@ Settings are split by **scope**, deliberately:
   "artists": {
     "enabled": true,
     "splitOn": ["feat.", "ft.", "&", "/", ",", "x"],
-    "keepWhole": ["AC/DC", "Simon & Garfunkel"]
+    "keepWhole": ["AC/DC", "Simon & Garfunkel"],
+    "smartGrouping": true,
+    "minTracks": 2
   },
   "updatedAt": 1730000000
 }
@@ -246,8 +248,15 @@ Notes:
   as a separate word, after a space or an opening bracket ("A (feat. B)"),
   anything else (`&`, `/`, `,`) wherever it appears — except `&` before
   "the" ("Kool & the Gang"). `keepWhole` lists names never split, matched
-  ignoring case, also inside a longer value. A missing field takes the app's
-  defaults (splitting on, the built-in separator and name lists).
+  ignoring case, also inside a longer value. `feat.`, `feat`, `ft.`, `ft`
+  and `featuring` introduce guests; the other separators join the members of
+  a group. With `smartGrouping` the split is decided by the whole library: a
+  group none of whose members appears on its own (a solo track, or at least
+  `minTracks` tracks while met alone or in more than one group) stays one
+  artist ("Joey Valence & Brae"); an artist that leads no track and is on
+  fewer than `minTracks` tracks gets a page but no place in the artist list.
+  A missing field takes the app's defaults (splitting on, the built-in
+  separator and name lists, smart grouping on, `minTracks` 2).
 - **Per-playlist sort order is NOT stored here** — it lives in each playlist's
   own file (see §8.4), so a conflict only affects that playlist.
 - `library.json` starts minimal on purpose. Application-wide preferences that

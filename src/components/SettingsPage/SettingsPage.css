@@ -191,6 +191,19 @@
     cursor: pointer;
 }
 
+.settings-min-tracks {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 0.85rem;
+    color: var(--text-h);
+}
+
+.settings-min-tracks .rule-input {
+    width: 64px;
+}
+
 .settings-actions-gap {
     flex: 1;
 }

@@ -111,6 +111,28 @@ export const ArtistRulesEditor = ({ onApply }: { onApply: () => void }) => {
                 />
             </fieldset>
             <fieldset className="settings-field" disabled={!rules.enabled}>
+                <label className="settings-check">
+                    <input
+                        type="checkbox"
+                        checked={rules.smartGrouping}
+                        onChange={(e) => setRules({ ...rules, smartGrouping: e.target.checked })}
+                    />
+                    {t("settings.smartGrouping")}
+                </label>
+                <span className="settings-row-description">{t("settings.smartGroupingHint")}</span>
+                <label className="settings-min-tracks">
+                    {t("settings.minTracks")}
+                    <input
+                        type="number"
+                        className="rule-input"
+                        min={1}
+                        disabled={!rules.smartGrouping}
+                        value={rules.minTracks}
+                        onChange={(e) => setRules({ ...rules, minTracks: Math.max(1, Math.round(Number(e.target.value)) || 1) })}
+                    />
+                </label>
+            </fieldset>
+            <fieldset className="settings-field" disabled={!rules.enabled}>
                 <span className="settings-row-title">{t("settings.keepWhole")}</span>
                 <span className="settings-row-description">{t("settings.keepWholeHint")}</span>
                 <ChipList

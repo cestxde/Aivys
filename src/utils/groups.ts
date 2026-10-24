@@ -11,6 +11,8 @@ export interface TrackGroup {
     subtitle: string | null;
     year: number | null;
     tracks: Track[];
+    /** Shown in the list of its kind (an artist met too rarely is not). */
+    listed: boolean;
 }
 
 // Tracks without an artist; a fixed key, so an open view survives a language change.
@@ -50,8 +52,10 @@ export const groupArtists = (files: Track[]): TrackGroup[] => {
             const key = name === null ? UNKNOWN_ARTIST_KEY : artistKey(name);
             if (!key) continue;
             const group = groups.get(key)
-                ?? { key, name: name?.trim() ?? t("common.unknownArtist"), subtitle: null, year: null, tracks: [] };
+                ?? { key, name: name?.trim() ?? t("common.unknownArtist"), subtitle: null, year: null, tracks: [], listed: false };
             group.tracks.push(track);
+            // Listed as soon as one track does not leave it out.
+            group.listed ||= name === null || !track.unlistedArtists.some(unlisted => artistKey(unlisted) === key);
             groups.set(key, group);
         }
     }
@@ -85,7 +89,7 @@ export const groupAlbums = (files: Track[]): TrackGroup[] => {
         const album = track.album?.trim();
         if (!album) continue;
         const key = albumKey(track, album);
-        const group = groups.get(key) ?? { key, name: album, subtitle: null, year: null, tracks: [] };
+        const group = groups.get(key) ?? { key, name: album, subtitle: null, year: null, tracks: [], listed: true };
         group.tracks.push(track);
         groups.set(key, group);
     }
@@ -123,7 +127,7 @@ export const subfolders = (files: Track[], folder: string): TrackGroup[] => {
         if (slash < 0) continue;
         const name = rest.slice(0, slash);
         const key = prefix + name;
-        const group = groups.get(key) ?? { key, name, subtitle: null, year: null, tracks: [] };
+        const group = groups.get(key) ?? { key, name, subtitle: null, year: null, tracks: [], listed: true };
         group.tracks.push(track);
         groups.set(key, group);
     }

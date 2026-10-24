@@ -293,6 +293,7 @@ mod tests {
                 metadata_modified_at: 0,
                 file_size: 0,
                 artist_line: String::new(),
+                unlisted_artists: Vec::new(),
                 artist_tags: artists.iter().map(|a| (*a).to_owned()).collect(),
             },
             mtime_ns: 0,

@@ -34,6 +34,8 @@ export interface Track {
     // The artist tags as written, for display ("A & B"); `artists` are the
     // separate artists split from them, for grouping.
     artistLine: string;
+    // Artists of this track left out of the artist list (met too rarely).
+    unlistedArtists: string[];
 }
 
 /** Per-track state derived from the .aivys event journals (get_track_stats). */
@@ -101,6 +103,10 @@ export interface ArtistRules {
     splitOn: string[];
     // Names never split, e.g. "AC/DC".
     keepWhole: string[];
+    // Decide by the whole library: artists never met apart stay together,
+    // and only those on at least `minTracks` tracks (or leading one) are listed.
+    smartGrouping: boolean;
+    minTracks: number;
 }
 
 /** What `resolve_conflicts` did with sync-conflict copies in `.aivys/`. */

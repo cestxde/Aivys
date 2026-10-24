@@ -129,7 +129,6 @@ fn scan_cached(
     covers_dir: &Path,
     rules: &ArtistRules,
 ) -> rusqlite::Result<Vec<Track>> {
-    db.apply_artist_rules(rules)?;
     let splitter = Splitter::new(rules);
     let mut cached = db.cached_files()?;
 
@@ -171,6 +170,7 @@ fn scan_cached(
         removed.len()
     );
     db.apply_scan(&upserts, &added_at_updates, &removed)?;
+    db.derive_artists(rules, !upserts.is_empty() || !removed.is_empty())?;
     db.load_tracks(base)
 }
 

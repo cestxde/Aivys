@@ -10,11 +10,15 @@ pub(crate) mod search;
 pub(crate) mod smart;
 pub(crate) mod state;
 
-use crate::artists::{display_line, ArtistRules, Splitter};
+use crate::artists::{credit_library, display_line, ArtistRules, Segment, Splitter};
 use crate::track::Track;
 use rusqlite::{params, Connection, Transaction};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf, MAIN_SEPARATOR_STR};
+
+/// Artists left out of the artist list (lowercase), by the library-wide
+/// grouping. Additive: created in existing indexes too, without a rebuild.
+const UNLISTED_ARTISTS: &str = "CREATE TABLE IF NOT EXISTS unlisted_artists (name TEXT PRIMARY KEY);";
 
 /// Bump on any schema change. A database with another version is deleted and
 /// rebuilt from scratch: it only holds rebuildable data, so no migrations.
@@ -184,6 +188,7 @@ fn connect(path: &Path) -> rusqlite::Result<Connection> {
     conn.pragma_update(None, "synchronous", "NORMAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
     smart::register_functions(&conn)?;
+    conn.execute_batch(UNLISTED_ARTISTS)?;
     Ok(conn)
 }
 
@@ -282,28 +287,44 @@ impl LibraryDb {
         Ok(())
     }
 
-    /// Re-derive every track's artists from its tag values when `rules`
-    /// differ from the ones last applied. Returns whether anything was redone.
-    pub(crate) fn apply_artist_rules(&mut self, rules: &ArtistRules) -> rusqlite::Result<bool> {
+    /// Derive every track's artists from its tag values by `rules`, looking
+    /// at the whole library (see [`credit_library`]). Skipped when neither the
+    /// rules nor the library changed since the last time. Returns whether it ran.
+    pub(crate) fn derive_artists(&mut self, rules: &ArtistRules, library_changed: bool) -> rusqlite::Result<bool> {
         let fingerprint = rules.fingerprint();
         let applied: Option<String> = self
             .conn
             .query_row("SELECT value FROM meta WHERE key = 'artistRules'", [], |row| row.get(0))
             .ok();
-        if applied.as_deref() == Some(fingerprint.as_str()) {
+        if !library_changed && applied.as_deref() == Some(fingerprint.as_str()) {
             return Ok(false);
         }
 
         let tags = self.load_names("track_artist_tags")?;
+        let ids: Vec<i64> = {
+            let mut stmt = self.conn.prepare("SELECT id FROM tracks")?;
+            let ids = stmt.query_map([], |row| row.get(0))?.collect::<rusqlite::Result<_>>()?;
+            ids
+        };
         let splitter = Splitter::new(rules);
+        let segments: Vec<Vec<Segment>> = ids
+            .iter()
+            .map(|id| tags.get(id).map(|values| splitter.segments(values)).unwrap_or_default())
+            .collect();
+        let credits = credit_library(&segments, rules);
+
         let tx = self.conn.transaction()?;
         {
-            let mut clear = tx.prepare("DELETE FROM track_artists WHERE track_id = ?1")?;
+            tx.execute("DELETE FROM track_artists", [])?;
+            tx.execute("DELETE FROM unlisted_artists", [])?;
             let mut insert = tx.prepare("INSERT INTO track_artists (track_id, position, name) VALUES (?1, ?2, ?3)")?;
-            for (id, values) in &tags {
-                clear.execute([id])?;
-                for (position, name) in splitter.split(values).iter().enumerate() {
+            let mut unlist = tx.prepare("INSERT OR IGNORE INTO unlisted_artists (name) VALUES (?1)")?;
+            for (id, credit) in ids.iter().zip(&credits) {
+                for (position, name) in credit.artists.iter().enumerate() {
                     insert.execute(params![id, position as i64, name])?;
+                }
+                for name in &credit.unlisted {
+                    unlist.execute([name.to_lowercase()])?;
                 }
             }
         }
@@ -313,7 +334,7 @@ impl LibraryDb {
             [&fingerprint],
         )?;
         tx.commit()?;
-        log::info!("artist rules changed, re-derived artists of {} tracks", tags.len());
+        log::info!("derived the artists of {} tracks", ids.len());
         Ok(true)
     }
 
@@ -321,6 +342,11 @@ impl LibraryDb {
     pub(crate) fn load_tracks(&self, root: &Path) -> rusqlite::Result<Vec<Track>> {
         let artists = self.load_names("track_artists")?;
         let artist_tags = self.load_names("track_artist_tags")?;
+        let unlisted: std::collections::HashSet<String> = {
+            let mut stmt = self.conn.prepare("SELECT name FROM unlisted_artists")?;
+            let names = stmt.query_map([], |row| row.get(0))?.collect::<rusqlite::Result<_>>()?;
+            names
+        };
         let genres = self.load_names("track_genres")?;
 
         let mut stmt = self.conn.prepare(
@@ -333,6 +359,12 @@ impl LibraryDb {
         let rows = stmt.query_map([], |row| {
             let id: i64 = row.get(0)?;
             let rel_path: String = row.get(1)?;
+            let track_artists = artists.get(&id).cloned().unwrap_or_default();
+            let unlisted_artists = track_artists
+                .iter()
+                .filter(|name| unlisted.contains(&name.to_lowercase()))
+                .cloned()
+                .collect();
             Ok(Track {
                 name: row.get(2)?,
                 path: root
@@ -342,7 +374,7 @@ impl LibraryDb {
                 rel_path,
                 duration: row.get(3)?,
                 title: row.get(4)?,
-                artists: artists.get(&id).cloned().unwrap_or_default(),
+                artists: track_artists,
                 album: row.get(5)?,
                 album_artist: row.get(6)?,
                 track_number: row.get(7)?,
@@ -358,6 +390,7 @@ impl LibraryDb {
                 metadata_modified_at: 0,
                 file_size: row.get::<_, i64>(16)?.max(0) as u64,
                 artist_line: artist_tags.get(&id).map(|values| display_line(values)).unwrap_or_default(),
+                unlisted_artists,
                 // Only the index needs the tag values.
                 artist_tags: Vec::new(),
             })
@@ -463,6 +496,7 @@ mod tests {
                 metadata_modified_at: 0,
                 file_size: 0,
                 artist_line: String::new(),
+                unlisted_artists: Vec::new(),
                 artist_tags: vec!["A".into(), "B".into()],
             },
             mtime_ns: 1,
@@ -517,12 +551,15 @@ mod tests {
         db.apply_scan(&[scanned], &[], &[]).unwrap();
 
         // The same rules again change nothing; new ones apply without a re-read.
-        let defaults = ArtistRules::default();
-        assert!(db.apply_artist_rules(&defaults).unwrap());
-        assert!(!db.apply_artist_rules(&defaults).unwrap());
-        let keep = ArtistRules { keep_whole: vec!["A & B".into()], ..ArtistRules::default() };
-        assert!(db.apply_artist_rules(&keep).unwrap());
+        let split = ArtistRules { smart_grouping: false, ..ArtistRules::default() };
+        assert!(db.derive_artists(&split, false).unwrap());
+        assert!(!db.derive_artists(&split, false).unwrap());
+        assert_eq!(db.load_tracks(&root).unwrap()[0].artists, vec!["A".to_owned(), "B".to_owned()]);
+        let keep = ArtistRules { keep_whole: vec!["A & B".into()], ..split };
+        assert!(db.derive_artists(&keep, false).unwrap());
         assert_eq!(db.load_tracks(&root).unwrap()[0].artists, vec!["A & B".to_owned()]);
+        // A changed library is looked at again even with the same rules.
+        assert!(db.derive_artists(&keep, true).unwrap());
 
         drop(db);
         let _ = std::fs::remove_dir_all(&base);
