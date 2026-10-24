@@ -176,7 +176,7 @@ function App() {
 	const {
 		activePath, playTrack,
 		isPlaying, togglePlay, volume, setVolume,
-		currentTime, duration, seek, stop,
+		seek, stop,
 		onNext, onPrev,
 		playNext, addToQueue, forgetTracks,
 		toggleShuffle, isShuffle,
@@ -425,12 +425,7 @@ function App() {
 	const {
 		searchQuery, setSearchQuery,
 		displayRows, displayFiles, looseFromIndex, isSearching, handleShuffleAll
-	} = useTrackListLogic(
-		viewRows,
-		isShuffle,
-		toggleShuffle,
-		playTrack
-	);
+	} = useTrackListLogic(viewRows, playTrack);
 	const { ref: listRef, onScroll: onListScroll } = useSearchScroll(searchQuery, viewKey);
 
 	const editablePlaylist = playlist && !playlist.readOnly ? playlist : null;
@@ -802,11 +797,11 @@ function App() {
 				? "empty.smart"
 				: "empty.playlist");
 
+	// Play all: from the first track, in order.
 	const handlePlayAll = () => {
-		if (displayFiles.length > 0) {
-			if (isShuffle) toggleShuffle(displayFiles);
-			playFrom(viewKey, displayFiles[0], displayFiles);
-		}
+		if (displayFiles.length === 0) return;
+		setPlayingFrom(viewKey);
+		playTrack(displayFiles[0], displayFiles, { shuffle: false });
 	};
 
 	const handleShuffleView = () => {
@@ -1124,12 +1119,11 @@ function App() {
 				onVolumeChange={setVolume}
 				onPrev={onPrev}
 				onNext={onNext}
-				currentTime={currentTime}
-				duration={duration}
+				element={element}
 				onSeek={seek}
 				isShuffle={isShuffle}
 				repeatMode={repeatMode}
-				onToggleShuffle={() => toggleShuffle(displayFiles)}
+				onToggleShuffle={toggleShuffle}
 				onToggleRepeat={toggleRepeatMode}
 			/>
 

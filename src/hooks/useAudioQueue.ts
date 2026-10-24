@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { Track, RepeatMode } from "../types";
+import { useCallback, useState } from "react";
+import type { Track } from "../types";
 
 /** Fisher-Yates shuffle. Returns a new shuffled array, leaving the input intact. */
 const shuffleArray = (array: Track[]): Track[] => {
@@ -11,58 +11,121 @@ const shuffleArray = (array: Track[]): Track[] => {
     return result;
 };
 
-export const useAudioQueue = (
-    isShuffle: boolean,
-    setIsShuffle: (val: boolean) => void,
-    repeatMode: RepeatMode,
-    setRepeatMode: (val: RepeatMode) => void
-) => {
-    const [queue, setQueue] = useState<Track[]>([]);
+/**
+ * The play queue. `source` is the list playback was started from, in its own
+ * order; `order` is what plays (the source, or shuffled with the current track
+ * first); `index` is the position in `order`, so a track listed twice plays
+ * twice.
+ */
+interface Queue {
+    source: Track[];
+    order: Track[];
+    index: number;
+}
 
-    const buildQueue = (files: Track[], activeTrack: Track, shuffle: boolean) => {
-        if (!shuffle) {
-            setQueue(files);
-            return;
-        }
-        // If shuffle is ON: current track goes first, the rest are shuffled.
-        const others = files.filter(f => f.path !== activeTrack.path);
-        setQueue([activeTrack, ...shuffleArray(others)]);
-    };
+const EMPTY: Queue = { source: [], order: [], index: -1 };
 
-    const getNextTrack = (currentPath: string | null): Track | null => {
-        if (queue.length === 0 || !currentPath) return null;
-        const idx = queue.findIndex(f => f.path === currentPath);
-        if (idx === -1) return null;
+/** `order` for a start at `start` of `source`. */
+const arrange = (source: Track[], start: number, shuffle: boolean): Queue => {
+    if (start < 0) return { source, order: source, index: source.length > 0 ? 0 : -1 };
+    if (!shuffle) return { source, order: source, index: start };
+    const others = source.filter((_, i) => i !== start);
+    return { source, order: [source[start], ...shuffleArray(others)], index: 0 };
+};
 
-        return idx === queue.length - 1 ? queue[0] : queue[idx + 1];
-    };
+export const useAudioQueue = () => {
+    const [queue, setQueue] = useState<Queue>(EMPTY);
 
-    const getPrevTrack = (currentPath: string | null): Track | null => {
-        if (queue.length === 0 || !currentPath) return null;
-        const idx = queue.findIndex(f => f.path === currentPath);
-        if (idx === -1) return null;
+    const current: Track | null = queue.order[queue.index] ?? null;
 
-        return idx === 0 ? queue[queue.length - 1] : queue[idx - 1];
-    };
+    /** Play `source` from its item `start`, shuffled or in order. */
+    const start = useCallback((source: Track[], startIndex: number, shuffle: boolean): Track | null => {
+        const next = arrange(source, startIndex, shuffle);
+        setQueue(next);
+        return next.order[next.index] ?? null;
+    }, []);
 
-    /** Insert `tracks` right after the current track (or at the end). */
-    const insertNext = (currentPath: string | null, tracks: Track[]) => {
+    /** Shuffle or restore the source order, keeping the current track playing. */
+    const setShuffled = useCallback((shuffle: boolean) => {
         setQueue(prev => {
-            const idx = currentPath ? prev.findIndex(f => f.path === currentPath) : -1;
-            if (idx === -1) return [...prev, ...tracks];
-            return [...prev.slice(0, idx + 1), ...tracks, ...prev.slice(idx + 1)];
+            const playing = prev.order[prev.index];
+            const at = playing ? prev.source.indexOf(playing) : -1;
+            return arrange(prev.source, at, shuffle);
         });
+    }, []);
+
+    /** Position `step` away from the current one; -1 past either end unless `wrap`. */
+    const indexAt = (step: number, wrap: boolean): number => {
+        const length = queue.order.length;
+        if (length === 0) return -1;
+        const index = queue.index + step;
+        if (index >= 0 && index < length) return index;
+        return wrap ? (index % length + length) % length : -1;
     };
 
-    const append = (tracks: Track[]) => setQueue(prev => [...prev, ...tracks]);
+    /** The track `step` away, without moving. */
+    const peek = (step: number, wrap: boolean): Track | null => queue.order[indexAt(step, wrap)] ?? null;
+
+    /** Move by `step` and return the track there (null, without moving, past an end). */
+    const move = (step: number, wrap: boolean): Track | null => {
+        const index = indexAt(step, wrap);
+        if (index < 0) return null;
+        setQueue(prev => ({ ...prev, index }));
+        return queue.order[index];
+    };
+
+    /** Insert `tracks` right after the current track (in the source order too). */
+    const insertNext = useCallback((tracks: Track[]) => {
+        setQueue(prev => {
+            const playing = prev.order[prev.index];
+            const inSource = playing ? prev.source.indexOf(playing) : -1;
+            const source = [...prev.source.slice(0, inSource + 1), ...tracks, ...prev.source.slice(inSource + 1)];
+            const order = [...prev.order.slice(0, prev.index + 1), ...tracks, ...prev.order.slice(prev.index + 1)];
+            return { source, order, index: prev.index };
+        });
+    }, []);
+
+    const append = useCallback((tracks: Track[]) => {
+        setQueue(prev => ({ ...prev, source: [...prev.source, ...tracks], order: [...prev.order, ...tracks] }));
+    }, []);
+
+    /**
+     * Follow a new scan of the library: tracks are replaced by their fresh
+     * copies (by path), and those that are gone leave the queue.
+     */
+    const refresh = useCallback((files: Track[]) => {
+        const byPath = new Map(files.map(file => [file.path, file]));
+        setQueue(prev => {
+            const fresh = (list: Track[]) => list.flatMap(track => byPath.get(track.path) ?? []);
+            const playing = prev.order[prev.index];
+            const before = prev.order.slice(0, prev.index).filter(track => byPath.has(track.path)).length;
+            const order = fresh(prev.order);
+            const index = playing && byPath.has(playing.path) ? before : Math.min(before, order.length - 1);
+            return { source: fresh(prev.source), order, index };
+        });
+    }, []);
+
+    /** Remove tracks (deleted files) from the queue. */
+    const remove = useCallback((paths: Set<string>) => {
+        setQueue(prev => {
+            const before = prev.order.slice(0, prev.index).filter(track => !paths.has(track.path)).length;
+            const order = prev.order.filter(track => !paths.has(track.path));
+            return {
+                source: prev.source.filter(track => !paths.has(track.path)),
+                order,
+                index: Math.min(before, order.length - 1),
+            };
+        });
+    }, []);
 
     return {
-        queue, setQueue,
-        insertNext, append,
-        isShuffle, setIsShuffle,
-        repeatMode, setRepeatMode,
-        buildQueue,
-        getNextTrack,
-        getPrevTrack,
+        current,
+        order: queue.order,
+        index: queue.index,
+        isLast: queue.index === queue.order.length - 1,
+        first: queue.order[0] ?? null,
+        start, setShuffled, move, peek, insertNext, append, refresh, remove,
+        /** Jump to the first track (end of the queue without repeat). */
+        rewind: useCallback(() => setQueue(prev => ({ ...prev, index: prev.order.length > 0 ? 0 : -1 })), []),
     };
 };

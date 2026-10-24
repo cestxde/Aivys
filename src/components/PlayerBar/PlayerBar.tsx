@@ -24,8 +24,8 @@ interface PlayerBarProps {
     onOpenArtist: (name: string) => void;
     isPlaying: boolean;
     volume: number;
-    currentTime: number;
-    duration: number;
+    /** The audio element, for the position and length shown on the seek bar. */
+    element: HTMLAudioElement;
     isShuffle: boolean;
     repeatMode: 'none' | 'one' | 'all';
     onTogglePlay: () => void;
@@ -69,8 +69,7 @@ export const PlayerBar = (props: PlayerBarProps) => {
     return (
         <div className="player-bar-wrapper">
             <TrackSlider
-                currentTime={props.currentTime}
-                duration={props.duration}
+                element={props.element}
                 disabled={!hasTrack}
                 onSeek={props.onSeek}
             />

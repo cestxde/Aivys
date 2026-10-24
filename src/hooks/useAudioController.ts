@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useCallback, useState, useRef, useEffect, useSyncExternalStore } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { notifyError } from "../utils/notify";
 import { t } from "../i18n";
@@ -9,17 +9,43 @@ const reportPlaybackError = (e: unknown) => {
     notifyError(t("error.playback"), e);
 };
 
+/**
+ * Position and length of what `element` plays, for the seek bar. Kept out of
+ * the controller so only components showing the time re-render as it runs.
+ */
+export const usePlaybackTime = (element: HTMLAudioElement) => {
+    const subscribe = useCallback((onChange: () => void) => {
+        const events = ["timeupdate", "durationchange", "loadedmetadata", "seeked", "emptied"];
+        events.forEach(event => element.addEventListener(event, onChange));
+        return () => events.forEach(event => element.removeEventListener(event, onChange));
+    }, [element]);
+    const currentTime = useSyncExternalStore(subscribe, () => element.currentTime);
+    const duration = useSyncExternalStore(subscribe, () => (Number.isFinite(element.duration) ? element.duration : 0));
+    return { currentTime, duration };
+};
+
 export const useAudioController = (
     initialVolume: number,
     onVolumeChange: (v: number) => void
 ) => {
     const [isPlaying, setIsPlaying] = useState(false);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [duration, setDuration] = useState(0);
     // One element for the whole session: every track is loaded into it, so
     // listeners attached once keep working.
     const [element] = useState(() => new Audio());
     const audioRef = useRef<HTMLAudioElement | null>(element);
+
+    // Playing or not follows the element itself, so a failed start or a pause
+    // from outside (the system) shows correctly.
+    useEffect(() => {
+        const playing = () => setIsPlaying(true);
+        const paused = () => setIsPlaying(false);
+        element.addEventListener("play", playing);
+        element.addEventListener("pause", paused);
+        return () => {
+            element.removeEventListener("play", playing);
+            element.removeEventListener("pause", paused);
+        };
+    }, [element]);
 
     // Sync volume
     useEffect(() => {
@@ -27,20 +53,6 @@ export const useAudioController = (
             audioRef.current.volume = Math.pow(initialVolume, 2);
         }
     }, [initialVolume]);
-
-    // Track time and duration
-    useEffect(() => {
-        const updateTime = () => setCurrentTime(element.currentTime);
-        const updateDuration = () => setDuration(element.duration);
-
-        element.addEventListener("timeupdate", updateTime);
-        element.addEventListener("loadedmetadata", updateDuration);
-
-        return () => {
-            element.removeEventListener("timeupdate", updateTime);
-            element.removeEventListener("loadedmetadata", updateDuration);
-        };
-    }, [element]);
 
     // Replace the current source with `filePath`, resetting the position to 0.
     // Returns the audio element so callers can start playback if needed.
@@ -57,7 +69,6 @@ export const useAudioController = (
 
         audioRef.current.volume = Math.pow(initialVolume, 2);
         audioRef.current.currentTime = 0;
-        setCurrentTime(0);
         return audioRef.current;
     };
 
@@ -84,10 +95,7 @@ export const useAudioController = (
     };
 
     const seek = (time: number) => {
-        if (audioRef.current) {
-            audioRef.current.currentTime = time;
-            setCurrentTime(time);
-        }
+        if (audioRef.current) audioRef.current.currentTime = time;
     };
 
     // Stop playback entirely and reset the position.
@@ -96,7 +104,6 @@ export const useAudioController = (
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
         }
-        setCurrentTime(0);
         setIsPlaying(false);
     };
 
@@ -113,7 +120,6 @@ export const useAudioController = (
         isPlaying, setIsPlaying,
         volume: initialVolume,
         setVolume: onVolumeChange,
-        currentTime, duration,
         audioRef, element,
         playFile, loadFilePaused, togglePlay, seek, stop, unload
     };

@@ -16,9 +16,7 @@ const filterLocally = (rows: ListRow[], query: string): ListRow[] => {
 /** Search within the rows of the current view, plus "shuffle all". */
 export const useTrackListLogic = (
     viewRows: ListRow[],
-    isShuffle: boolean,
-    toggleShuffle: (currentFiles: Track[]) => void,
-    playTrack: (track: Track, currentFiles: Track[]) => void
+    playTrack: (track: Track, tracks: Track[], options?: { shuffle?: boolean }) => void
 ) => {
     const [searchQuery, setSearchQuery] = useState("");
     const search = useSearch(searchQuery);
@@ -52,16 +50,11 @@ export const useTrackListLogic = (
 
     const displayFiles = useMemo(() => displayRows.map(row => row.track), [displayRows]);
 
+    // A random track first, then the rest shuffled.
     const handleShuffleAll = () => {
         if (displayFiles.length > 0) {
-            const randomIndex = Math.floor(Math.random() * displayFiles.length);
-            const randomTrack = displayFiles[randomIndex];
-
-            if (!isShuffle) {
-                toggleShuffle(displayFiles);
-            }
-
-            playTrack(randomTrack, displayFiles);
+            const randomTrack = displayFiles[Math.floor(Math.random() * displayFiles.length)];
+            playTrack(randomTrack, displayFiles, { shuffle: true });
         }
     };
 

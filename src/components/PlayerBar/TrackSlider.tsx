@@ -1,14 +1,16 @@
 import { Slider } from "../Slider/Slider";
 import { formatDuration } from "../../utils/format";
+import { usePlaybackTime } from "../../hooks/useAudioController";
 
 interface TrackSliderProps {
-    currentTime: number;
-    duration: number;
+    element: HTMLAudioElement;
     disabled: boolean;
     onSeek: (time: number) => void;
 }
 
-export const TrackSlider = ({ currentTime, duration, disabled, onSeek }: TrackSliderProps) => {
+/** The seek bar; the only part of the app that re-renders as playback runs. */
+export const TrackSlider = ({ element, disabled, onSeek }: TrackSliderProps) => {
+    const { currentTime, duration } = usePlaybackTime(element);
     return (
         <div className="seek-container">
             <span className="time-label">{formatDuration(currentTime)}</span>

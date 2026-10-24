@@ -1,130 +1,86 @@
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { useAudioController } from "./useAudioController";
 import { useAudioQueue } from "./useAudioQueue";
 import type { Track, PlayerSettings } from "../types";
 import { nextRepeatMode } from "../constants";
+
+/** Back goes to the start of the track until it has played this long (seconds). */
+const RESTART_THRESHOLD = 3;
 
 export const useAudioPlayer = (
     files: Track[],
     settings: PlayerSettings,
     updateSettings: (fields: Partial<PlayerSettings>) => void
 ) => {
-    const [activePath, setActivePath] = useState<string | null>(null);
-
     const audio = useAudioController(
         settings.volume,
         (v) => updateSettings({ volume: v })
     );
-    const q = useAudioQueue(
-        settings.isShuffle,
-        (val) => updateSettings({ isShuffle: val }),
-        settings.repeatMode,
-        (val) => updateSettings({ repeatMode: val })
-    );
+    const q = useAudioQueue();
+    const isShuffle = settings.isShuffle;
+    const repeatMode = settings.repeatMode;
+    const activePath = q.current?.path ?? null;
 
-    // Start a track from a user action (list click, play all, shuffle all).
-    // This rebuilds the queue so playback follows the given file list.
-    const playTrack = useCallback((
-        trackOrPath: Track | string,
-        currentFiles: Track[],
-        shouldPlay = true
-    ) => {
-        let track: Track | undefined;
+    /**
+     * Start `track` within `tracks` (a list click, play all, shuffle all); the
+     * queue becomes `tracks`. `shuffle` turns shuffling on or off for it,
+     * otherwise the current setting applies.
+     */
+    const playTrack = (track: Track, tracks: Track[], options: { shuffle?: boolean } = {}) => {
+        const shuffle = options.shuffle ?? isShuffle;
+        if (shuffle !== isShuffle) updateSettings({ isShuffle: shuffle });
+        const index = tracks.indexOf(track);
+        const first = q.start(index >= 0 ? tracks : [track, ...tracks], Math.max(0, index), shuffle);
+        if (first) audio.playFile(first.path);
+    };
 
-        if (typeof trackOrPath === "string") {
-            track = currentFiles.find(f => f.path === trackOrPath);
-        } else {
-            track = trackOrPath;
-        }
+    const goTo = (track: Track | null) => {
+        if (track) audio.playFile(track.path);
+    };
 
-        if (!track) return;
+    const onNext = () => goTo(q.move(1, true));
 
-        setActivePath(track.path);
-        q.buildQueue(currentFiles, track, q.isShuffle);
-
-        if (shouldPlay) {
-            audio.playFile(track.path);
-        } else {
-            audio.loadFilePaused(track.path);
-        }
-    }, [q.isShuffle, audio.playFile, audio.loadFilePaused, q.buildQueue]);
-
-    // Move within the existing queue WITHOUT rebuilding it. This keeps a stable
-    // shuffle order, so Prev goes back to the actual previous track.
-    const goToTrack = useCallback((track: Track) => {
-        setActivePath(track.path);
-        audio.playFile(track.path);
-    }, [audio.playFile]);
-    const onNext = useCallback(() => {
-        const next = q.getNextTrack(activePath);
-        if (next) {
-            goToTrack(next);
-        }
-    }, [activePath, q.getNextTrack, goToTrack]);
-
-    const onAutoNext = useCallback(() => {
-        if (q.repeatMode === 'one') {
-            audio.seek(0);
-            audio.audioRef.current?.play().catch(console.error);
-            audio.setIsPlaying(true);
-            return;
-        }
-
-        if (q.queue.length === 0) return;
-
-        const isLastInQueue = activePath === q.queue[q.queue.length - 1].path;
-
-        if (isLastInQueue && q.repeatMode === 'none') {
-            // End of queue: return to the first track, paused at position 0.
-            const first = q.queue[0];
-            setActivePath(first.path);
-            audio.loadFilePaused(first.path);
-            return;
-        }
-
-        onNext();
-    }, [q.repeatMode, q.queue, activePath, onNext, audio.seek, audio.setIsPlaying, audio.loadFilePaused]);
-
-    const onPrev = useCallback(() => {
-        if (audio.currentTime > 3) {
+    const onPrev = () => {
+        if (audio.element.currentTime > RESTART_THRESHOLD) {
             audio.seek(0);
             return;
         }
-        const prev = q.getPrevTrack(activePath);
-        if (prev) {
-            goToTrack(prev);
-        }
-    }, [audio.currentTime, audio.seek, q.getPrevTrack, activePath, goToTrack]);
+        goTo(q.move(-1, true));
+    };
 
-    // Handle auto-next when track ends
+    // At the end of a track: repeat it, go on, or (at the end of the queue
+    // without repeat) stop on the first track.
+    const onEnded = () => {
+        if (repeatMode === "one") {
+            audio.seek(0);
+            audio.element.play().catch(console.error);
+            return;
+        }
+        if (q.isLast && repeatMode === "none") {
+            q.rewind();
+            if (q.first) audio.loadFilePaused(q.first.path);
+            return;
+        }
+        goTo(q.move(1, true));
+    };
+
+    // Re-subscribed every render, so the handler sees the current queue.
     useEffect(() => {
-        const element = audio.audioRef.current;
-        if (!element) return;
+        const element = audio.element;
+        element.addEventListener("ended", onEnded);
+        return () => element.removeEventListener("ended", onEnded);
+    });
 
-        const handleEnded = () => {
-            onAutoNext();
-        };
-
-        element.addEventListener("ended", handleEnded);
-        return () => element.removeEventListener("ended", handleEnded);
-    }, [onAutoNext, audio.audioRef]);
-
-    // Keep the queue in sync with the library when not shuffling.
-    // (Shuffle builds its own order in buildQueue, so we leave it alone.)
+    // A rescan (or a deleted file) replaces the track objects: follow it.
+    const { refresh } = q;
     useEffect(() => {
-        if (!q.isShuffle) {
-            q.setQueue(files);
-        }
-    }, [files, q.isShuffle]);
+        refresh(files);
+    }, [files, refresh]);
 
-    const toggleShuffle = (currentFiles: Track[]) => {
-        const nextShuffle = !q.isShuffle;
-        q.setIsShuffle(nextShuffle);
-
-        if (activePath) {
-            const current = currentFiles.find(f => f.path === activePath);
-            if (current) q.buildQueue(currentFiles, current, nextShuffle);
-        }
+    const toggleShuffle = () => {
+        const shuffle = !isShuffle;
+        updateSettings({ isShuffle: shuffle });
+        q.setShuffled(shuffle);
     };
 
     // With nothing playing, both just start the given tracks.
@@ -134,7 +90,7 @@ export const useAudioPlayer = (
             playTrack(tracks[0], tracks);
             return;
         }
-        q.insertNext(activePath, tracks);
+        q.insertNext(tracks);
     };
 
     const addToQueue = (tracks: Track[]) => {
@@ -146,29 +102,33 @@ export const useAudioPlayer = (
         q.append(tracks);
     };
 
-    /** Drop tracks (files about to be deleted) from the queue; the current one is unloaded. */
+    /**
+     * Drop tracks (files about to be deleted) from the queue. If the current
+     * one goes, its file is let go and the track taking its place is loaded,
+     * paused.
+     */
     const forgetTracks = (tracks: Track[]) => {
         const paths = new Set(tracks.map(t => t.path));
-        q.setQueue(prev => prev.filter(f => !paths.has(f.path)));
         if (activePath && paths.has(activePath)) {
             audio.unload();
-            setActivePath(null);
+            const kept = q.order.filter(track => !paths.has(track.path));
+            const before = q.order.slice(0, q.index).filter(track => !paths.has(track.path)).length;
+            const next = kept[Math.min(before, kept.length - 1)];
+            if (next) audio.loadFilePaused(next.path);
         }
+        q.remove(paths);
     };
 
     const toggleRepeatMode = () => {
-        q.setRepeatMode(nextRepeatMode(q.repeatMode));
+        updateSettings({ repeatMode: nextRepeatMode(repeatMode) });
     };
 
     return {
-        path: settings.lastPath,
-        setPath: (val: string) => updateSettings({ lastPath: val }),
         activePath,
         playTrack, onNext, onPrev,
         playNext, addToQueue, forgetTracks,
-        toggleShuffle, isShuffle: q.isShuffle,
-        repeatMode: q.repeatMode, setRepeatMode: q.setRepeatMode,
-        toggleRepeatMode,
+        toggleShuffle, isShuffle,
+        repeatMode, toggleRepeatMode,
         ...audio
     };
 };
