@@ -40,9 +40,11 @@ import { TagDialog } from "./components/TagDialog/TagDialog";
 import { TagPicker } from "./components/TagPicker/TagPicker";
 import { SettingsPage } from "./components/SettingsPage/SettingsPage";
 import { systemViewTracks, tagTracks } from "./utils/views";
-import { compareBy, hintOf, sectionOf, sortSpecOf, viewSortOf, DEFAULT_SORT, type ViewSort } from "./utils/sort";
 import {
-	folderTracks, groupAlbums, groupArtists, groupCovers, hasFolders, subfolders, type TrackGroup,
+	compareBy, hintOf, sectionOf, sortSpecOf, viewSortOf, DEFAULT_SORT, type SortSection, type ViewSort,
+} from "./utils/sort";
+import {
+	folderOf, folderTracks, groupAlbums, groupArtists, groupCovers, hasFolders, subfolders, type TrackGroup,
 } from "./utils/groups";
 import { nextTagColor } from "./utils/tags";
 import { notifyError, notifyInfo } from "./utils/notify";
@@ -303,8 +305,35 @@ function App() {
 		const compare = compareBy({ field: viewSort.field, dir: viewSort.dir });
 		return [...naturalRows].sort((a, b) => compare(a.track, b.track));
 	}, [naturalRows, viewSort.field, viewSort.dir]);
-	// eslint-disable-next-line react-hooks/exhaustive-deps -- labels are translated
-	const rowSection = useMemo(() => sectionOf(viewSort.field), [viewSort.field, language]);
+	// Sections of the list: by the sort field, or for a view's own order its
+	// natural parts (an artist's albums, an album's discs, a folder's subfolders).
+	const rowSection = useMemo((): ((track: Track) => SortSection) | null => {
+		if (viewSort.field !== "default") return sectionOf(viewSort.field);
+		switch (listView.kind) {
+			case "artist":
+				return sectionOf("album");
+			case "album": {
+				const discs = new Set(currentGroup?.tracks.map(track => track.discNumber ?? 1));
+				if (discs.size < 2) return null;
+				return track => {
+					const disc = track.discNumber ?? 1;
+					return { key: String(disc), label: t("detail.disc", { number: disc }) };
+				};
+			}
+			case "folder": {
+				const prefix = listView.id ? `${listView.id}/` : "";
+				const here = currentGroup?.name ?? "";
+				return track => {
+					const folder = folderOf(track.relPath);
+					const below = folder.startsWith(prefix) ? folder.slice(prefix.length) : "";
+					return { key: below, label: below || here };
+				};
+			}
+			default:
+				return null;
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- labels are translated
+	}, [viewSort.field, listView, currentGroup, language]);
 	// eslint-disable-next-line react-hooks/exhaustive-deps -- dates are formatted per language
 	const rowHint = useMemo(() => hintOf(viewSort.field), [viewSort.field, language]);
 	const viewKey = "id" in listView ? `${listView.kind}:${listView.id}` : listView.kind;
@@ -805,6 +834,7 @@ function App() {
 								onSortChange={handleSortChange}
 								display={viewSorts.display}
 								onDisplayChange={viewSorts.setDisplay}
+								canGroup={rowSection !== null}
 								sortDisabled={isSearching || sortLocked}
 								onShuffleAll={handleShuffleAll}
 								onPlayAll={handlePlayAll}

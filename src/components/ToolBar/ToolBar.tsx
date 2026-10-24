@@ -18,6 +18,8 @@ interface ToolbarProps {
     onSortChange: (sort: ViewSort) => void;
     display: ListDisplay;
     onDisplayChange: (display: ListDisplay) => void;
+    /** The current order can be split into sections. */
+    canGroup: boolean;
     /** While searching, results are in relevance order. */
     sortDisabled?: boolean;
     onShuffleAll: () => void;
@@ -44,6 +46,7 @@ export const Toolbar = ({
     onSortChange,
     display,
     onDisplayChange,
+    canGroup,
     sortDisabled = false,
     onShuffleAll,
     onPlayAll
@@ -73,7 +76,8 @@ export const Toolbar = ({
         {
             kind: "item",
             label: t("toolbar.groupSections"),
-            icon: check(display === "sections"),
+            icon: check(canGroup && display === "sections"),
+            disabled: !canGroup,
             onSelect: () => onDisplayChange(display === "sections" ? "inline" : "sections"),
         },
     ];
