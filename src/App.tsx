@@ -24,6 +24,7 @@ import { useTheme } from "./hooks/useTheme";
 import { sortScopeOf, useViewSorts } from "./hooks/useViewSorts";
 import { useTrackStats } from "./hooks/useTrackStats";
 import { usePlayTracking } from "./hooks/usePlayTracking";
+import { useTaskbar } from "./hooks/useTaskbar";
 import { usePlaylists } from "./hooks/usePlaylists";
 import { useTags } from "./hooks/useTags";
 import { useViewRows } from "./hooks/useViewRows";
@@ -210,6 +211,7 @@ function App() {
 
 	const trackStats = useTrackStats(files);
 	usePlayTracking(element, currentTrack ?? null, trackStats.recordPlay, trackStats.recordComplete);
+	useTaskbar(isPlaying, !!activePath, language, { previous: onPrev, toggle: togglePlay, next: onNext });
 
 	const playlists = usePlaylists(files);
 	const tags = useTags(files);

@@ -3,11 +3,13 @@ mod cover;
 mod db;
 mod library;
 mod store;
+mod taskbar;
 mod text;
 mod track;
 
 use library::{scan_directory, validate_directory};
 use store::commands::*;
+use taskbar::set_taskbar_state;
 use tauri::Manager;
 
 /// Show the main window. It starts hidden (see tauri.conf.json) so the user
@@ -41,6 +43,7 @@ pub fn run() {
             scan_directory,
             validate_directory,
             show_main_window,
+            set_taskbar_state,
             get_library_settings,
             set_visible_system_playlists,
             set_artist_rules,
@@ -84,6 +87,8 @@ pub fn run() {
                 )?;
             }
 
+            taskbar::install(app);
+
             // Safety net: the window starts hidden and the frontend shows it
             // once painted. If that signal never arrives (e.g. a frontend
             // crash before first render), reveal it anyway after a few seconds
@@ -122,6 +127,7 @@ mod tests {
         let permissions = [
             include_str!("../permissions/scan.toml"),
             include_str!("../permissions/library.toml"),
+            include_str!("../permissions/taskbar.toml"),
         ];
         let granted: Vec<&str> = permissions
             .iter()
