@@ -9,6 +9,8 @@ import { t, type MessageKey } from "../i18n";
  * every change goes through the backend, and the returned playlist replaces
  * the local copy. Failures are reported and return null.
  */
+const NONE: Playlist[] = [];
+
 export const usePlaylists = (files: Track[]) => {
     const [playlists, setPlaylists] = useState<Playlist[]>([]);
 
@@ -100,7 +102,8 @@ export const usePlaylists = (files: Track[]) => {
     }, []);
 
     return {
-        playlists,
+        // An empty library shows none (not those of the library opened before).
+        playlists: files.length > 0 ? playlists : NONE,
         createManual, createSmart, rename, setSort, setRules,
         addTracks, removeItems, reorder, remove, setCover, clearCover,
     };

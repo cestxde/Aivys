@@ -25,7 +25,9 @@ export const useTags = (files: Track[]) => {
         };
     }, [files]);
 
-    const tags = useMemo(() => [...loaded].sort((a, b) => a.name.localeCompare(b.name)), [loaded]);
+    // An empty library shows none (not those of the library opened before).
+    const empty = files.length === 0;
+    const tags = useMemo(() => (empty ? [] : [...loaded].sort((a, b) => a.name.localeCompare(b.name))), [loaded, empty]);
     const byId = useMemo(() => new Map(tags.map(tag => [tag.id, tag])), [tags]);
 
     const upsert = useCallback((tag: UserTag) => {

@@ -17,6 +17,8 @@ const FAILED_MESSAGES: Record<string, MessageKey> = {
 
 const nowUnix = () => Math.floor(Date.now() / 1000);
 
+const NO_STATS: StatsMap = {};
+
 /**
  * Per-track favorites, ratings, tags and play statistics from the library's
  * `.aivys/` journals, keyed by `Track.relPath`. Reloaded after every scan;
@@ -110,5 +112,6 @@ export const useTrackStats = (files: Track[]) => {
         persist("record_complete", { path: track.relPath });
     }, [patch, persist]);
 
-    return { stats, reload, setFavorite, toggleFavorite, setRating, setTrackTag, recordPlay, recordComplete };
+    // An empty library shows none (not those of the library opened before).
+    return { stats: files.length > 0 ? stats : NO_STATS, reload, setFavorite, toggleFavorite, setRating, setTrackTag, recordPlay, recordComplete };
 };
