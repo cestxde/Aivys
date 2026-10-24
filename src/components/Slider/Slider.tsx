@@ -22,13 +22,18 @@ export const Slider = ({
     const [hoverPercent, setHoverPercent] = useState<number>(0);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [dragging, setDragging] = useState(false);
-    const displayValue = localValue !== null ? localValue : value;
+    // A committed value is shown until `value` moves off the one it had then:
+    // the owner may take a moment to apply it (a seek), and the bar would
+    // flash back to the old position meanwhile.
+    const [held, setHeld] = useState<{ value: number; from: number } | null>(null);
+    const displayValue = localValue ?? (held && held.from === value ? held.value : value);
 
     // A "release" slider commits when the press ends, wherever the pointer is
     // then: leaving the thin bar while dragging must not lose the new value.
     const commit = () => {
         if (changeOn === 'release' && localValue !== null) {
             onChange(localValue);
+            setHeld({ value: localValue, from: value });
             setLocalValue(null);
         }
     };
@@ -73,7 +78,10 @@ export const Slider = ({
         const val = parseFloat(e.target.value);
         if (changeOn === 'drag') {
             onChange(val);
-        } else {
+        } else if (e.nativeEvent.type !== "change") {
+            // The native change comes after the release, once the commit has
+            // shown the old value again (seeking takes a moment): it would
+            // hold the bar there. Every value arrives by "input" first anyway.
             setLocalValue(val);
         }
     };
