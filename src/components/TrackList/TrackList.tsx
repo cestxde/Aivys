@@ -1,5 +1,5 @@
 import "./TrackList.css";
-import { Fragment, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { ChevronRight, GripVertical, MoreVertical } from "lucide-react";
 import type { ListRow, Track } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
@@ -44,6 +44,35 @@ const moveItem = (ids: string[], moved: string, target: string, after: boolean):
 
 /** Distance from the scroll container's edge that scrolls while dragging. */
 const AUTOSCROLL_EDGE = 48;
+
+/** What the list shows, top to bottom. */
+type Entry =
+    | { kind: "separator"; key: string }
+    | { kind: "section"; key: string; section: SortSection; count: number; hidden: boolean }
+    | { kind: "row"; key: string; row: ListRow };
+
+type Heights = Record<Entry["kind"], number>;
+
+/**
+ * Height of each kind of entry, gap included, as last measured; shared by all
+ * lists, so a list opens at the right height. Rough until the first measure.
+ */
+let measured: Heights = { row: 62, section: 34, separator: 30 };
+
+/** Rows rendered beyond the visible part, in pixels, so scrolling never shows a gap. */
+const OVERSCAN = 800;
+
+/** Index of the first entry whose bottom is below `y` (offsets are entry tops plus the end). */
+const entryAt = (offsets: number[], y: number): number => {
+    let low = 0;
+    let high = offsets.length - 1;
+    while (low < high) {
+        const middle = (low + high) >> 1;
+        if (offsets[middle + 1] <= y) low = middle + 1;
+        else high = middle;
+    }
+    return low;
+};
 
 export const TrackList = ({
     rows,
@@ -135,92 +164,173 @@ export const TrackList = ({
 
     const openMenuAt = (row: ListRow, x: number, y: number) => onOpenMenu?.(row, x, y);
 
+    const entries = useMemo(() => {
+        const list: Entry[] = [];
+        rows.forEach((row, index) => {
+            const start = starts.get(index);
+            const key = keys[index];
+            const hidden = key !== null && collapsed.has(key);
+            if (index === looseFromIndex && !hidden) list.push({ kind: "separator", key: "~similar" });
+            if (start) list.push({ kind: "section", key: `~section:${index}`, ...start, hidden });
+            if (!hidden) list.push({ kind: "row", key: row.key, row });
+        });
+        return list;
+    }, [rows, starts, keys, collapsed, looseFromIndex]);
+
+    // Only the entries near the visible part of the scroll container are
+    // rendered; spacers keep the full height. A long library would otherwise
+    // build thousands of rows on every view change.
+    const rootRef = useRef<HTMLDivElement>(null);
+    const [heights, setHeights] = useState<Heights>(measured);
+    const [visible, setVisible] = useState({ top: 0, height: 1000 });
+
+    const offsets = useMemo(() => {
+        const result = [0];
+        for (const entry of entries) result.push(result[result.length - 1] + heights[entry.kind]);
+        return result;
+    }, [entries, heights]);
+
+    // Follow the scroll container (the track list wrapper).
+    useLayoutEffect(() => {
+        const root = rootRef.current;
+        const scroller = root?.closest<HTMLElement>(".track-list-wrapper");
+        if (!root || !scroller) return;
+        const update = () => {
+            // The list may sit below other content (a folder's subfolders).
+            const listTop = root.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+            const top = scroller.scrollTop - listTop;
+            const height = scroller.clientHeight;
+            setVisible(prev => (Math.abs(prev.top - top) < 1 && prev.height === height ? prev : { top, height }));
+        };
+        update();
+        scroller.addEventListener("scroll", update, { passive: true });
+        const resize = new ResizeObserver(update);
+        resize.observe(scroller);
+        return () => {
+            scroller.removeEventListener("scroll", update);
+            resize.disconnect();
+        };
+    }, []);
+
+    // Measure the real heights once entries of a kind are on screen.
+    useLayoutEffect(() => {
+        const root = rootRef.current;
+        if (!root) return;
+        const next = { ...heights };
+        let changed = false;
+        for (const [kind, selector] of [["row", ".audio-item"], ["section", ".list-section"], ["separator", ".list-separator"]] as const) {
+            const element = root.querySelector(`:scope > ${selector}`);
+            // + the 1px gap between entries
+            const height = element ? element.getBoundingClientRect().height + 1 : null;
+            if (height !== null && Math.abs(height - next[kind]) > 0.5) {
+                next[kind] = height;
+                changed = true;
+            }
+        }
+        if (changed) {
+            measured = next;
+            setHeights(next);
+        }
+    }, [heights, entries, visible]);
+
+    // While dragging everything stays rendered: the dragged row must not
+    // disappear when the list scrolls under it.
+    const first = dragging ? 0 : entryAt(offsets, visible.top - OVERSCAN);
+    const last = dragging ? entries.length : Math.min(entries.length, entryAt(offsets, visible.top + visible.height + OVERSCAN) + 1);
+    const total = offsets[offsets.length - 1];
+    // A spacer is one entry more, so one gap less.
+    const padTop = Math.max(0, offsets[first] - 1);
+    const padBottom = Math.max(0, total - offsets[last] - 1);
+
+    const renderEntry = (entry: Entry) => {
+        if (entry.kind === "separator") {
+            return <div key={entry.key} className="list-separator">{t("list.similar")}</div>;
+        }
+        if (entry.kind === "section") {
+            return (
+                <button
+                    key={entry.key}
+                    className={`list-section ${entry.hidden ? "" : "open"}`}
+                    aria-expanded={!entry.hidden}
+                    onClick={() => toggleSection(entry.section.key)}
+                >
+                    <ChevronRight size={14} className="list-section-chevron" />
+                    <span className="list-section-label">{entry.section.label}</span>
+                    <span className="list-section-count">{entry.count}</span>
+                </button>
+            );
+        }
+        const row = entry.row;
+        const file = row.track;
+        const hint = hintOf?.(file);
+        const title = displayTitle(file);
+        const artist = displayArtists(file) ?? t("common.unknownArtist");
+        const drop = dropTarget?.key === row.key && dragging !== row.key
+            ? (dropTarget.after ? "drop-after" : "drop-before")
+            : "";
+        return (
+            <div
+                key={row.key}
+                data-row-key={row.key}
+                onClick={() => onPlay(file)}
+                onContextMenu={onOpenMenu && ((e) => {
+                    e.preventDefault();
+                    openMenuAt(row, e.clientX, e.clientY);
+                })}
+                className={`audio-item ${activePath === file.path ? 'active' : ''} ${dragging === row.key ? 'dragging' : ''} ${drop}`}
+            >
+                {onReorder && row.itemId && (
+                    <span
+                        className="drag-handle"
+                        title={t("list.dragToReorder")}
+                        onClick={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => startDrag(e, row)}
+                        onPointerMove={moveDrag}
+                        onPointerUp={() => endDrag(true)}
+                        onPointerCancel={() => endDrag(false)}
+                    >
+                        <GripVertical size={14} />
+                    </span>
+                )}
+                {numberOf && <span className="track-number">{numberOf(file)}</span>}
+                <CoverArt path={file.coverPath} size={36} className="track-cover" />
+                <div className="track-main-info">
+                    <span className="track-title">{title}</span>
+                    <span className="track-artist">{artist}</span>
+                </div>
+                {hint && <span className="track-hint" title={hint}>{hint}</span>}
+                <span className="duration-tag">
+                    {formatDuration(file.duration)}
+                </span>
+                {onOpenMenu && (
+                    <button
+                        className="row-button menu-button"
+                        title={t("common.more")}
+                        aria-haspopup="menu"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const box = e.currentTarget.getBoundingClientRect();
+                            // Right-aligned under the button (the menu clamps to the window).
+                            openMenuAt(row, box.right - 200, box.bottom + 2);
+                        }}
+                    >
+                        <MoreVertical size={16} />
+                    </button>
+                )}
+            </div>
+        );
+    };
+
     return (
-        <div className={`music-grid ${dragging ? "is-reordering" : ""}`}>
+        <div ref={rootRef} className={`music-grid ${dragging ? "is-reordering" : ""}`}>
             {rows.length === 0 ? (
                 <div className="empty-state">{emptyText}</div>
             ) : (
-                rows.map((row, index) => {
-                    const start = starts.get(index);
-                    const key = keys[index];
-                    const hidden = key !== null && collapsed.has(key);
-                    const header = start && (
-                        <button
-                            className={`list-section ${hidden ? "" : "open"}`}
-                            aria-expanded={!hidden}
-                            onClick={() => toggleSection(start.section.key)}
-                        >
-                            <ChevronRight size={14} className="list-section-chevron" />
-                            <span className="list-section-label">{start.section.label}</span>
-                            <span className="list-section-count">{start.count}</span>
-                        </button>
-                    );
-                    if (hidden) return <Fragment key={row.key}>{header}</Fragment>;
-
-                    const file = row.track;
-                    const hint = hintOf?.(file);
-                    const title = displayTitle(file);
-                    const artist = displayArtists(file) ?? t("common.unknownArtist");
-                    const drop = dropTarget?.key === row.key && dragging !== row.key
-                        ? (dropTarget.after ? "drop-after" : "drop-before")
-                        : "";
-                    return (
-                        <Fragment key={row.key}>
-                            {index === looseFromIndex && (
-                                <div className="list-separator">{t("list.similar")}</div>
-                            )}
-                            {header}
-                            <div
-                                data-row-key={row.key}
-                                onClick={() => onPlay(file)}
-                                onContextMenu={onOpenMenu && ((e) => {
-                                    e.preventDefault();
-                                    openMenuAt(row, e.clientX, e.clientY);
-                                })}
-                                className={`audio-item ${activePath === file.path ? 'active' : ''} ${dragging === row.key ? 'dragging' : ''} ${drop}`}
-                            >
-                                {onReorder && row.itemId && (
-                                    <span
-                                        className="drag-handle"
-                                        title={t("list.dragToReorder")}
-                                        onClick={(e) => e.stopPropagation()}
-                                        onPointerDown={(e) => startDrag(e, row)}
-                                        onPointerMove={moveDrag}
-                                        onPointerUp={() => endDrag(true)}
-                                        onPointerCancel={() => endDrag(false)}
-                                    >
-                                        <GripVertical size={14} />
-                                    </span>
-                                )}
-                                {numberOf && <span className="track-number">{numberOf(file)}</span>}
-                                <CoverArt path={file.coverPath} size={36} className="track-cover" />
-                                <div className="track-main-info">
-                                    <span className="track-title">{title}</span>
-                                    <span className="track-artist">{artist}</span>
-                                </div>
-                                {hint && <span className="track-hint" title={hint}>{hint}</span>}
-                                <span className="duration-tag">
-                                    {formatDuration(file.duration)}
-                                </span>
-                                {onOpenMenu && (
-                                    <button
-                                        className="row-button menu-button"
-                                        title={t("common.more")}
-                                        aria-haspopup="menu"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            const box = e.currentTarget.getBoundingClientRect();
-                                            // Right-aligned under the button (the menu clamps to the window).
-                                            openMenuAt(row, box.right - 200, box.bottom + 2);
-                                        }}
-                                    >
-                                        <MoreVertical size={16} />
-                                    </button>
-                                )}
-                            </div>
-                        </Fragment>
-                    );
-                })
+                <>
+                    {padTop > 0 && <div className="list-spacer" style={{ height: padTop }} />}
+                    {entries.slice(first, last).map(renderEntry)}
+                    {padBottom > 0 && <div className="list-spacer" style={{ height: padBottom }} />}
+                </>
             )}
         </div>
     );
