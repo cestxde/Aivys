@@ -12,6 +12,9 @@ use super::tags::{self, TagDef};
 use super::{conflicts, system, Store, StoreError};
 use crate::db::search::SearchHit;
 use crate::db::LibraryDb;
+use crate::library::{rescan_library, scan_lock};
+use crate::metadata::{self, EditUndo, MetadataEdit};
+use crate::track::Track;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
@@ -236,6 +239,72 @@ pub(crate) async fn delete_tracks(state: State<'_, StoreState>, paths: Vec<Strin
         }
         move_to_trash(&files)
     })
+}
+
+// ---- Tag editing ----
+
+/// The library after an edit (or its undo), and the files left unchanged
+/// ("name: reason" for an edit).
+#[derive(serde::Serialize)]
+pub(crate) struct EditResult {
+    tracks: Vec<Track>,
+    failed: Vec<String>,
+}
+
+fn file_name(path: &Path) -> String {
+    path.file_name().map_or_else(|| path.to_string_lossy(), |name| name.to_string_lossy()).into_owned()
+}
+
+/// Run `edit` on the open library's files under the scan lock, then rescan it.
+async fn change_files(
+    app: tauri::AppHandle,
+    edit: impl FnOnce(&Path) -> Vec<String> + Send + 'static,
+) -> Result<EditResult, StoreError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let _scanning = scan_lock();
+        let root = with_store(&app.state::<StoreState>(), |store| Ok(store.root().to_path_buf()))?;
+        let app_data = app
+            .path()
+            .app_data_dir()
+            .map_err(|err| StoreError::Invalid(format!("no app-data directory: {err}")))?;
+        let failed = edit(&app_data);
+        Ok(EditResult { tracks: rescan_library(&app, &root), failed })
+    })
+    .await
+    .map_err(|err| StoreError::Invalid(err.to_string()))?
+}
+
+/// Write `edit` into the tags of the tracks at `paths`; undo puts them back.
+#[tauri::command]
+pub(crate) async fn edit_tracks(app: tauri::AppHandle, paths: Vec<String>, edit: MetadataEdit) -> Result<EditResult, StoreError> {
+    let files = with_store(&app.state::<StoreState>(), |store| {
+        paths
+            .iter()
+            .map(|path| {
+                let key = store.track_key(path)?;
+                let file = key.split('/').fold(store.root().to_path_buf(), |dir, part| dir.join(part));
+                if file.is_file() { Ok(file) } else { Err(StoreError::NotFound(format!("track {key}"))) }
+            })
+            .collect::<Result<Vec<_>, _>>()
+    })?;
+    let handle = app.clone();
+    change_files(app, move |app_data| {
+        metadata::edit_files(app_data, &handle.state::<EditUndo>(), &files, &edit)
+            .into_iter()
+            .map(|(file, reason)| format!("{}: {reason}", file_name(&file)))
+            .collect()
+    })
+    .await
+}
+
+/// Put back the tags the last edit replaced (files changed since are kept).
+#[tauri::command]
+pub(crate) async fn undo_track_edit(app: tauri::AppHandle) -> Result<EditResult, StoreError> {
+    let handle = app.clone();
+    change_files(app, move |app_data| {
+        metadata::undo_edit(app_data, &handle.state::<EditUndo>()).iter().map(|file| file_name(file)).collect()
+    })
+    .await
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]

@@ -67,3 +67,20 @@
         transform: translateY(6px);
     }
 }
+
+.notice-action {
+    flex-shrink: 0;
+    margin: -2px 0;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: none;
+    color: var(--text-h);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.notice-action:hover {
+    background: var(--surface);
+}

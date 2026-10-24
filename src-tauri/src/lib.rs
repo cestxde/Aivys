@@ -2,6 +2,7 @@ mod artists;
 mod cover;
 mod db;
 mod library;
+mod metadata;
 mod store;
 mod taskbar;
 mod text;
@@ -39,6 +40,7 @@ pub fn run() {
 
     builder
         .manage(StoreState::default())
+        .manage(metadata::EditUndo::default())
         .invoke_handler(tauri::generate_handler![
             scan_directory,
             validate_directory,
@@ -76,7 +78,9 @@ pub fn run() {
             get_smart_playlist_tracks,
             preview_smart_playlist,
             search_tracks,
-            delete_tracks
+            delete_tracks,
+            edit_tracks,
+            undo_track_edit
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -88,6 +92,9 @@ pub fn run() {
             }
 
             taskbar::install(app);
+            if let Ok(app_data) = app.path().app_data_dir() {
+                metadata::clear_undo(&app_data);
+            }
 
             // Safety net: the window starts hidden and the frontend shows it
             // once painted. If that signal never arrives (e.g. a frontend

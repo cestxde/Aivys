@@ -7,6 +7,8 @@ export interface Notice {
     id: number;
     message: string;
     kind: 'error' | 'info';
+    /** A button on the notice (e.g. "Undo"); pressing it also dismisses the notice. */
+    action?: { label: string; run: () => void };
 }
 
 /** How long a notice stays before it hides itself. */
@@ -23,11 +25,11 @@ export const dismissNotice = (id: number) => {
     emit();
 };
 
-const show = (message: string, kind: Notice['kind'], durationMs: number) => {
+const show = (message: string, kind: Notice['kind'], durationMs: number, action?: Notice['action']) => {
     // Repeats of a message that is already on screen are dropped.
     if (notices.some(notice => notice.message === message)) return;
     const id = nextId++;
-    notices = [...notices, { id, message, kind }];
+    notices = [...notices, { id, message, kind, action }];
     emit();
     setTimeout(() => dismissNotice(id), durationMs);
 };
@@ -40,6 +42,10 @@ export const notifyError = (message: string, error?: unknown) => {
 
 /** Confirm a completed action that has no other visible effect. */
 export const notifyInfo = (message: string) => show(message, 'info', 2500);
+
+/** Confirm an action that can be taken back with the notice's button. */
+export const notifyUndoable = (message: string, label: string, run: () => void) =>
+    show(message, 'info', NOTICE_MS, { label, run });
 
 export const subscribeNotices = (listener: () => void) => {
     listeners.add(listener);

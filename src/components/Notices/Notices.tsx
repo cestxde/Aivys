@@ -17,6 +17,17 @@ export const Notices = () => {
                         ? <AlertCircle size={16} className="notice-icon" />
                         : <CheckCircle2 size={16} className="notice-icon" />}
                     <span className="notice-message">{notice.message}</span>
+                    {notice.action && (
+                        <button
+                            className="notice-action"
+                            onClick={() => {
+                                dismissNotice(notice.id);
+                                notice.action?.run();
+                            }}
+                        >
+                            {notice.action.label}
+                        </button>
+                    )}
                     <button
                         className="notice-close"
                         title={t("notices.dismiss")}

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Heart, Star, Tag } from "lucide-react";
+import { Heart, PencilLine, Star, Tag } from "lucide-react";
 import type { Track, TrackStats, UserTag } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { formatDateTime, formatDuration, formatFileSize } from "../../utils/format";
@@ -22,6 +22,8 @@ interface TrackDetailPanelProps {
     tagsById: Map<string, UserTag>;
     /** Open the tag picker for the track. */
     onEditTags: (track: Track) => void;
+    /** Open the metadata editor for the track. */
+    onEditDetails: (track: Track) => void;
     onOpenTag: (tag: UserTag) => void;
     canOpenArtist: (name: string) => boolean;
     onOpenArtist: (name: string) => void;
@@ -74,6 +76,7 @@ export const TrackDetailPanel = ({
     onSetRating,
     tagsById,
     onEditTags,
+    onEditDetails,
     onOpenTag,
     canOpenArtist,
     onOpenArtist,
@@ -136,6 +139,9 @@ export const TrackDetailPanel = ({
                     rating={stats?.rating ?? 0}
                     onChange={(rating) => onSetRating(track, rating)}
                 />
+                <button className="detail-edit" title={t("edit.menu")} onClick={() => onEditDetails(track)}>
+                    <PencilLine size={18} />
+                </button>
             </div>
 
             <div className="detail-tags">

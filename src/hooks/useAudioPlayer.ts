@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { useAudioController } from "./useAudioController";
 import { useAudioQueue } from "./useAudioQueue";
 import type { Track, PlayerSettings } from "../types";
@@ -174,6 +175,29 @@ export const useAudioPlayer = (
     /** What comes after the current track, reordered, trimmed or emptied. */
     const setUpcoming = (tracks: Track[]) => q.setUpcoming(tracks, !isShuffle);
 
+    /**
+     * Run `work`, which rewrites some of the files at `paths`: if one of them
+     * is loaded, it is let go meanwhile (Windows may refuse to replace an open
+     * file) and loaded again where it was, playing if it was.
+     */
+    const releaseWhile = async <T,>(paths: string[], work: () => Promise<T>): Promise<T> => {
+        const element = audio.element;
+        // By the element, not the render: this may run from an older closure (a notice's button).
+        const path = paths.find(p => element.src === convertFileSrc(p));
+        if (!path) return work();
+        const time = element.currentTime;
+        const playing = !element.paused;
+        const volume = element.volume;
+        audio.unload();
+        try {
+            return await work();
+        } finally {
+            audio.loadFilePaused(path, time);
+            element.volume = volume;
+            if (playing) element.play().catch(console.error);
+        }
+    };
+
     const toggleRepeatMode = () => {
         updateSettings({ repeatMode: nextRepeatMode(repeatMode) });
     };
@@ -183,7 +207,7 @@ export const useAudioPlayer = (
         playTrack, onNext, onPrev, resume,
         playNext, addToQueue, forgetTracks,
         queue: { order: q.order, index: q.index },
-        playAt, removeFromQueue: q.removeAt, setUpcoming,
+        playAt, removeFromQueue: q.removeAt, setUpcoming, releaseWhile,
         toggleShuffle, isShuffle,
         repeatMode, toggleRepeatMode,
         ...audio

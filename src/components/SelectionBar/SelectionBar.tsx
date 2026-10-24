@@ -1,4 +1,4 @@
-import { CheckCheck, Heart, ListPlus, ListX, Play, Tag, Trash2, X } from "lucide-react";
+import { CheckCheck, Heart, ListPlus, ListX, PencilLine, Play, Tag, Trash2, X } from "lucide-react";
 import { t } from "../../i18n";
 import "../ToolBar/ToolBar.css";
 import "./SelectionBar.css";
@@ -11,6 +11,7 @@ interface SelectionBarProps {
     onPlay: () => void;
     onAddTo: () => void;
     onTags: () => void;
+    onEdit: () => void;
     onToggleFavorite: () => void;
     /** Only in a manual playlist. */
     onRemoveFromPlaylist?: () => void;
@@ -27,6 +28,7 @@ export const SelectionBar = ({
     onPlay,
     onAddTo,
     onTags,
+    onEdit,
     onToggleFavorite,
     onRemoveFromPlaylist,
     onDelete,
@@ -48,6 +50,9 @@ export const SelectionBar = ({
             </button>
             <button className="selection-action" onClick={onTags}>
                 <Tag size={15} /> <span>{t("common.tags")}</span>
+            </button>
+            <button className="selection-action icon" title={t("edit.menu")} onClick={onEdit}>
+                <PencilLine size={15} />
             </button>
             <button
                 className="selection-action icon"

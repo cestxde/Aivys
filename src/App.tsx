@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import {
-	Heart, ListPlus, ListX, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
+	Heart, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
 } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
@@ -38,6 +38,7 @@ import { CollectionPage, type CollectionSection, type CollectionSort } from "./c
 import { AlbumStrip } from "./components/AlbumStrip/AlbumStrip";
 import { SelectionBar } from "./components/SelectionBar/SelectionBar";
 import { QueuePanel } from "./components/QueuePanel/QueuePanel";
+import { MetadataEditor, type MetadataEdit } from "./components/MetadataEditor/MetadataEditor";
 import { FolderGrid, GroupHeader, type Crumb } from "./components/GroupHeader/GroupHeader";
 import { AddToDialog } from "./components/AddToDialog/AddToDialog";
 import { TagsPage } from "./components/TagsPage/TagsPage";
@@ -53,7 +54,7 @@ import {
 	albumKeyOf, artistKey, folderOf, folderTracks, groupAlbums, groupArtists, groupCovers, hasFolders, subfolders, type TrackGroup,
 } from "./utils/groups";
 import { nextTagColor } from "./utils/tags";
-import { notifyError, notifyInfo } from "./utils/notify";
+import { notifyError, notifyInfo, notifyUndoable } from "./utils/notify";
 import { displayTitle } from "./utils/track";
 import { revealFile, revealLabel } from "./utils/reveal";
 import { formatDateTime, formatDuration, formatTotalDuration } from "./utils/format";
@@ -157,6 +158,12 @@ interface Selection {
 
 const NO_SELECTION: Selection = { scope: "", keys: new Set(), anchor: null };
 
+/** The library after a tag edit or its undo, and the files left unchanged. */
+interface EditResult {
+	tracks: Track[];
+	failed: string[];
+}
+
 /** How much the volume shortcuts change the volume (of 1). */
 const VOLUME_STEP = 0.05;
 
@@ -193,6 +200,10 @@ function App() {
 	// The view playback was started from (a view key), highlighted on its card.
 	// Kept with the session, so a resumed queue still shows where it came from.
 	const [playingFrom, setPlayingFrom] = useStoredState<string | null>("session.from", null, (value): value is string | null => value === null || typeof value === "string");
+	// Tracks the metadata editor is open for.
+	const [editing, setEditing] = useState<Track[] | null>(null);
+	// The tracks of the last tag edit while it can be undone.
+	const [undoablePaths, setUndoablePaths] = useState<string[] | null>(null);
 	// What the right panel shows: the playing track, or the queue.
 	const [panelTab, setPanelTab] = useState<"track" | "queue">("track");
 	const { layouts, setLayout } = usePageLayouts();
@@ -203,7 +214,7 @@ function App() {
 		seek, stop,
 		onNext, onPrev, resume,
 		playNext, addToQueue, forgetTracks,
-		queue, playAt, removeFromQueue, setUpcoming,
+		queue, playAt, removeFromQueue, setUpcoming, releaseWhile,
 		toggleShuffle, isShuffle,
 		repeatMode, toggleRepeatMode,
 		element
@@ -730,6 +741,9 @@ function App() {
 		next: () => activePath && onNext(),
 		volumeUp: () => setVolume(Math.min(1, volume + VOLUME_STEP)),
 		volumeDown: () => setVolume(Math.max(0, volume - VOLUME_STEP)),
+		undoEdit: () => {
+			if (undoablePaths) undoEdit(undoablePaths);
+		},
 	});
 
 	/** Open an artist's page from a link; back returns here. */
@@ -769,6 +783,49 @@ function App() {
 		return [{ kind: "label", label: t("menu.goTo") }, ...entries, { kind: "separator" }];
 	};
 
+	/** Write `edit` into the tags of `tracks`; the library follows. */
+	const saveMetadata = async (tracks: Track[], edit: MetadataEdit) => {
+		const paths = tracks.map(track => track.path);
+		let result: EditResult;
+		try {
+			result = await releaseWhile(paths, () => invoke<EditResult>("edit_tracks", { paths, edit }));
+		} catch (e) {
+			notifyError(t("edit.failed"), e);
+			return;
+		}
+		library.setFiles(result.tracks);
+		if (result.failed.length > 0) {
+			notifyError(t("edit.someFailed", { count: result.failed.length, list: result.failed.join("; ") }));
+		}
+		const written = tracks.length - result.failed.length;
+		if (written === 0) return;
+		setEditing(null);
+		setUndoablePaths(paths);
+		notifyUndoable(
+			written === 1 ? t("edit.saved") : t("edit.savedMany", { count: written }),
+			t("edit.undo"),
+			() => undoEdit(paths),
+		);
+	};
+
+	/** Put back the tags the last edit (of the files at `paths`) replaced. */
+	const undoEdit = async (paths: string[]) => {
+		setUndoablePaths(current => (current === paths ? null : current));
+		let result: EditResult;
+		try {
+			result = await releaseWhile(paths, () => invoke<EditResult>("undo_track_edit"));
+		} catch (e) {
+			notifyError(t("edit.undoFailed"), e);
+			return;
+		}
+		library.setFiles(result.tracks);
+		if (result.failed.length > 0) {
+			notifyError(t("edit.undoSkipped", { count: result.failed.length, list: result.failed.join("; ") }));
+		} else {
+			notifyInfo(t("edit.undone"));
+		}
+	};
+
 	const trackMenu = (row: ListRow): MenuEntry[] => {
 		const favorite = trackStats.stats[row.track.relPath]?.favorite ?? false;
 		const entries: MenuEntry[] = [
@@ -789,6 +846,7 @@ function App() {
 			},
 			{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo([row.track]) },
 			{ kind: "item", label: t("common.tags"), icon: <Tag size={16} />, onSelect: () => setTagPicker([row.track]) },
+			{ kind: "item", label: t("edit.menu"), icon: <PencilLine size={16} />, onSelect: () => setEditing([row.track]) },
 			{ kind: "separator" },
 			...goToEntries(row.track),
 		];
@@ -852,6 +910,7 @@ function App() {
 			},
 			{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo(tracks) },
 			{ kind: "item", label: t("common.tags"), icon: <Tag size={16} />, onSelect: () => setTagPicker(tracks) },
+			{ kind: "item", label: t("edit.menu"), icon: <PencilLine size={16} />, onSelect: () => setEditing(tracks) },
 			{ kind: "separator" },
 		];
 		if (currentTag) {
@@ -1217,6 +1276,7 @@ function App() {
 									onPlay={() => playFrom(viewKey, selectedTracks[0], selectedTracks)}
 									onAddTo={() => setAddTo(selectedTracks)}
 									onTags={() => setTagPicker(selectedTracks)}
+									onEdit={() => setEditing(selectedTracks)}
 									onToggleFavorite={() => toggleFavorites(selectedTracks)}
 									onRemoveFromPlaylist={manualPlaylist ? () => {
 										removeRowsFromPlaylist(selectedRows);
@@ -1342,6 +1402,7 @@ function App() {
 					onSetRating={trackStats.setRating}
 					tagsById={tags.byId}
 					onEditTags={(track) => setTagPicker([track])}
+					onEditDetails={(track) => setEditing([track])}
 					onOpenTag={(target) => showView({ kind: "tag", id: target.id }, listView)}
 					canOpenArtist={canOpenArtist}
 					onOpenArtist={openArtist}
@@ -1374,6 +1435,14 @@ function App() {
 
 			{menu && (
 				<ContextMenu x={menu.x} y={menu.y} entries={menu.entries} onClose={closeMenu} />
+			)}
+
+			{editing && (
+				<MetadataEditor
+					tracks={editing}
+					onSave={(edit) => saveMetadata(editing, edit)}
+					onClose={() => setEditing(null)}
+				/>
 			)}
 
 			{addTo && (

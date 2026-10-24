@@ -5,7 +5,7 @@ use crate::store::fsio::now_unix;
 use crate::store::index::{added_at_path, load_added_at, save_added_at};
 use crate::track::{read_modified, read_track, Track};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use std::time::UNIX_EPOCH;
 use tauri::Manager;
 use walkdir::WalkDir;
@@ -25,6 +25,13 @@ fn is_audio_file(path: &Path) -> bool {
             AUDIO_EXTENSIONS.iter().any(|candidate| *candidate == lower)
         })
         .unwrap_or(false)
+}
+
+/// One scan (or tag edit) at a time: two at once would race on the index and
+/// the added-at store (e.g. a rescan requested while one is running).
+pub(crate) fn scan_lock() -> MutexGuard<'static, ()> {
+    static SCAN: Mutex<()> = Mutex::new(());
+    SCAN.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 fn resolve_covers_dir(app: &tauri::AppHandle) -> PathBuf {
@@ -207,10 +214,7 @@ pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String) -> 
     // Run the blocking filesystem/tag work off the UI thread so the webview
     // stays responsive (spinner keeps animating) during a large scan.
     tauri::async_runtime::spawn_blocking(move || {
-        // One scan at a time: two at once would race on the index and the
-        // added-at store (e.g. a rescan requested while one is running).
-        static SCAN: Mutex<()> = Mutex::new(());
-        let _scanning = SCAN.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _scanning = scan_lock();
 
         // Open `.aivys/` first: it merges sync conflicts (including
         // added-at.json) before the scan reads them.
@@ -228,6 +232,14 @@ pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String) -> 
     })
     .await
     .unwrap_or_default()
+}
+
+/// The open library after files in it were changed here (tags edited): the
+/// index re-reads just those. The caller holds [`scan_lock`].
+pub(crate) fn rescan_library(app: &tauri::AppHandle, root: &Path) -> Vec<Track> {
+    let covers_dir = resolve_covers_dir(app);
+    let app_data = app.path().app_data_dir().ok();
+    do_scan(&root.to_string_lossy(), &covers_dir, app_data.as_deref(), &artist_rules(app))
 }
 
 /// Returns true if `path` exists and is a directory.

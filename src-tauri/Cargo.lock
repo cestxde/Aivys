@@ -21,6 +21,7 @@ dependencies = [
 name = "aivys"
 version = "0.6.0"
 dependencies = [
+ "base64 0.22.1",
  "blake3",
  "deunicode",
  "encoding_rs",

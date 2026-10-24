@@ -14,6 +14,7 @@ const LABELS: Record<ShortcutAction, MessageKey> = {
     next: "shortcuts.next",
     volumeUp: "shortcuts.volumeUp",
     volumeDown: "shortcuts.volumeDown",
+    undoEdit: "shortcuts.undoEdit",
 };
 
 /** The shortcut list: each action's keys and mouse buttons, editable. */

@@ -1,6 +1,6 @@
 [[permission]]
 identifier = "allow-library-store"
-description = "Allows reading and writing the library's .aivys data (favorites, ratings, plays, tags, playlists, settings), searching it and moving tracks to the trash"
+description = "Allows reading and writing the library's .aivys data (favorites, ratings, plays, tags, playlists, settings), searching it, editing track tags and moving tracks to the trash"
 commands.allow = [
   "get_library_settings",
   "set_visible_system_playlists",
@@ -35,4 +35,6 @@ commands.allow = [
   "preview_smart_playlist",
   "search_tracks",
   "delete_tracks",
+  "edit_tracks",
+  "undo_track_edit",
 ]
