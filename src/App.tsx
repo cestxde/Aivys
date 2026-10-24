@@ -110,11 +110,12 @@ const albumSorts = (): CollectionSort[] => [
 	{ id: "name", label: t("collection.sortTitle"), compare: byGroupName },
 	{ id: "artist", label: t("collection.sortArtist"), compare: (a, b) => compareText(a.subtitle ?? "", b.subtitle ?? "") || byGroupName(a, b) },
 	{ id: "year", label: t("collection.sortYear"), compare: (a, b) => (b.year ?? 0) - (a.year ?? 0) || byGroupName(a, b) },
+	{ id: "tracks", label: t("collection.sortTracks"), compare: (a, b) => b.tracks.length - a.tracks.length || byGroupName(a, b) },
 	{ id: "added", label: t("collection.sortAdded"), compare: (a, b) => latestAdded(b) - latestAdded(a) || byGroupName(a, b) },
 ];
 
-/** Artists with one track are folded away, so they do not crowd the rest. */
-const artistSections = (): CollectionSection[] => [
+/** Artists and albums with one track are folded away, so they do not crowd the rest. */
+const trackCountSections = (): CollectionSection[] => [
 	{ id: "many", label: t("collection.manyTracks"), test: group => group.tracks.length > 1 },
 	{ id: "one", label: t("collection.oneTrack"), test: group => group.tracks.length === 1, folded: true },
 ];
@@ -879,7 +880,7 @@ function App() {
 						<CollectionPage
 							memoryKey="artists"
 							sorts={artistSorts()}
-							sections={artistSections()}
+							sections={trackCountSections()}
 							title={t("nav.artists")}
 							groups={listedArtists}
 							icon={MicVocal}
@@ -900,6 +901,7 @@ function App() {
 						<CollectionPage
 							memoryKey="albums"
 							sorts={albumSorts()}
+							sections={trackCountSections()}
 							title={t("nav.albums")}
 							groups={albums}
 							icon={Disc3}
