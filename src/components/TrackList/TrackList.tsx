@@ -21,7 +21,7 @@ interface TrackListProps {
     /** A number before each track, e.g. its position on the album. */
     numberOf?: ((track: Track) => string) | null;
 
-    onPlay: (track: Track) => void;
+    onPlay: (track: Track, row: ListRow) => void;
     /** Open the track menu at a viewport position (right click or the ⋮ button). */
     onOpenMenu?: (row: ListRow, x: number, y: number) => void;
     /** Rows can be dragged into a new order (manual playlist, manual sort). */
@@ -304,7 +304,7 @@ export const TrackList = ({
                         onSelect(row, index, { range: e.shiftKey, additive: additive || touchSelecting });
                         return;
                     }
-                    onPlay(file);
+                    onPlay(file, row);
                 }}
                 onContextMenu={(e) => {
                     e.preventDefault();

@@ -119,6 +119,12 @@ export const useAudioPlayer = (
         q.remove(paths);
     };
 
+    /** Play the queue's track at position `index` (from the queue panel). */
+    const playAt = (index: number) => goTo(q.jumpTo(index));
+
+    /** What comes after the current track, reordered, trimmed or emptied. */
+    const setUpcoming = (tracks: Track[]) => q.setUpcoming(tracks, !isShuffle);
+
     const toggleRepeatMode = () => {
         updateSettings({ repeatMode: nextRepeatMode(repeatMode) });
     };
@@ -127,6 +133,8 @@ export const useAudioPlayer = (
         activePath,
         playTrack, onNext, onPrev,
         playNext, addToQueue, forgetTracks,
+        queue: { order: q.order, index: q.index },
+        playAt, removeFromQueue: q.removeAt, setUpcoming,
         toggleShuffle, isShuffle,
         repeatMode, toggleRepeatMode,
         ...audio

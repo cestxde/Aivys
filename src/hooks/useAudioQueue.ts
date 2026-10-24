@@ -74,6 +74,39 @@ export const useAudioQueue = () => {
         return queue.order[index];
     };
 
+    /** Go to position `index` and return the track there. */
+    const jumpTo = (index: number): Track | null => {
+        if (index < 0 || index >= queue.order.length) return null;
+        setQueue(prev => ({ ...prev, index }));
+        return queue.order[index];
+    };
+
+    /** Take the track at position `at` out (not the current one). */
+    const removeAt = useCallback((at: number) => {
+        setQueue(prev => {
+            if (at === prev.index || at < 0 || at >= prev.order.length) return prev;
+            const track = prev.order[at];
+            const inSource = prev.source.indexOf(track);
+            return {
+                source: inSource >= 0 ? prev.source.filter((_, i) => i !== inSource) : prev.source,
+                order: prev.order.filter((_, i) => i !== at),
+                index: at < prev.index ? prev.index - 1 : prev.index,
+            };
+        });
+    }, []);
+
+    /**
+     * Replace what comes after the current track (reordered or cleared). In
+     * order (not shuffled) the source follows, so the order stays after
+     * shuffling on and off.
+     */
+    const setUpcoming = useCallback((upcoming: Track[], inOrder: boolean) => {
+        setQueue(prev => {
+            const order = [...prev.order.slice(0, prev.index + 1), ...upcoming];
+            return { source: inOrder ? order : prev.source, order, index: prev.index };
+        });
+    }, []);
+
     /** Insert `tracks` right after the current track (in the source order too). */
     const insertNext = useCallback((tracks: Track[]) => {
         setQueue(prev => {
@@ -124,7 +157,7 @@ export const useAudioQueue = () => {
         index: queue.index,
         isLast: queue.index === queue.order.length - 1,
         first: queue.order[0] ?? null,
-        start, setShuffled, move, peek, insertNext, append, refresh, remove,
+        start, setShuffled, move, peek, jumpTo, removeAt, setUpcoming, insertNext, append, refresh, remove,
         /** Jump to the first track (end of the queue without repeat). */
         rewind: useCallback(() => setQueue(prev => ({ ...prev, index: prev.order.length > 0 ? 0 : -1 })), []),
     };

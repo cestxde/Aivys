@@ -84,9 +84,9 @@ export const TrackDetailPanel = ({
 
     if (!track) {
         return (
-            <aside className="track-detail-panel">
+            <div className="detail-body">
                 <div className="detail-empty">{t("detail.nothingPlaying")}</div>
-            </aside>
+            </div>
         );
     }
 
@@ -104,7 +104,7 @@ export const TrackDetailPanel = ({
     ].filter(Boolean).join(" · ");
 
     return (
-        <aside className="track-detail-panel">
+        <div className="detail-body">
             <div className="detail-cover-wrap">
                 <CoverArt
                     path={track.coverPath}
@@ -188,7 +188,7 @@ export const TrackDetailPanel = ({
                     onClose={() => setShowCover(false)}
                 />
             )}
-        </aside>
+        </div>
     );
 };
 

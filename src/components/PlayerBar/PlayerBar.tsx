@@ -5,7 +5,7 @@ import {
     SkipForward,
     Shuffle,
     Repeat,
-    Repeat1
+    Repeat1, ListMusic
 } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 import type { Track } from "../../types";
@@ -34,6 +34,9 @@ interface PlayerBarProps {
     onNext: () => void;
     onSeek: (time: number) => void;
     onToggleShuffle: () => void;
+    /** The queue is shown (in the right panel). */
+    queueOpen: boolean;
+    onToggleQueue: () => void;
     onToggleRepeat: () => void;
 }
 
@@ -142,7 +145,17 @@ export const PlayerBar = (props: PlayerBarProps) => {
                     </button>
                 </div>
 
-                <VolumeControl volume={props.volume} onVolumeChange={props.onVolumeChange} />
+                <div className="player-side">
+                    <button
+                        className={`control-btn secondary queue-toggle ${props.queueOpen ? "active" : ""}`}
+                        title={t("player.queue")}
+                        aria-pressed={props.queueOpen}
+                        onClick={props.onToggleQueue}
+                    >
+                        <ListMusic size={20} />
+                    </button>
+                    <VolumeControl volume={props.volume} onVolumeChange={props.onVolumeChange} />
+                </div>
             </div>
 
             {showCover && props.currentTrack && (

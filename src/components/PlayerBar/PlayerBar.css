@@ -144,8 +144,9 @@
         display: none;
     }
 
+    /* The queue button stays: it is the only way to the queue here. */
     .player-bar-content {
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 1fr auto auto;
         padding: 0 1rem;
         gap: 12px;
     }
@@ -228,4 +229,12 @@
     height: 4px;
     border-radius: 50%;
     background: var(--accent);
+}
+
+/* Queue button and volume, at the right end of the bar. */
+.player-side {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
 }

@@ -14,6 +14,7 @@
    list) is the primary view and always takes the remaining space; the detail
    panel is the first pane to be dropped as the window narrows. */
 .app-layout {
+  position: relative;
   display: flex;
   flex: 1;
   min-height: 0;

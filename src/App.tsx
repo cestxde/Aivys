@@ -34,6 +34,7 @@ import { PlaylistsPage, type PinnedPlaylist } from "./components/PlaylistsPage/P
 import { CollectionPage, type CollectionSection, type CollectionSort } from "./components/CollectionPage/CollectionPage";
 import { AlbumStrip } from "./components/AlbumStrip/AlbumStrip";
 import { SelectionBar } from "./components/SelectionBar/SelectionBar";
+import { QueuePanel } from "./components/QueuePanel/QueuePanel";
 import { FolderGrid, GroupHeader, type Crumb } from "./components/GroupHeader/GroupHeader";
 import { AddToDialog } from "./components/AddToDialog/AddToDialog";
 import { TagsPage } from "./components/TagsPage/TagsPage";
@@ -185,6 +186,8 @@ function App() {
 	const [tagPicker, setTagPicker] = useState<Track[] | null>(null);
 	// The view playback was started from (a view key), highlighted on its card.
 	const [playingFrom, setPlayingFrom] = useState<string | null>(null);
+	// What the right panel shows: the playing track, or the queue.
+	const [panelTab, setPanelTab] = useState<"track" | "queue">("track");
 	const { layouts, setLayout } = usePageLayouts();
 
 	const {
@@ -193,6 +196,7 @@ function App() {
 		seek, stop,
 		onNext, onPrev,
 		playNext, addToQueue, forgetTracks,
+		queue, playAt, removeFromQueue, setUpcoming,
 		toggleShuffle, isShuffle,
 		repeatMode, toggleRepeatMode,
 		element
@@ -836,6 +840,18 @@ function App() {
 		return entries;
 	};
 
+	/** The menu of a queued track; `row.itemId` is its queue position. */
+	const queueMenu = (row: ListRow): MenuEntry[] => {
+		const position = Number(row.itemId);
+		return [
+			{ kind: "item", label: t("common.play"), icon: <Play size={16} />, onSelect: () => playAt(position) },
+			{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo([row.track]) },
+			{ kind: "separator" },
+			...goToEntries(row.track),
+			{ kind: "item", label: t("queue.remove"), icon: <X size={16} />, danger: true, onSelect: () => removeFromQueue(position) },
+		];
+	};
+
 	const playlistMenu = (target: Playlist): MenuEntry[] => [
 		{ kind: "item", label: t("common.open"), icon: <FolderOpen size={16} />, onSelect: () => showView({ kind: "playlist", id: target.id }) },
 		{
@@ -1249,6 +1265,35 @@ function App() {
 					)}
 				</main>
 
+				<aside className={`track-detail-panel ${panelTab === "queue" ? "overlay" : ""}`}>
+					<div className="panel-tabs" role="tablist">
+						<button
+							role="tab"
+							aria-selected={panelTab === "track"}
+							className={`panel-tab ${panelTab === "track" ? "active" : ""}`}
+							onClick={() => setPanelTab("track")}
+						>
+							{t("panel.track")}
+						</button>
+						<button
+							role="tab"
+							aria-selected={panelTab === "queue"}
+							className={`panel-tab ${panelTab === "queue" ? "active" : ""}`}
+							onClick={() => setPanelTab("queue")}
+						>
+							{t("queue.next")}
+							<span className="panel-tab-count">{Math.max(0, queue.order.length - queue.index - 1)}</span>
+						</button>
+					</div>
+					{panelTab === "queue" ? (
+						<QueuePanel
+							order={queue.order}
+							index={queue.index}
+							onPlayAt={playAt}
+							onOpenMenu={(row, x, y) => setMenu({ x, y, entries: queueMenu(row) })}
+							onSetUpcoming={setUpcoming}
+						/>
+					) : (
 				<TrackDetailPanel
 					track={currentTrack ?? null}
 					stats={currentTrack ? trackStats.stats[currentTrack.relPath] ?? null : null}
@@ -1262,6 +1307,8 @@ function App() {
 					canOpenAlbum={(track) => { const key = albumKeyOf(track); return !!key && albumsByKey.has(key); }}
 					onOpenAlbum={openAlbum}
 				/>
+					)}
+				</aside>
 			</div>
 
 			<PlayerBar
@@ -1279,6 +1326,8 @@ function App() {
 				isShuffle={isShuffle}
 				repeatMode={repeatMode}
 				onToggleShuffle={toggleShuffle}
+				queueOpen={panelTab === "queue"}
+				onToggleQueue={() => setPanelTab(panelTab === "queue" ? "track" : "queue")}
 				onToggleRepeat={toggleRepeatMode}
 			/>
 
