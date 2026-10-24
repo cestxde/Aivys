@@ -1,15 +1,18 @@
-import { useState, type ComponentType, type MouseEvent } from "react";
+import type { ComponentType, MouseEvent } from "react";
 import { MoreVertical } from "lucide-react";
 import type { TrackGroup } from "../../utils/groups";
 import { groupCovers } from "../../utils/groups";
 import { CoverMosaic } from "../PlaylistCover/PlaylistCover";
-import { CardPlayButton } from "../CardPlayButton/CardPlayButton";
+import { CardPlayButton, PlayingMark } from "../CardPlayButton/CardPlayButton";
 import { LayoutToggle, type PlaylistsLayout } from "../PlaylistsPage/PlaylistsPage";
 import { t } from "../../i18n";
+import { useRememberedScroll, useRememberedState } from "../../hooks/useRemembered";
 import "../PlaylistsPage/PlaylistsPage.css";
 import "./CollectionPage.css";
 
 interface CollectionPageProps {
+    /** Remembers the page's filter and position ("artists", "albums"). */
+    memoryKey: string;
     title: string;
     groups: TrackGroup[];
     /** Placeholder cover icon. */
@@ -24,6 +27,8 @@ interface CollectionPageProps {
     onLayoutChange: (layout: PlaylistsLayout) => void;
     onOpen: (group: TrackGroup) => void;
     onPlay: (group: TrackGroup) => void;
+    /** Key of the group playback was started from, to highlight it. */
+    playingKey: string | null;
     onOpenMenu: (group: TrackGroup, x: number, y: number) => void;
 }
 
@@ -32,6 +37,7 @@ const PAGE = 300;
 
 /** All artists or albums of the library, as a grid of cards or a list. */
 export const CollectionPage = ({
+    memoryKey,
     title,
     groups,
     icon,
@@ -44,10 +50,12 @@ export const CollectionPage = ({
     onLayoutChange,
     onOpen,
     onPlay,
+    playingKey,
     onOpenMenu,
 }: CollectionPageProps) => {
-    const [filter, setFilter] = useState("");
-    const [limit, setLimit] = useState(PAGE);
+    const [filter, setFilter] = useRememberedState(`${memoryKey}.filter`, "");
+    const [limit, setLimit] = useRememberedState(`${memoryKey}.limit`, PAGE);
+    const { ref: scrollRef, onScroll: onPageScroll } = useRememberedScroll(memoryKey);
     const query = filter.trim().toLowerCase();
     const matching = query
         ? groups.filter(g => g.name.toLowerCase().includes(query) || g.subtitle?.toLowerCase().includes(query))
@@ -86,7 +94,7 @@ export const CollectionPage = ({
     );
 
     return (
-        <div className="playlists-page">
+        <div className="playlists-page" ref={scrollRef} onScroll={onPageScroll}>
             <div className="playlists-toolbar">
                 <h1 className="playlists-title">{title}</h1>
                 <input
@@ -110,7 +118,7 @@ export const CollectionPage = ({
                     {shown.map(group => (
                         <div
                             key={group.key}
-                            className={`playlist-card card-hover ${shape}`}
+                            className={`playlist-card card-hover ${shape} ${group.key === playingKey ? "is-playing" : ""}`}
                             role="button"
                             tabIndex={0}
                             onKeyDown={(e) => e.key === "Enter" && onOpen(group)}
@@ -124,7 +132,10 @@ export const CollectionPage = ({
                             />
                             <div className="playlist-card-footer">
                                 <div className="playlist-card-text">
-                                    <span className="playlist-card-name" title={group.name}>{group.name}</span>
+                                    <span className="playlist-card-name" title={group.name}>
+                                        {group.key === playingKey && <PlayingMark />}
+                                        {group.name}
+                                    </span>
                                     <span className="playlist-card-meta" title={describe(group)}>{describe(group)}</span>
                                 </div>
                                 {actions(group)}
@@ -135,10 +146,13 @@ export const CollectionPage = ({
             ) : (
                 <div className="music-grid playlists-list">
                     {shown.map(group => (
-                        <div key={group.key} className={`audio-item playlist-row card-hover ${shape}`} {...handlers(group)}>
+                        <div key={group.key} className={`audio-item playlist-row card-hover ${shape} ${group.key === playingKey ? "is-playing active" : ""}`} {...handlers(group)}>
                             <CoverMosaic covers={groupCovers(group, round ? 1 : 4)} size={48} icon={icon} />
                             <div className="track-main-info">
-                                <span className="track-title">{group.name}</span>
+                                <span className="track-title">
+                                    {group.key === playingKey && <PlayingMark />}
+                                    {group.name}
+                                </span>
                                 <span className="track-artist" title={describe(group)}>{describe(group)}</span>
                             </div>
                             {actions(group)}
@@ -148,7 +162,7 @@ export const CollectionPage = ({
             )}
 
             {matching.length > shown.length && (
-                <button className="collection-more" onClick={() => setLimit(l => l + PAGE)}>
+                <button className="collection-more" onClick={() => setLimit(limit + PAGE)}>
                     {t("collection.showMore", { count: matching.length - shown.length })}
                 </button>
             )}

@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Settings } from "lucide-react";
 import { ThemedLogo } from "../ThemedLogo";
+import { PlayingMark } from "../CardPlayButton/CardPlayButton";
 import type { View } from "../../types";
 import { t, type MessageKey } from "../../i18n";
 import "./Sidebar.css";
@@ -43,7 +44,23 @@ interface SidebarProps {
     onViewChange: (view: View) => void;
     /** The library has subfolders with tracks. */
     showFolders: boolean;
+    /** Key of the view playback was started from ("album:<key>"), if playing. */
+    playingKey: string | null;
 }
+
+/** Whether playback started from `item`'s view or something under it. */
+const playsFrom = (item: View, key: string | null): boolean => {
+    if (!key) return false;
+    switch (item.kind) {
+        case "system": return key === `system:${item.id}`;
+        case "playlists": return key.startsWith("playlist:");
+        case "artists": return key.startsWith("artist:");
+        case "albums": return key.startsWith("album:");
+        case "tags": return key.startsWith("tag:");
+        case "folder": return key.startsWith("folder:");
+        default: return false;
+    }
+};
 
 /** Whether a sidebar item is the current one (an open playlist counts as "Playlists", and so on). */
 const isCurrent = (item: View, view: View): boolean => {
@@ -70,7 +87,7 @@ const folderName = (path: string): string => {
  * action, and the views in groups: the library, its collections, history.
  * Hidden on narrow layouts by CSS, keeping the track list as the primary view.
  */
-export const Sidebar = ({ libraryPath, onChangeLibrary, view, onViewChange, showFolders }: SidebarProps) => {
+export const Sidebar = ({ libraryPath, onChangeLibrary, view, onViewChange, showFolders, playingKey }: SidebarProps) => {
     const renderItem = (item: SidebarItem) => (
         <button
             key={item.label}
@@ -81,6 +98,7 @@ export const Sidebar = ({ libraryPath, onChangeLibrary, view, onViewChange, show
         >
             <span className="sidebar-icon">{item.icon}</span>
             <span className="sidebar-label">{t(item.label)}</span>
+            {playsFrom(item.view, playingKey) && <PlayingMark />}
         </button>
     );
 

@@ -19,6 +19,7 @@ export const ru: Record<MessageKey, Message> = {
     "common.done": "Готово",
     "common.more": "Ещё",
     "common.added": "добавлено",
+    "common.playingFrom": "Играет отсюда",
     "common.grid": "Плитка",
     "common.list": "Список",
     "common.layout": "Вид",

@@ -23,6 +23,7 @@ export const en = {
     "common.done": "Done",
     "common.more": "More",
     "common.added": "added",
+    "common.playingFrom": "Playing from here",
     "common.grid": "Grid",
     "common.list": "List",
     "common.layout": "Layout",

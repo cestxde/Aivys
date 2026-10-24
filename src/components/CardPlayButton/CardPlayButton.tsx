@@ -1,4 +1,4 @@
-import { Play } from "lucide-react";
+import { AudioLines, Play } from "lucide-react";
 import { t } from "../../i18n";
 import "./CardPlayButton.css";
 
@@ -21,4 +21,11 @@ export const CardPlayButton = ({ onPlay }: { onPlay: () => void }) => (
     >
         <Play size={14} fill="currentColor" />
     </button>
+);
+
+/** Marks the card or row that playback was started from. */
+export const PlayingMark = () => (
+    <span className="playing-mark" title={t("common.playingFrom")}>
+        <AudioLines size={13} />
+    </span>
 );

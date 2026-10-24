@@ -1,9 +1,10 @@
-import { useState, type ComponentType, type CSSProperties } from "react";
+import type { ComponentType, CSSProperties } from "react";
 import { LayoutGrid, List, MoreVertical, Plus, Sparkles } from "lucide-react";
 import type { Playlist, SystemView, Track } from "../../types";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
-import { CardPlayButton } from "../CardPlayButton/CardPlayButton";
+import { CardPlayButton, PlayingMark } from "../CardPlayButton/CardPlayButton";
 import { t } from "../../i18n";
+import { useRememberedScroll, useRememberedState } from "../../hooks/useRemembered";
 import "./PlaylistsPage.css";
 
 export type PlaylistsLayout = "grid" | "list";
@@ -29,6 +30,9 @@ interface PlaylistsPageProps {
     onLayoutChange: (layout: PlaylistsLayout) => void;
     onOpenPinned: (id: SystemView) => void;
     onPlayPinned: (id: SystemView) => void;
+    /** What playback was started from, to highlight it. */
+    playingPlaylistId: string | null;
+    playingPinnedId: string | null;
     onOpen: (playlist: Playlist) => void;
     onPlay: (playlist: Playlist) => void;
     onOpenMenu: (playlist: Playlist, x: number, y: number) => void;
@@ -39,8 +43,9 @@ interface PlaylistsPageProps {
 const trackCount = (count: number) => t("common.tracks", { count });
 
 /** A playlist's name; a smart playlist is marked with a sparkle. */
-const PlaylistName = ({ playlist }: { playlist: Playlist }) => (
+const PlaylistName = ({ playlist, playing }: { playlist: Playlist; playing: boolean }) => (
     <>
+        {playing && <PlayingMark />}
         {playlist.type === "smart" && (
             <span className="playlist-smart-mark" title={t("playlist.kindSmart")}>
                 <Sparkles size={12} />
@@ -95,13 +100,16 @@ export const PlaylistsPage = ({
     onLayoutChange,
     onOpenPinned,
     onPlayPinned,
+    playingPlaylistId,
+    playingPinnedId,
     onOpen,
     onPlay,
     onOpenMenu,
     onCreate,
     onCreateSmart,
 }: PlaylistsPageProps) => {
-    const [filter, setFilter] = useState("");
+    const [filter, setFilter] = useRememberedState("playlists.filter", "");
+    const { ref: scrollRef, onScroll: onPageScroll } = useRememberedScroll("playlists");
     const query = filter.trim().toLowerCase();
     const matches = (name: string) => !query || name.toLowerCase().includes(query);
     const shownPinned = pinned.filter(item => matches(item.name));
@@ -147,7 +155,7 @@ export const PlaylistsPage = ({
             {shownPinned.map(item => (
                 <div
                     key={item.id}
-                    className="playlist-card pinned-card card-hover"
+                    className={`playlist-card pinned-card card-hover ${item.id === playingPinnedId ? "is-playing" : ""}`}
                     role="button"
                     tabIndex={0}
                     onClick={() => onOpenPinned(item.id)}
@@ -156,7 +164,10 @@ export const PlaylistsPage = ({
                     <PinnedCover item={item} />
                     <div className="playlist-card-footer">
                         <div className="playlist-card-text">
-                            <span className="playlist-card-name">{item.name}</span>
+                            <span className="playlist-card-name">
+                                {item.id === playingPinnedId && <PlayingMark />}
+                                {item.name}
+                            </span>
                             <span className="playlist-card-meta">{trackCount(item.count)}</span>
                         </div>
                         {item.count > 0 && <CardPlayButton onPlay={() => onPlayPinned(item.id)} />}
@@ -167,10 +178,17 @@ export const PlaylistsPage = ({
     ) : (
         <div className="music-grid playlists-list">
             {shownPinned.map(item => (
-                <div key={item.id} className="audio-item playlist-row card-hover" onClick={() => onOpenPinned(item.id)}>
+                <div
+                    key={item.id}
+                    className={`audio-item playlist-row card-hover ${item.id === playingPinnedId ? "is-playing active" : ""}`}
+                    onClick={() => onOpenPinned(item.id)}
+                >
                     <PinnedCover item={item} size={48} />
                     <div className="track-main-info">
-                        <span className="track-title">{item.name}</span>
+                        <span className="track-title">
+                            {item.id === playingPinnedId && <PlayingMark />}
+                            {item.name}
+                        </span>
                         <span className="track-artist">{trackCount(item.count)}</span>
                     </div>
                     {item.count > 0 && <CardPlayButton onPlay={() => onPlayPinned(item.id)} />}
@@ -180,7 +198,7 @@ export const PlaylistsPage = ({
     ));
 
     return (
-        <div className="playlists-page">
+        <div className="playlists-page" ref={scrollRef} onScroll={onPageScroll}>
             <div className="playlists-toolbar">
                 <h1 className="playlists-title">{t("nav.playlists")}</h1>
                 <input
@@ -213,7 +231,7 @@ export const PlaylistsPage = ({
                     {shown.map(playlist => (
                         <div
                             key={playlist.id}
-                            className="playlist-card card-hover"
+                            className={`playlist-card card-hover ${playlist.id === playingPlaylistId ? "is-playing" : ""}`}
                             role="button"
                             tabIndex={0}
                             onClick={() => onOpen(playlist)}
@@ -231,7 +249,7 @@ export const PlaylistsPage = ({
                             />
                             <div className="playlist-card-footer">
                                 <div className="playlist-card-text">
-                                    <span className="playlist-card-name"><PlaylistName playlist={playlist} /></span>
+                                    <span className="playlist-card-name"><PlaylistName playlist={playlist} playing={playlist.id === playingPlaylistId} /></span>
                                     <span className="playlist-card-meta">{describe(playlist)}</span>
                                 </div>
                                 {actions(playlist)}
@@ -244,7 +262,7 @@ export const PlaylistsPage = ({
                     {shown.map(playlist => (
                         <div
                             key={playlist.id}
-                            className="audio-item playlist-row card-hover"
+                            className={`audio-item playlist-row card-hover ${playlist.id === playingPlaylistId ? "is-playing active" : ""}`}
                             onClick={() => onOpen(playlist)}
                             onContextMenu={(e) => {
                                 e.preventDefault();
@@ -257,7 +275,7 @@ export const PlaylistsPage = ({
                                 size={48}
                             />
                             <div className="track-main-info">
-                                <span className="track-title"><PlaylistName playlist={playlist} /></span>
+                                <span className="track-title"><PlaylistName playlist={playlist} playing={playlist.id === playingPlaylistId} /></span>
                                 <span className="track-artist">{describe(playlist)}</span>
                             </div>
                             {actions(playlist)}

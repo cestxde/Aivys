@@ -1,9 +1,10 @@
-import { useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { MoreVertical, Plus, Tag } from "lucide-react";
 import type { UserTag } from "../../types";
 import { TagDot } from "../TagChip/TagChip";
-import { CardPlayButton } from "../CardPlayButton/CardPlayButton";
+import { CardPlayButton, PlayingMark } from "../CardPlayButton/CardPlayButton";
 import { t } from "../../i18n";
+import { useRememberedScroll, useRememberedState } from "../../hooks/useRemembered";
 import "./TagsPage.css";
 
 interface TagsPageProps {
@@ -13,6 +14,8 @@ interface TagsPageProps {
     counts: Map<string, number>;
     onOpen: (tag: UserTag) => void;
     onPlay: (tag: UserTag) => void;
+    /** Id of the tag playback was started from, to highlight it. */
+    playingId: string | null;
     onOpenMenu: (tag: UserTag, x: number, y: number) => void;
     onCreate: () => void;
 }
@@ -20,13 +23,14 @@ interface TagsPageProps {
 const describe = (count: number) => t("common.tracks", { count });
 
 /** All user tags of the library with their track counts. */
-export const TagsPage = ({ tags, counts, onOpen, onPlay, onOpenMenu, onCreate }: TagsPageProps) => {
-    const [filter, setFilter] = useState("");
+export const TagsPage = ({ tags, counts, onOpen, onPlay, playingId, onOpenMenu, onCreate }: TagsPageProps) => {
+    const [filter, setFilter] = useRememberedState("tags.filter", "");
+    const { ref: scrollRef, onScroll: onPageScroll } = useRememberedScroll("tags");
     const query = filter.trim().toLowerCase();
     const shown = tags.filter(tag => !query || tag.name.toLowerCase().includes(query));
 
     return (
-        <div className="tags-page">
+        <div className="tags-page" ref={scrollRef} onScroll={onPageScroll}>
             <div className="tags-toolbar">
                 <h1 className="tags-title">{t("nav.tags")}</h1>
                 <input
@@ -54,7 +58,7 @@ export const TagsPage = ({ tags, counts, onOpen, onPlay, onOpenMenu, onCreate }:
                     {shown.map(tag => (
                         <div
                             key={tag.id}
-                            className="tag-card card-hover"
+                            className={`tag-card card-hover ${tag.id === playingId ? "is-playing" : ""}`}
                             role="button"
                             tabIndex={0}
                             style={{ "--tag-color": tag.color } as CSSProperties}
@@ -67,7 +71,10 @@ export const TagsPage = ({ tags, counts, onOpen, onPlay, onOpenMenu, onCreate }:
                         >
                             <TagDot color={tag.color} size={14} />
                             <div className="tag-card-text">
-                                <span className="tag-card-name">{tag.name}</span>
+                                <span className="tag-card-name">
+                                    {tag.id === playingId && <PlayingMark />}
+                                    {tag.name}
+                                </span>
                                 <span className="tag-card-meta">{describe(counts.get(tag.id) ?? 0)}</span>
                             </div>
                             {(counts.get(tag.id) ?? 0) > 0 && <CardPlayButton onPlay={() => onPlay(tag)} />}

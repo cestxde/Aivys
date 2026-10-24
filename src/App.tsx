@@ -93,6 +93,9 @@ const defaultSortLabel = (view: View, playlist: Playlist | null): string | null 
 
 const countTracks = (count: number) => t("common.tracks", { count });
 
+/** A view as a short key, e.g. "album:<key>" or "playlists". */
+const viewKeyOf = (view: View): string => ("id" in view ? `${view.kind}:${view.id}` : view.kind);
+
 type Screen = "loading" | "picker" | "library";
 
 /** The smart-playlist editor: creating a new one, or editing `playlist`. */
@@ -122,6 +125,8 @@ function App() {
 	const [tagDialog, setTagDialog] = useState<TagDialogState | null>(null);
 	// Tracks the tag picker is open for.
 	const [tagPicker, setTagPicker] = useState<Track[] | null>(null);
+	// The view playback was started from (a view key), highlighted on its card.
+	const [playingFrom, setPlayingFrom] = useState<string | null>(null);
 	const { layouts, setLayout } = usePageLayouts();
 
 	const {
@@ -336,7 +341,7 @@ function App() {
 	}, [viewSort.field, listView, currentGroup, language]);
 	// eslint-disable-next-line react-hooks/exhaustive-deps -- dates are formatted per language
 	const rowHint = useMemo(() => hintOf(viewSort.field), [viewSort.field, language]);
-	const viewKey = "id" in listView ? `${listView.kind}:${listView.id}` : listView.kind;
+	const viewKey = viewKeyOf(listView);
 
 	// An album in its own order numbers its tracks; with several discs as "disc.track".
 	const albumNumber = useMemo(() => {
@@ -431,12 +436,19 @@ function App() {
 		}
 	};
 
-	/** Play `tracks` from the first one (cards' play buttons and menus). */
-	const playTracks = (tracks: Track[]) => {
-		if (tracks.length > 0) playTrack(tracks[0], tracks);
+	/** Play `track` within `tracks`, started from the view `source` (a view key). */
+	const playFrom = (source: string, track: Track, tracks: Track[]) => {
+		setPlayingFrom(source);
+		playTrack(track, tracks);
 	};
 
-	const playPlaylist = async (target: Playlist) => playTracks(await tracksOf(target));
+	/** Play `tracks` from the first one (cards' play buttons and menus). */
+	const playTracks = (tracks: Track[], source: View) => {
+		if (tracks.length > 0) playFrom(viewKeyOf(source), tracks[0], tracks);
+	};
+
+	const playPlaylist = async (target: Playlist) =>
+		playTracks(await tracksOf(target), { kind: "playlist", id: target.id });
 
 	const saveTag = async (name: string, color: string) => {
 		const edited = tagDialog?.tag;
@@ -503,7 +515,7 @@ function App() {
 	const trackMenu = (row: ListRow): MenuEntry[] => {
 		const favorite = trackStats.stats[row.track.relPath]?.favorite ?? false;
 		const entries: MenuEntry[] = [
-			{ kind: "item", label: t("common.play"), icon: <Play size={16} />, onSelect: () => playTrack(row.track, displayFiles) },
+			{ kind: "item", label: t("common.play"), icon: <Play size={16} />, onSelect: () => playFrom(viewKey, row.track, displayFiles) },
 			{ kind: "separator" },
 			{
 				kind: "item",
@@ -578,7 +590,7 @@ function App() {
 	/** Menu of an artist or album card. */
 	const groupMenu = (group: TrackGroup, open: View): MenuEntry[] => [
 		{ kind: "item", label: t("common.open"), icon: <FolderOpen size={16} />, onSelect: () => showView(open) },
-		{ kind: "item", label: t("common.play"), icon: <Play size={16} />, onSelect: () => playTracks(group.tracks) },
+		{ kind: "item", label: t("common.play"), icon: <Play size={16} />, onSelect: () => playTracks(group.tracks, open) },
 		{ kind: "separator" },
 		{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo(group.tracks) },
 		{ kind: "item", label: t("common.tags"), icon: <Tag size={16} />, onSelect: () => setTagPicker(group.tracks) },
@@ -602,7 +614,7 @@ function App() {
 			kind: "item",
 			label: t("common.play"),
 			icon: <Play size={16} />,
-			onSelect: () => playTracks(tracksOfTag(target)),
+			onSelect: () => playTracks(tracksOfTag(target), { kind: "tag", id: target.id }),
 		},
 		{
 			kind: "item",
@@ -633,9 +645,19 @@ function App() {
 	const handlePlayAll = () => {
 		if (displayFiles.length > 0) {
 			if (isShuffle) toggleShuffle(displayFiles);
-			playTrack(displayFiles[0], displayFiles);
+			playFrom(viewKey, displayFiles[0], displayFiles);
 		}
 	};
+
+	const handleShuffleView = () => {
+		if (displayFiles.length > 0) setPlayingFrom(viewKey);
+		handleShuffleAll();
+	};
+
+	// What is highlighted as playing: the source view's id within a kind.
+	const playingKey = activePath ? playingFrom : null;
+	const playingIn = (kind: string): string | null =>
+		playingKey?.startsWith(`${kind}:`) ? playingKey.slice(kind.length + 1) : null;
 
 	// Show the loading screen while the initial folder is being resolved or a
 	// scan is in progress (startup or switching libraries). The track list is
@@ -683,6 +705,7 @@ function App() {
 					view={listView}
 					onViewChange={showView}
 					showFolders={showFolders}
+					playingKey={playingKey}
 				/>
 
 				<main className="container">
@@ -690,7 +713,9 @@ function App() {
 						<PlaylistsPage
 							pinned={pinned}
 							onOpenPinned={(id) => showView({ kind: "system", id })}
-							onPlayPinned={(id) => playTracks(systemViewTracks(files, id, trackStats.stats))}
+							onPlayPinned={(id) => playTracks(systemViewTracks(files, id, trackStats.stats), { kind: "system", id })}
+							playingPinnedId={playingIn("system")}
+							playingPlaylistId={playingIn("playlist")}
 							playlists={playlists.playlists}
 							tracksByPath={tracksByPath}
 							smartPaths={smartPaths}
@@ -707,7 +732,8 @@ function App() {
 							tags={tags.tags}
 							counts={tagCounts}
 							onOpen={(target) => showView({ kind: "tag", id: target.id })}
-							onPlay={(target) => playTracks(tracksOfTag(target))}
+							onPlay={(target) => playTracks(tracksOfTag(target), { kind: "tag", id: target.id })}
+							playingId={playingIn("tag")}
 							onOpenMenu={(target, x, y) => setMenu({ x, y, entries: tagMenu(target) })}
 							onCreate={() => setTagDialog({ tag: null })}
 						/>
@@ -724,6 +750,7 @@ function App() {
 						/>
 					) : listView.kind === "artists" ? (
 						<CollectionPage
+							memoryKey="artists"
 							title={t("nav.artists")}
 							groups={artists}
 							icon={MicVocal}
@@ -735,12 +762,14 @@ function App() {
 							layout={layouts.artists}
 							onLayoutChange={(layout) => setLayout("artists", layout)}
 							onOpen={(group) => showView({ kind: "artist", id: group.key })}
-							onPlay={(group) => playTracks(group.tracks)}
+							onPlay={(group) => playTracks(group.tracks, { kind: "artist", id: group.key })}
+							playingKey={playingIn("artist")}
 							onOpenMenu={(group, x, y) =>
 								setMenu({ x, y, entries: groupMenu(group, { kind: "artist", id: group.key }) })}
 						/>
 					) : listView.kind === "albums" ? (
 						<CollectionPage
+							memoryKey="albums"
 							title={t("nav.albums")}
 							groups={albums}
 							icon={Disc3}
@@ -751,7 +780,8 @@ function App() {
 							layout={layouts.albums}
 							onLayoutChange={(layout) => setLayout("albums", layout)}
 							onOpen={(group) => showView({ kind: "album", id: group.key })}
-							onPlay={(group) => playTracks(group.tracks)}
+							onPlay={(group) => playTracks(group.tracks, { kind: "album", id: group.key })}
+							playingKey={playingIn("album")}
 							onOpenMenu={(group, x, y) =>
 								setMenu({ x, y, entries: groupMenu(group, { kind: "album", id: group.key }) })}
 						/>
@@ -836,7 +866,7 @@ function App() {
 								onDisplayChange={viewSorts.setDisplay}
 								canGroup={rowSection !== null}
 								sortDisabled={isSearching || sortLocked}
-								onShuffleAll={handleShuffleAll}
+								onShuffleAll={handleShuffleView}
 								onPlayAll={handlePlayAll}
 							/>
 
@@ -845,7 +875,8 @@ function App() {
 									<FolderGrid
 										folders={currentSubfolders}
 										onOpen={(folder) => showView({ kind: "folder", id: folder.key })}
-										onPlay={(folder) => playTracks(folderTracks(files, folder.key))}
+										onPlay={(folder) => playTracks(folderTracks(files, folder.key), { kind: "folder", id: folder.key })}
+										playingKey={playingIn("folder")}
 										onOpenMenu={(folder, x, y) => setMenu({
 											x,
 											y,
@@ -865,7 +896,7 @@ function App() {
 									hintOf={!isSearching && viewSorts.display === "inline" ? rowHint : null}
 									numberOf={!isSearching && viewSort.field === "default" ? albumNumber : null}
 									emptyText={emptyText}
-									onPlay={(track) => playTrack(track, displayFiles)}
+									onPlay={(track) => playFrom(viewKey, track, displayFiles)}
 									onOpenMenu={(row, x, y) => setMenu({ x, y, entries: trackMenu(row) })}
 									onReorder={manualPlaylist && viewSort.field === "default" && !isSearching
 										? (itemIds) => playlists.reorder(
@@ -919,11 +950,15 @@ function App() {
 					tracksByPath={tracksByPath}
 					allFavorite={addTo.every(t => trackStats.stats[t.relPath]?.favorite)}
 					onPlayNext={() => {
+						// With nothing playing this starts playback, not from any view.
+						if (!activePath) setPlayingFrom(null);
 						playNext(addTo);
 						setAddTo(null);
 						notifyInfo(t("notice.playingNext"));
 					}}
 					onAddToQueue={() => {
+						// With nothing playing this starts playback, not from any view.
+						if (!activePath) setPlayingFrom(null);
 						addToQueue(addTo);
 						setAddTo(null);
 						notifyInfo(t("notice.addedToQueue"));

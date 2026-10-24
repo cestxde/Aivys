@@ -4,7 +4,7 @@ import type { ListRow } from "../../types";
 import { formatDuration } from "../../utils/format";
 import type { TrackGroup } from "../../utils/groups";
 import { CoverMosaic } from "../PlaylistCover/PlaylistCover";
-import { CardPlayButton } from "../CardPlayButton/CardPlayButton";
+import { CardPlayButton, PlayingMark } from "../CardPlayButton/CardPlayButton";
 import { t } from "../../i18n";
 import "../PlaylistHeader/PlaylistHeader.css";
 import "./GroupHeader.css";
@@ -87,16 +87,18 @@ interface FolderGridProps {
     folders: TrackGroup[];
     onOpen: (folder: TrackGroup) => void;
     onPlay: (folder: TrackGroup) => void;
+    /** Path of the folder playback was started from, to highlight it. */
+    playingKey: string | null;
     onOpenMenu: (folder: TrackGroup, x: number, y: number) => void;
 }
 
 /** Subfolders of the open folder, as cards above its tracks. */
-export const FolderGrid = ({ folders, onOpen, onPlay, onOpenMenu }: FolderGridProps) => (
+export const FolderGrid = ({ folders, onOpen, onPlay, playingKey, onOpenMenu }: FolderGridProps) => (
     <div className="folder-grid">
         {folders.map(folder => (
             <div
                 key={folder.key}
-                className="folder-card card-hover"
+                className={`folder-card card-hover ${folder.key === playingKey ? "is-playing" : ""}`}
                 role="button"
                 tabIndex={0}
                 title={folder.name}
@@ -109,7 +111,10 @@ export const FolderGrid = ({ folders, onOpen, onPlay, onOpenMenu }: FolderGridPr
             >
                 <Folder size={20} className="folder-card-icon" />
                 <span className="folder-card-text">
-                    <span className="folder-card-name">{folder.name}</span>
+                    <span className="folder-card-name">
+                        {folder.key === playingKey && <PlayingMark />}
+                        {folder.name}
+                    </span>
                     <span className="folder-card-meta">
                         {t("common.tracks", { count: folder.tracks.length })}
                     </span>

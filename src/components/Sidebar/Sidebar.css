@@ -98,3 +98,8 @@
     flex-direction: column;
     margin-top: auto;
 }
+
+.sidebar-item .playing-mark {
+    margin: 0 0 0 auto;
+    flex-shrink: 0;
+}
