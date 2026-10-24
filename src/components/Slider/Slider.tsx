@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import "./Slider.css";
 
 interface SliderProps {
@@ -21,9 +21,36 @@ export const Slider = ({
     const [localValue, setLocalValue] = useState<number | null>(null);
     const [hoverPercent, setHoverPercent] = useState<number>(0);
     const wrapperRef = useRef<HTMLDivElement>(null);
+    const [dragging, setDragging] = useState(false);
     const displayValue = localValue !== null ? localValue : value;
 
-    const handleMouseMove = (e: React.MouseEvent<HTMLInputElement>) => {
+    // A "release" slider commits when the press ends, wherever the pointer is
+    // then: leaving the thin bar while dragging must not lose the new value.
+    const commit = () => {
+        if (changeOn === 'release' && localValue !== null) {
+            onChange(localValue);
+            setLocalValue(null);
+        }
+    };
+    const commitRef = useRef(commit);
+    useEffect(() => {
+        commitRef.current = commit;
+    });
+    useEffect(() => {
+        if (!dragging) return;
+        const end = () => {
+            setDragging(false);
+            commitRef.current();
+        };
+        window.addEventListener("pointerup", end);
+        window.addEventListener("pointercancel", end);
+        return () => {
+            window.removeEventListener("pointerup", end);
+            window.removeEventListener("pointercancel", end);
+        };
+    }, [dragging]);
+
+    const handlePointerMove = (e: React.PointerEvent<HTMLInputElement>) => {
         if (disabled) return;
         const input = e.currentTarget;
         const rect = input.getBoundingClientRect();
@@ -51,12 +78,6 @@ export const Slider = ({
         }
     };
 
-    const handleMouseUp = () => {
-        if (changeOn === 'release' && localValue !== null) {
-            onChange(localValue);
-            setLocalValue(null);
-        }
-    };
 
     const progressPercent = max > min ? ((displayValue - min) / (max - min)) * 100 : 0;
 
@@ -76,14 +97,13 @@ export const Slider = ({
                 value={displayValue}
                 disabled={disabled}
                 onChange={handleChange}
-                onMouseUp={handleMouseUp}
-                onKeyUp={handleMouseUp}
-                onMouseMove={handleMouseMove}
-                onMouseEnter={() => setTooltip(prev => ({ ...prev, visible: true }))}
-                onMouseLeave={() => {
+                onPointerDown={() => setDragging(true)}
+                onKeyUp={commit}
+                onPointerMove={handlePointerMove}
+                onPointerEnter={() => setTooltip(prev => ({ ...prev, visible: true }))}
+                onPointerLeave={() => {
                     setTooltip(prev => ({ ...prev, visible: false }));
                     setHoverPercent(0);
-                    if (localValue !== null) setLocalValue(null);
                 }}
                 className="base-slider-input"
                 style={{
