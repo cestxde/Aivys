@@ -19,6 +19,7 @@ import { Notices } from "./components/Notices/Notices";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
 import { useSearchScroll } from "./hooks/useSearchScroll";
 import { usePageLayouts } from "./hooks/usePageLayouts";
+import { useStoredState } from "./hooks/useRemembered";
 import { useTheme } from "./hooks/useTheme";
 import { sortScopeOf, useViewSorts } from "./hooks/useViewSorts";
 import { useTrackStats } from "./hooks/useTrackStats";
@@ -185,7 +186,8 @@ function App() {
 	// Tracks the tag picker is open for.
 	const [tagPicker, setTagPicker] = useState<Track[] | null>(null);
 	// The view playback was started from (a view key), highlighted on its card.
-	const [playingFrom, setPlayingFrom] = useState<string | null>(null);
+	// Kept with the session, so a resumed queue still shows where it came from.
+	const [playingFrom, setPlayingFrom] = useStoredState<string | null>("session.from", null, (value): value is string | null => value === null || typeof value === "string");
 	// What the right panel shows: the playing track, or the queue.
 	const [panelTab, setPanelTab] = useState<"track" | "queue">("track");
 	const { layouts, setLayout } = usePageLayouts();
@@ -194,7 +196,7 @@ function App() {
 		activePath, playTrack,
 		isPlaying, togglePlay, volume, setVolume,
 		seek, stop,
-		onNext, onPrev,
+		onNext, onPrev, resume,
 		playNext, addToQueue, forgetTracks,
 		queue, playAt, removeFromQueue, setUpcoming,
 		toggleShuffle, isShuffle,
@@ -358,12 +360,13 @@ function App() {
 			if (last) {
 				const valid = await library.validate(last);
 				if (valid) {
-					await library.scan(last);
+					resume(await library.scan(last) ?? []);
 					setView("library");
 					return;
 				}
 				setPickerError(t("picker.lastGone", { path: last }));
 			}
+			resume([]);
 			setView("picker");
 		})();
 		// Run once on mount.

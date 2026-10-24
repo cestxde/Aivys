@@ -54,9 +54,10 @@ export const useAudioController = (
         }
     }, [initialVolume]);
 
-    // Replace the current source with `filePath`, resetting the position to 0.
+    // Replace the current source with `filePath`, resetting the position to 0
+    // (or `startAt` seconds, once the file is far enough loaded to seek).
     // Returns the audio element so callers can start playback if needed.
-    const loadSource = (filePath: string) => {
+    const loadSource = (filePath: string, startAt = 0) => {
         const assetUrl = convertFileSrc(filePath);
 
         if (!audioRef.current) {
@@ -69,6 +70,13 @@ export const useAudioController = (
 
         audioRef.current.volume = Math.pow(initialVolume, 2);
         audioRef.current.currentTime = 0;
+        if (startAt > 0) {
+            const audio = audioRef.current;
+            audio.addEventListener("loadedmetadata", () => {
+                // Not if another track was loaded meanwhile.
+                if (audio.src === assetUrl) audio.currentTime = Math.min(startAt, audio.duration || startAt);
+            }, { once: true });
+        }
         return audioRef.current;
     };
 
@@ -78,9 +86,9 @@ export const useAudioController = (
         audio.play().catch(reportPlaybackError);
     };
 
-    // Load a track without starting playback (paused, position at 0).
-    const loadFilePaused = (filePath: string) => {
-        loadSource(filePath);
+    // Load a track without starting playback (paused, at `startAt` seconds).
+    const loadFilePaused = (filePath: string, startAt = 0) => {
+        loadSource(filePath, startAt);
         setIsPlaying(false);
     };
 

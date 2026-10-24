@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import type { Track } from "../types";
+import type { SessionQueue } from "../utils/session";
 
 /** Fisher-Yates shuffle. Returns a new shuffled array, leaving the input intact. */
 const shuffleArray = (array: Track[]): Track[] => {
@@ -17,11 +18,7 @@ const shuffleArray = (array: Track[]): Track[] => {
  * first); `index` is the position in `order`, so a track listed twice plays
  * twice.
  */
-interface Queue {
-    source: Track[];
-    order: Track[];
-    index: number;
-}
+type Queue = SessionQueue;
 
 const EMPTY: Queue = { source: [], order: [], index: -1 };
 
@@ -157,7 +154,10 @@ export const useAudioQueue = () => {
         index: queue.index,
         isLast: queue.index === queue.order.length - 1,
         first: queue.order[0] ?? null,
+        source: queue.source,
         start, setShuffled, move, peek, jumpTo, removeAt, setUpcoming, insertNext, append, refresh, remove,
+        /** Take over a saved queue (the last session's). */
+        restore: useCallback((saved: Queue) => setQueue(saved), []),
         /** Jump to the first track (end of the queue without repeat). */
         rewind: useCallback(() => setQueue(prev => ({ ...prev, index: prev.order.length > 0 ? 0 : -1 })), []),
     };

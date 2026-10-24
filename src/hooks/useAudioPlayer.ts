@@ -1,11 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAudioController } from "./useAudioController";
 import { useAudioQueue } from "./useAudioQueue";
 import type { Track, PlayerSettings } from "../types";
 import { nextRepeatMode } from "../constants";
+import { loadPosition, loadQueue, savePosition, saveQueue } from "../utils/session";
 
 /** Back goes to the start of the track until it has played this long (seconds). */
 const RESTART_THRESHOLD = 3;
+/** How often the playback position is saved while playing, in milliseconds. */
+const POSITION_SAVE_INTERVAL = 5000;
 
 export const useAudioPlayer = (
     files: Track[],
@@ -77,6 +80,52 @@ export const useAudioPlayer = (
         refresh(files);
     }, [files, refresh]);
 
+    // The session is saved once the last one was taken over (or there was
+    // none to take): saving earlier would overwrite it with an empty queue.
+    const resumed = useRef(false);
+
+    /** Take over the last session's queue, its track loaded paused where it stopped. */
+    const resume = (tracks: Track[]) => {
+        resumed.current = true;
+        const saved = loadQueue(tracks);
+        if (!saved) return;
+        q.restore(saved);
+        const track = saved.order[saved.index];
+        if (track) audio.loadFilePaused(track.path, loadPosition(track.path));
+    };
+
+    const { source, order, index } = q;
+    useEffect(() => {
+        if (resumed.current) saveQueue({ source, order, index });
+    }, [source, order, index]);
+
+    // The position: every few seconds while playing, and on pause, seek and close.
+    const { element } = audio;
+    useEffect(() => {
+        if (!activePath) return;
+        let savedAt = 0;
+        const save = () => {
+            if (!resumed.current) return;
+            savedAt = Date.now();
+            savePosition(activePath, element.currentTime);
+        };
+        const tick = () => {
+            if (Date.now() - savedAt >= POSITION_SAVE_INTERVAL) save();
+        };
+        element.addEventListener("timeupdate", tick);
+        element.addEventListener("pause", save);
+        element.addEventListener("seeked", save);
+        window.addEventListener("pagehide", save);
+        window.addEventListener("beforeunload", save);
+        return () => {
+            element.removeEventListener("timeupdate", tick);
+            element.removeEventListener("pause", save);
+            element.removeEventListener("seeked", save);
+            window.removeEventListener("pagehide", save);
+            window.removeEventListener("beforeunload", save);
+        };
+    }, [element, activePath]);
+
     const toggleShuffle = () => {
         const shuffle = !isShuffle;
         updateSettings({ isShuffle: shuffle });
@@ -131,7 +180,7 @@ export const useAudioPlayer = (
 
     return {
         activePath,
-        playTrack, onNext, onPrev,
+        playTrack, onNext, onPrev, resume,
         playNext, addToQueue, forgetTracks,
         queue: { order: q.order, index: q.index },
         playAt, removeFromQueue: q.removeAt, setUpcoming,
