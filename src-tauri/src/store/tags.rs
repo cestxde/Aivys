@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 
-const FILE: &str = "tags.json";
+pub(crate) const FILE: &str = "tags.json";
 
 /// `.aivys/tags.json`: user tag definitions (§8.3). Assignments live in the
 /// event journals.

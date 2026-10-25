@@ -6,6 +6,9 @@
 //! merged conflict copy), everything is re-ingested from scratch: this is rare.
 //! Every line is stored; duplicates across files are collapsed when state is
 //! derived, exactly like reading the journals directly.
+//!
+//! Most commands sync through [`LibraryDb::sync_events_if_changed`], which
+//! does not read the journals at all while none of them changed.
 
 use super::LibraryDb;
 use crate::store::events::{self, Dedup, Event, EventKind, EventLine, TrackStats};
@@ -13,16 +16,66 @@ use crate::store::{tags, Store};
 use rusqlite::{params, Transaction};
 use serde_json::Map;
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
+use std::time::UNIX_EPOCH;
 
 struct Journal {
     name: String,
     bytes: Vec<u8>,
 }
 
+/// A journal as it looks on disk: size and modification time, enough to tell
+/// that it did not change (journals only grow).
+fn file_fingerprint(path: &Path) -> String {
+    let Ok(meta) = std::fs::metadata(path) else { return "missing".to_owned() };
+    let modified = meta
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+        .map_or(0, |time| time.as_nanos());
+    format!("{}:{modified}", meta.len())
+}
+
+/// Everything a sync reads, fingerprinted: each journal by size and
+/// modification time, tags.json by its content (it is small and rewritten in
+/// place, so a same-size rewrite within a coarse clock tick is possible).
+fn fingerprints(store: &Store) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+    let mut result = HashMap::new();
+    for path in events::journal_files(store)? {
+        let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        result.insert(name, file_fingerprint(&path));
+    }
+    let tags = match std::fs::read(store.path(tags::FILE)) {
+        Ok(bytes) => blake3::hash(&bytes).to_hex().to_string(),
+        Err(_) => "missing".to_owned(),
+    };
+    // Not a journal name: those end in ".jsonl".
+    result.insert(tags::FILE.to_owned(), tags);
+    Ok(result)
+}
+
 impl LibraryDb {
+    /// [`Self::sync_events`], unless no journal and not tags.json changed since
+    /// the last sync (by their fingerprints): then nothing is read. Opening
+    /// the library syncs in full, which corrects a change this missed.
+    pub(crate) fn sync_events_if_changed(&mut self, store: &Store) -> Result<usize, Box<dyn std::error::Error>> {
+        let known: HashMap<String, String> = {
+            let mut stmt = self.conn.prepare("SELECT name, fingerprint FROM sync_fingerprints")?;
+            let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+            rows.collect::<rusqlite::Result<_>>()?
+        };
+        if !known.is_empty() && fingerprints(store)? == known {
+            return Ok(0);
+        }
+        self.sync_events(store)
+    }
+
     /// Bring the index up to date with the journals on disk. Returns the
     /// number of newly ingested lines.
     pub(crate) fn sync_events(&mut self, store: &Store) -> Result<usize, Box<dyn std::error::Error>> {
+        // Taken before reading: a journal growing meanwhile shows as changed
+        // next time instead of being skipped.
+        let seen = fingerprints(store)?;
         let mut journals = Vec::new();
         for path in events::journal_files(store)? {
             let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
@@ -88,6 +141,13 @@ impl LibraryDb {
 
         recompute(&tx, &affected)?;
         refresh_user_tags(&tx, store)?;
+        tx.execute("DELETE FROM sync_fingerprints", [])?;
+        {
+            let mut insert = tx.prepare("INSERT INTO sync_fingerprints (name, fingerprint) VALUES (?1, ?2)")?;
+            for (name, fingerprint) in &seen {
+                insert.execute(params![name, fingerprint])?;
+            }
+        }
         tx.commit()?;
         Ok(ingested)
     }
@@ -329,5 +389,48 @@ mod tests {
         fs::write(&path, &text).unwrap();
         assert_eq!(db.sync_events(&store).unwrap(), 1);
         assert_eq!(db.track_stats().unwrap()["a.flac"].play_count, 4);
+    }
+
+    #[test]
+    fn quick_sync_reads_only_after_a_change() {
+        let lib = TempLibrary::new();
+        let (store, mut db) = open(&lib);
+        append(&store, "a.flac", EventKind::Play, None, None).unwrap();
+        assert_eq!(db.sync_events_if_changed(&store).unwrap(), 1);
+        assert_eq!(db.sync_events_if_changed(&store).unwrap(), 0);
+
+        // An append (own, or synced in) is seen.
+        append(&store, "a.flac", EventKind::Favorite, None, None).unwrap();
+        assert_eq!(db.sync_events_if_changed(&store).unwrap(), 1);
+        assert!(db.track_stats().unwrap()["a.flac"].favorite);
+
+        // A deleted tag goes from the tracks without any journal change.
+        let tag = tags::create(&store, "Chill", "#000000").unwrap();
+        append(&store, "a.flac", EventKind::Tag, None, Some(tag.id.clone())).unwrap();
+        db.sync_events_if_changed(&store).unwrap();
+        assert_eq!(db.track_stats().unwrap()["a.flac"].tags, vec![tag.id.clone()]);
+        tags::delete(&store, &tag.id).unwrap();
+        db.sync_events_if_changed(&store).unwrap();
+        assert!(db.track_stats().unwrap()["a.flac"].tags.is_empty());
+
+        // A new journal (another device's) is seen.
+        let device = "00000000-0000-4000-8000-000000000001";
+        let line = format!(r#"{{"schemaVersion":1,"ts":5,"device":"{device}","path":"a.flac","event":"play"}}"#);
+        fs::write(journal_path(&store, device), line + "\n").unwrap();
+        assert_eq!(db.sync_events_if_changed(&store).unwrap(), 1);
+        assert_eq!(db.track_stats().unwrap()["a.flac"].play_count, 2);
+
+        // The one case it misses: a same-size rewrite keeping the time. The
+        // full sync (on opening the library) corrects it.
+        let own = journal_path(&store, store.device_id());
+        let before = fs::metadata(&own).unwrap();
+        let text = fs::read_to_string(&own).unwrap().replacen(r#""event":"favorite""#, r#""event":"complete""#, 1);
+        assert_eq!(text.len() as u64, before.len());
+        fs::write(&own, &text).unwrap();
+        fs::File::options().write(true).open(&own).unwrap().set_modified(before.modified().unwrap()).unwrap();
+        assert_eq!(db.sync_events_if_changed(&store).unwrap(), 0);
+        assert!(db.track_stats().unwrap()["a.flac"].favorite);
+        db.sync_events(&store).unwrap();
+        assert!(!db.track_stats().unwrap()["a.flac"].favorite);
     }
 }

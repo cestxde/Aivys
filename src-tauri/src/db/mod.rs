@@ -20,6 +20,12 @@ use std::path::{Path, PathBuf, MAIN_SEPARATOR_STR};
 /// grouping. Additive: created in existing indexes too, without a rebuild.
 const UNLISTED_ARTISTS: &str = "CREATE TABLE IF NOT EXISTS unlisted_artists (name TEXT PRIMARY KEY);";
 
+/// What the journals and tags.json looked like at the last sync (see
+/// `LibraryDb::sync_events_if_changed`). Added without a schema bump: a
+/// missing table only means the next sync reads everything.
+const SYNC_FINGERPRINTS: &str =
+    "CREATE TABLE IF NOT EXISTS sync_fingerprints (name TEXT PRIMARY KEY, fingerprint TEXT NOT NULL);";
+
 /// Bump on any schema change. A database with another version is deleted and
 /// rebuilt from scratch: it only holds rebuildable data, so no migrations.
 /// Also bump when the event vocabulary changes, so journals are re-ingested,
@@ -190,6 +196,7 @@ fn connect(path: &Path) -> rusqlite::Result<Connection> {
     conn.pragma_update(None, "foreign_keys", "ON")?;
     smart::register_functions(&conn)?;
     conn.execute_batch(UNLISTED_ARTISTS)?;
+    conn.execute_batch(SYNC_FINGERPRINTS)?;
     Ok(conn)
 }
 

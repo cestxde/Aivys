@@ -32,7 +32,7 @@ impl Library {
     /// changed since the last call). `None` if the index is unavailable.
     fn synced_db(&mut self) -> Option<&LibraryDb> {
         let db = self.db.as_mut()?;
-        match db.sync_events(&self.store) {
+        match db.sync_events_if_changed(&self.store) {
             Ok(_) => Some(db),
             Err(err) => {
                 log::warn!("cannot sync journals into the index: {err}");
@@ -61,7 +61,12 @@ pub(crate) fn open_store(app: &tauri::AppHandle, base_path: &Path) -> Result<(),
         }
     };
     let mut library = Library { store, db };
-    library.synced_db();
+    // In full on opening: whatever the quick checks could miss is corrected here.
+    if let Some(db) = library.db.as_mut() {
+        if let Err(err) = db.sync_events(&library.store) {
+            log::warn!("cannot sync journals into the index: {err}");
+        }
+    }
 
     let state = app.state::<StoreState>();
     let mut guard = state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
