@@ -323,6 +323,8 @@ export const en = {
     "tagPicker.empty": "No tags yet. Type a name to create one.",
     "tagPicker.noMatch": "No tags match.",
     "tagPicker.partial": "{count} of {total}",
+    "tagPicker.add": "Add",
+    "tagPicker.remove": "Remove",
 
     // Track panel
     "detail.nothingPlaying": "Nothing playing",

@@ -338,6 +338,8 @@ export const ru: Record<MessageKey, Message> = {
     "tagPicker.empty": "Тегов пока нет. Введите название, чтобы создать тег.",
     "tagPicker.noMatch": "Теги не найдены.",
     "tagPicker.partial": "{count} из {total}",
+    "tagPicker.add": "Добавить",
+    "tagPicker.remove": "Убрать",
 
     // Track panel
     "detail.nothingPlaying": "Ничего не играет",

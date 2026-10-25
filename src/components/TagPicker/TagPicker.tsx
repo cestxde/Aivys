@@ -49,6 +49,20 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
         setFilter("");
     };
 
+    // What Enter does with the typed name: create the tag, or toggle the one
+    // tag it finds. The footer button does the same, so it is not a "Done"
+    // that drops the name.
+    const match = !canCreate && query !== "" && shown.length === 1 ? shown[0] : null;
+    const assignMatch = match !== null && countOf(match) < tracks.length;
+    const apply = () => {
+        if (canCreate) {
+            create();
+        } else if (match) {
+            onToggle(match, assignMatch);
+            setFilter("");
+        }
+    };
+
     return (
         <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
             <div className="add-to-dialog" role="dialog" aria-label={t("tagPicker.title")}>
@@ -69,9 +83,7 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
                     autoFocus
                     onChange={(e) => setFilter(e.target.value)}
                     onKeyDown={(e) => {
-                        if (e.key !== "Enter") return;
-                        if (canCreate) create();
-                        else if (shown.length === 1) onToggle(shown[0], countOf(shown[0]) < tracks.length);
+                        if (e.key === "Enter") apply();
                     }}
                 />
 
@@ -117,7 +129,11 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
                 </div>
 
                 <div className="tag-picker-footer">
-                    <button className="editor-button primary" onClick={onClose}>{t("common.done")}</button>
+                    {canCreate || match
+                        ? <button className="editor-button primary" onClick={apply}>
+                            {canCreate || assignMatch ? t("tagPicker.add") : t("tagPicker.remove")}
+                        </button>
+                        : <button className="editor-button primary" onClick={onClose}>{t("common.done")}</button>}
                 </div>
             </div>
         </div>
