@@ -20,7 +20,6 @@ export const en = {
     "common.save": "Save",
     "common.create": "Create",
     "common.close": "Close",
-    "common.done": "Done",
     "common.more": "More",
     "common.added": "added",
     "common.playingFrom": "Playing from here",
@@ -323,8 +322,6 @@ export const en = {
     "tagPicker.empty": "No tags yet. Type a name to create one.",
     "tagPicker.noMatch": "No tags match.",
     "tagPicker.partial": "{count} of {total}",
-    "tagPicker.add": "Add",
-    "tagPicker.remove": "Remove",
 
     // Track panel
     "detail.nothingPlaying": "Nothing playing",

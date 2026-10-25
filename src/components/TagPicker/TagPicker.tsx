@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Check, Minus, Plus, X } from "lucide-react";
 import type { Track, TrackStats, UserTag } from "../../types";
 import { displayTitle } from "../../utils/track";
@@ -17,12 +17,28 @@ interface TagPickerProps {
     onClose: () => void;
 }
 
+/** How well `name` matches the typed `query` (lower case): lower is closer. */
+const closeness = (name: string, query: string) => {
+    const lower = name.toLowerCase();
+    if (lower === query) return 0;
+    if (lower.startsWith(query)) return 1;
+    if (lower.split(/\s+/).some(word => word.startsWith(query))) return 2;
+    return 3;
+};
+
 /**
  * "Tags…" for one or more tracks: a filterable checklist, where every click
- * is saved at once. Typing a name no tag has offers to create it.
+ * is saved at once. Typing filters the tags, closest first, and highlights
+ * the closest one; with no tag found, "Create" (always first) is highlighted
+ * instead. Enter applies the highlighted row and clears the field for the
+ * next name; the arrow keys move the highlight.
  */
 export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: TagPickerProps) => {
     const [filter, setFilter] = useState("");
+    // The highlighted row, for the query it was chosen at: a new query
+    // highlights its closest row again.
+    const [picked, setPicked] = useState<{ query: string; index: number } | null>(null);
+    const list = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -34,12 +50,24 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
 
     const query = filter.trim();
     const lower = query.toLowerCase();
-    const shown = tags.filter(tag => !lower || tag.name.toLowerCase().includes(lower));
+    const shown = lower
+        ? tags
+            .filter(tag => tag.name.toLowerCase().includes(lower))
+            .map(tag => ({ tag, rank: closeness(tag.name, lower) }))
+            .sort((a, b) => a.rank - b.rank)
+            .map(({ tag }) => tag)
+        : tags;
     const canCreate = query !== "" && !tags.some(tag => tag.name.toLowerCase() === lower);
 
     /** How many of the tracks have the tag. */
     const countOf = (tag: UserTag) =>
         tracks.filter(track => stats[track.relPath]?.tags.includes(tag.id)).length;
+
+    // The rows Enter and the arrows go through: "Create" first, then the tags.
+    const rowCount = (canCreate ? 1 : 0) + shown.length;
+    const closest = query === "" ? -1 : canCreate && shown.length > 0 ? 1 : 0;
+    const highlighted = picked?.query === query ? Math.min(picked.index, rowCount - 1) : closest;
+    const tagAt = (index: number) => shown[index - (canCreate ? 1 : 0)];
 
     const subject = tracks.length === 1 ? displayTitle(tracks[0]) : t("common.tracks", { count: tracks.length });
 
@@ -49,19 +77,33 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
         setFilter("");
     };
 
-    // What Enter does with the typed name: create the tag, or toggle the one
-    // tag it finds. The footer button does the same, so it is not a "Done"
-    // that drops the name.
-    const match = !canCreate && query !== "" && shown.length === 1 ? shown[0] : null;
-    const assignMatch = match !== null && countOf(match) < tracks.length;
+    const toggle = (tag: UserTag) => onToggle(tag, countOf(tag) < tracks.length);
+
     const apply = () => {
-        if (canCreate) {
+        if (highlighted < 0) return;
+        if (canCreate && highlighted === 0) {
             create();
-        } else if (match) {
-            onToggle(match, assignMatch);
-            setFilter("");
+            return;
         }
+        toggle(tagAt(highlighted));
+        setFilter("");
     };
+
+    const move = (step: number) => {
+        if (rowCount === 0) return;
+        const from = highlighted < 0 ? (step > 0 ? -1 : rowCount) : highlighted;
+        setPicked({ query, index: (from + step + rowCount) % rowCount });
+    };
+
+    useLayoutEffect(() => {
+        list.current?.querySelector(".highlighted")?.scrollIntoView({ block: "nearest" });
+    }, [highlighted, query]);
+
+    const rowProps = (index: number) => ({
+        onPointerMove: () => {
+            if (highlighted !== index) setPicked({ query, index });
+        },
+    });
 
     return (
         <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -84,28 +126,38 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
                     onChange={(e) => setFilter(e.target.value)}
                     onKeyDown={(e) => {
                         if (e.key === "Enter") apply();
+                        else if (e.key === "ArrowDown") move(1);
+                        else if (e.key === "ArrowUp") move(-1);
+                        else return;
+                        e.preventDefault();
                     }}
                 />
 
-                <div className="add-to-list tag-picker-list">
+                <div className="add-to-list tag-picker-list" ref={list}>
                     {canCreate && (
-                        <button className="add-to-row tag-picker-row" onClick={create}>
+                        <button
+                            className={`add-to-row tag-picker-row ${highlighted === 0 ? "highlighted" : ""}`}
+                            onClick={create}
+                            {...rowProps(0)}
+                        >
                             <span className="tag-picker-check"><Plus size={14} /></span>
                             <span className="add-to-row-name">{t("tagPicker.create", { name: query })}</span>
                         </button>
                     )}
 
-                    {shown.map(tag => {
+                    {shown.map((tag, i) => {
+                        const index = i + (canCreate ? 1 : 0);
                         const count = countOf(tag);
                         const all = count > 0 && count === tracks.length;
                         const state = all ? "on" : count > 0 ? "mixed" : "off";
                         return (
                             <button
                                 key={tag.id}
-                                className={`add-to-row tag-picker-row ${state}`}
+                                className={`add-to-row tag-picker-row ${state} ${highlighted === index ? "highlighted" : ""}`}
                                 role="checkbox"
                                 aria-checked={all ? true : count > 0 ? "mixed" : false}
-                                onClick={() => onToggle(tag, !all)}
+                                onClick={() => toggle(tag)}
+                                {...rowProps(index)}
                             >
                                 <span className="tag-picker-check">
                                     {all && <Check size={14} />}
@@ -126,14 +178,6 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
                     {tags.length > 0 && shown.length === 0 && !canCreate && (
                         <div className="add-to-empty">{t("tagPicker.noMatch")}</div>
                     )}
-                </div>
-
-                <div className="tag-picker-footer">
-                    {canCreate || match
-                        ? <button className="editor-button primary" onClick={apply}>
-                            {canCreate || assignMatch ? t("tagPicker.add") : t("tagPicker.remove")}
-                        </button>
-                        : <button className="editor-button primary" onClick={onClose}>{t("common.done")}</button>}
                 </div>
             </div>
         </div>

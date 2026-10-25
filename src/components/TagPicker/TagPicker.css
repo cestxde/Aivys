@@ -30,9 +30,11 @@
     flex: 1;
 }
 
-.tag-picker-footer {
-    display: flex;
-    justify-content: flex-end;
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--border);
+/* One highlighted row, whether the keys or the pointer moved it. */
+.tag-picker-list button.tag-picker-row:hover {
+    background: none;
+}
+
+.tag-picker-list button.tag-picker-row.highlighted {
+    background: var(--surface);
 }

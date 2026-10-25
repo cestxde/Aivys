@@ -16,7 +16,6 @@ export const ru: Record<MessageKey, Message> = {
     "common.save": "Сохранить",
     "common.create": "Создать",
     "common.close": "Закрыть",
-    "common.done": "Готово",
     "common.more": "Ещё",
     "common.added": "добавлено",
     "common.playingFrom": "Играет отсюда",
@@ -338,8 +337,6 @@ export const ru: Record<MessageKey, Message> = {
     "tagPicker.empty": "Тегов пока нет. Введите название, чтобы создать тег.",
     "tagPicker.noMatch": "Теги не найдены.",
     "tagPicker.partial": "{count} из {total}",
-    "tagPicker.add": "Добавить",
-    "tagPicker.remove": "Убрать",
 
     // Track panel
     "detail.nothingPlaying": "Ничего не играет",
