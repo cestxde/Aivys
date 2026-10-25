@@ -13,7 +13,7 @@
 use lofty::config::{ParseOptions, WriteOptions};
 use lofty::file::{AudioFile, FileType, TaggedFileExt};
 use lofty::flac::FlacFile;
-use lofty::id3::v2::Id3v2Version;
+use lofty::id3::v2::{FrameId, Id3v2Version};
 use lofty::mp4::Mp4File;
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OggPictureStorage, OpusFile, SpeexFile, VorbisFile};
@@ -23,6 +23,7 @@ use lofty::tag::{Accessor, ItemKey, MergeTag, SplitTag, Tag};
 use serde::{Deserialize, Deserializer};
 use std::fs::{self, File, OpenOptions};
 use base64::Engine;
+use std::borrow::Cow;
 use std::io::{Cursor, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -63,8 +64,17 @@ pub(crate) struct MetadataEdit {
 /// The cover part of an edit, with the image read once for all files.
 type CoverChange = Option<Option<Picture>>;
 
-fn error(err: impl std::fmt::Display) -> String {
-    err.to_string()
+/// The error with its causes: lofty's own message alone ("failed to write
+/// Mpeg file") does not say what went wrong.
+fn error(err: impl std::error::Error) -> String {
+    let mut message = err.to_string();
+    let mut source = err.source();
+    while let Some(cause) = source {
+        message.push_str(": ");
+        message.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    message
 }
 
 fn set_text(tag: &mut Tag, keys: &[ItemKey], value: &Option<String>) {
@@ -149,12 +159,20 @@ fn write_tags(target: &Path, file_type: FileType, edit: &MetadataEdit, cover: &C
     match file_type {
         FileType::Mpeg => {
             let mut audio = MpegFile::read_from(&mut file, parse).map_err(error)?;
-            let tag = audio.remove_id3v2().unwrap_or_default();
+            let mut tag = audio.remove_id3v2().unwrap_or_default();
             // Files tagged for older players stay readable by them.
             if tag.original_version() == Id3v2Version::V3 {
                 options.use_id3v23(true);
             }
-            audio.set_id3v2(edited(tag, edit, cover));
+            // User-defined text frames skip the generic view: the edit never
+            // touches them, and lofty maps some of them (TXXX:WORK) to keys it
+            // then cannot write back.
+            let user_text: Vec<_> = tag.remove(&FrameId::Valid(Cow::Borrowed("TXXX"))).collect();
+            let mut tag = edited(tag, edit, cover);
+            for frame in user_text {
+                tag.insert(frame);
+            }
+            audio.set_id3v2(tag);
             save(&audio, &mut file, options)
         }
         FileType::Flac => {
@@ -325,13 +343,15 @@ mod tests {
     }
 
     /// A small valid MPEG file: silent frames behind an ID3v2.3 tag with an
-    /// extra frame lofty's generic view does not carry (PRIV).
+    /// extra frame lofty's generic view does not carry (PRIV) and a
+    /// user-defined one it maps to a key it cannot write back (TXXX:WORK).
     fn write_mp3(path: &Path) {
         let mut bytes = Vec::new();
-        // ID3v2.3 header + TIT2 "Old" + PRIV "x\0data".
+        // ID3v2.3 header + TIT2 "Old" + PRIV "x\0data" + TXXX "WORK" = "Opus".
         let frames: Vec<u8> = [
             [b"TIT2".as_slice(), &[0, 0, 0, 4, 0, 0, 0], b"Old"].concat(),
             [b"PRIV".as_slice(), &[0, 0, 0, 6, 0, 0], b"x\0data"].concat(),
+            [b"TXXX".as_slice(), &[0, 0, 0, 10, 0, 0, 0], b"WORK\0Opus"].concat(),
         ]
         .concat();
         let size = frames.len() as u32;
@@ -371,6 +391,7 @@ mod tests {
         assert_eq!(tag.track_total(), Some(12));
         let written = fs::read(&song).unwrap();
         assert!(written.windows(4).any(|w| w == b"PRIV"), "the PRIV frame must survive");
+        assert!(written.windows(9).any(|w| w == b"WORK\0Opus"), "the TXXX frame must survive");
         assert_eq!(&written[3..4], &[3], "an ID3v2.3 tag stays 2.3");
         assert!(!dir.join(".song.mp3.aivys-edit").exists());
 
