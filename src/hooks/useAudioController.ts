@@ -9,6 +9,23 @@ const reportPlaybackError = (e: unknown) => {
     notifyError(t("error.playback"), e);
 };
 
+// Files rewritten this session (tag edits), by how many times. The webview
+// caches what it read of a URL, and a rewritten file has its audio at other
+// offsets: played from the old URL, it stalls partway and cannot seek.
+const revisions = new Map<string, number>();
+
+/** The URL the audio element loads `filePath` from: a new one after each rewrite. */
+export const trackUrl = (filePath: string) => {
+    const revision = revisions.get(filePath);
+    const url = convertFileSrc(filePath);
+    return revision ? `${url}?v=${revision}` : url;
+};
+
+/** The files at `paths` were rewritten: load them from new URLs from now on. */
+export const markRewritten = (paths: string[]) => {
+    for (const path of paths) revisions.set(path, (revisions.get(path) ?? 0) + 1);
+};
+
 /**
  * Position and length of what `element` plays, for the seek bar. Kept out of
  * the controller so only components showing the time re-render as it runs.
@@ -58,7 +75,7 @@ export const useAudioController = (
     // (or `startAt` seconds, once the file is far enough loaded to seek).
     // Returns the audio element so callers can start playback if needed.
     const loadSource = (filePath: string, startAt = 0) => {
-        const assetUrl = convertFileSrc(filePath);
+        const assetUrl = trackUrl(filePath);
 
         if (!audioRef.current) {
             audioRef.current = new Audio(assetUrl);

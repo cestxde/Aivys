@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { useAudioController } from "./useAudioController";
+import { markRewritten, trackUrl, useAudioController } from "./useAudioController";
 import { useAudioQueue } from "./useAudioQueue";
 import type { Track, PlayerSettings } from "../types";
 import { nextRepeatMode } from "../constants";
@@ -178,13 +177,20 @@ export const useAudioPlayer = (
     /**
      * Run `work`, which rewrites some of the files at `paths`: if one of them
      * is loaded, it is let go meanwhile (Windows may refuse to replace an open
-     * file) and loaded again where it was, playing if it was.
+     * file) and loaded again where it was, playing if it was. The files are
+     * loaded from new URLs afterwards, past what the webview cached of them.
      */
     const releaseWhile = async <T,>(paths: string[], work: () => Promise<T>): Promise<T> => {
         const element = audio.element;
         // By the element, not the render: this may run from an older closure (a notice's button).
-        const path = paths.find(p => element.src === convertFileSrc(p));
-        if (!path) return work();
+        const path = paths.find(p => element.src === trackUrl(p));
+        if (!path) {
+            try {
+                return await work();
+            } finally {
+                markRewritten(paths);
+            }
+        }
         const time = element.currentTime;
         const playing = !element.paused;
         const volume = element.volume;
@@ -192,6 +198,7 @@ export const useAudioPlayer = (
         try {
             return await work();
         } finally {
+            markRewritten(paths);
             audio.loadFilePaused(path, time);
             element.volume = volume;
             if (playing) element.play().catch(console.error);
