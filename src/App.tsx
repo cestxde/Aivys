@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import {
-	Heart, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
+	ArrowDown, ArrowUp, Check, FolderPlus, Heart, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
 } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
@@ -28,7 +28,7 @@ import { useTaskbar } from "./hooks/useTaskbar";
 import { useMediaControls } from "./hooks/useMediaControls";
 import { useShortcutActions } from "./hooks/useShortcutActions";
 import { usePlaylists } from "./hooks/usePlaylists";
-import { useTags } from "./hooks/useTags";
+import { useTags, type TagChange } from "./hooks/useTags";
 import { useViewRows } from "./hooks/useViewRows";
 import { useSmartPlaylistPaths } from "./hooks/useSmartPlaylistPaths";
 import { PlaylistHeader } from "./components/PlaylistHeader/PlaylistHeader";
@@ -48,6 +48,7 @@ import { AddToDialog } from "./components/AddToDialog/AddToDialog";
 import { TagsPage } from "./components/TagsPage/TagsPage";
 import { TagHeader } from "./components/TagHeader/TagHeader";
 import { TagDialog } from "./components/TagDialog/TagDialog";
+import { CategoryDialog } from "./components/TagDialog/CategoryDialog";
 import { TagPicker } from "./components/TagPicker/TagPicker";
 import { SettingsPage } from "./components/SettingsPage/SettingsPage";
 import { systemViewTracks, tagTracks } from "./utils/views";
@@ -65,7 +66,7 @@ import { formatDateTime, formatDuration, formatTotalDuration } from "./utils/for
 import { compareText, t, useI18n, type MessageKey } from "./i18n";
 import {
 	addRecentPath, removeRecentPath,
-	type ConflictReport, type ListRow, type Playlist, type SmartRules, type SystemView, type Track, type UserTag, type View,
+	type ConflictReport, type ListRow, type Playlist, type SmartRules, type SystemView, type TagCategory, type Track, type UserTag, type View,
 } from "./types";
 
 const EMPTY_TEXT: Record<SystemView, MessageKey> = {
@@ -182,9 +183,21 @@ interface EditorState {
 	playlist: Playlist | null;
 }
 
-/** The tag dialog: creating a new tag, or editing `tag`. */
+/**
+ * The tag dialog: creating a new tag (named `name`, in `categoryIds`, then
+ * assigned to `assignTo`), or editing `tag`.
+ */
 interface TagDialogState {
 	tag: UserTag | null;
+	categoryIds?: string[];
+	name?: string;
+	assignTo?: Track[];
+}
+
+/** The category dialog: creating a new category (with `addTag` in it), or renaming `category`. */
+interface CategoryDialogState {
+	category: TagCategory | null;
+	addTag?: UserTag;
 }
 
 function App() {
@@ -202,6 +215,7 @@ function App() {
 	// Tracks the "Add to…" dialog is open for.
 	const [addTo, setAddTo] = useState<Track[] | null>(null);
 	const [tagDialog, setTagDialog] = useState<TagDialogState | null>(null);
+	const [categoryDialog, setCategoryDialog] = useState<CategoryDialogState | null>(null);
 	// Tracks the tag picker is open for.
 	const [tagPicker, setTagPicker] = useState<Track[] | null>(null);
 	// The view playback was started from (a view key), highlighted on its card.
@@ -690,17 +704,78 @@ function App() {
 	const playPlaylist = async (target: Playlist) =>
 		playTracks(await tracksOf(target), { kind: "playlist", id: target.id });
 
-	const saveTag = async (name: string, color: string) => {
+	const saveTag = async (name: string, color: string, categoryIds: string[]) => {
 		const edited = tagDialog?.tag;
+		const assignTo = tagDialog?.assignTo;
 		setTagDialog(null);
 		if (!edited) {
-			await tags.create(name, color);
+			const created = await tags.create(name, color, categoryIds);
+			if (created && assignTo) trackStats.setTrackTag(assignTo, created.id, true);
 			return;
 		}
-		const change: { name?: string; color?: string } = {};
+		const change: TagChange = {};
 		if (name !== edited.name) change.name = name;
 		if (color !== edited.color) change.color = color;
-		if (change.name !== undefined || change.color !== undefined) await tags.update(edited.id, change);
+		const before = edited.categoryIds ?? [];
+		if (categoryIds.length !== before.length || categoryIds.some(id => !before.includes(id))) change.categoryIds = categoryIds;
+		if (Object.keys(change).length > 0) await tags.update(edited.id, change);
+	};
+
+	const saveCategory = async (name: string) => {
+		const edited = categoryDialog?.category;
+		const addTag = categoryDialog?.addTag;
+		setCategoryDialog(null);
+		if (edited) {
+			if (name !== edited.name) await tags.renameCategory(edited.id, name);
+			return;
+		}
+		const created = await tags.createCategory(name);
+		if (created && addTag) await tags.update(addTag.id, { categoryIds: [...(addTag.categoryIds ?? []), created.id] });
+	};
+
+	/** Put a tag in `category`, or take it out. */
+	const toggleTagCategory = (target: UserTag, category: TagCategory) => {
+		const ids = target.categoryIds ?? [];
+		tags.update(target.id, {
+			categoryIds: ids.includes(category.id) ? ids.filter(id => id !== category.id) : [...ids, category.id],
+		});
+	};
+
+	/** A tag dragged from one category's section to another's: moved there, or with `copy` added. */
+	const moveTag = (target: UserTag, from: TagCategory | null, to: TagCategory | null, copy: boolean) => {
+		const ids = target.categoryIds ?? [];
+		const kept = copy || !from ? ids : ids.filter(id => id !== from.id);
+		const next = to && !kept.includes(to.id) ? [...kept, to.id] : kept;
+		if (next.length !== ids.length || next.some(id => !ids.includes(id))) tags.update(target.id, { categoryIds: next });
+	};
+
+	/** The tracks with any tag of `category`, newest first like a tag's. */
+	const tracksOfCategory = (category: TagCategory): Track[] => {
+		const ids = new Set(tags.tags.filter(tag => tag.categoryIds?.includes(category.id)).map(tag => tag.id));
+		return files
+			.filter(f => trackStats.stats[f.relPath]?.tags.some(id => ids.has(id)))
+			.sort((a, b) => b.dateCreated - a.dateCreated);
+	};
+
+	/** Delete a category (after confirming); its tags stay. */
+	const deleteCategory = async (target: TagCategory) => {
+		const confirmed = await ask(t("confirm.deleteCategory.body", { name: target.name }), {
+			title: t("confirm.deleteCategory.title"),
+			kind: "warning",
+			okLabel: t("common.delete"),
+			cancelLabel: t("common.cancel"),
+		});
+		if (confirmed) await tags.removeCategory(target.id);
+	};
+
+	/** Move a category one place up (-1) or down (1). */
+	const moveCategory = (target: TagCategory, step: number) => {
+		const ids = tags.categories.map(category => category.id);
+		const from = ids.indexOf(target.id);
+		const to = from + step;
+		if (from < 0 || to < 0 || to >= ids.length) return;
+		[ids[from], ids[to]] = [ids[to], ids[from]];
+		tags.reorderCategories(ids);
 	};
 
 	const deleteTag = async (target: UserTag) => {
@@ -716,12 +791,6 @@ function App() {
 		});
 		// Assignments to a deleted tag are dropped when stats are derived.
 		if (confirmed && await tags.remove(target.id)) trackStats.reload();
-	};
-
-	/** Create a tag from the picker and assign it to the picked tracks. */
-	const createTagFor = async (name: string, tracks: Track[]) => {
-		const created = await tags.create(name, nextTagColor(tags.tags));
-		if (created) trackStats.setTrackTag(tracks, created.id, true);
 	};
 
 	/** Move track files to the trash (after confirming) and drop them from the library. */
@@ -1023,6 +1092,45 @@ function App() {
 		];
 	};
 
+	const categoryMenu = (target: TagCategory): MenuEntry[] => {
+		const index = tags.categories.findIndex(category => category.id === target.id);
+		const tracks = tracksOfCategory(target);
+		return [
+			{ kind: "item", label: t("common.play"), icon: <Play size={16} />, disabled: tracks.length === 0, onSelect: () => playTracks(tracks, TAGS_VIEW) },
+			{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, disabled: tracks.length === 0, onSelect: () => setAddTo(tracks) },
+			{ kind: "separator" },
+			{ kind: "item", label: t("tags.newTagIn"), icon: <Tag size={16} />, onSelect: () => setTagDialog({ tag: null, categoryIds: [target.id] }) },
+			{ kind: "item", label: t("tags.renameCategory"), icon: <Pencil size={16} />, onSelect: () => setCategoryDialog({ category: target }) },
+			{ kind: "separator" },
+			{ kind: "item", label: t("tags.moveUp"), icon: <ArrowUp size={16} />, disabled: index <= 0, onSelect: () => moveCategory(target, -1) },
+			{ kind: "item", label: t("tags.moveDown"), icon: <ArrowDown size={16} />, disabled: index >= tags.categories.length - 1, onSelect: () => moveCategory(target, 1) },
+			{ kind: "separator" },
+			{ kind: "item", label: t("common.delete"), icon: <Trash2 size={16} />, danger: true, onSelect: () => deleteCategory(target) },
+		];
+	};
+
+	/** The tag's categories as check items, and a new category for it. */
+	const tagCategoryEntries = (target: UserTag): MenuEntry[] => [
+		{ kind: "separator" },
+		{ kind: "label", label: t("tags.categoriesOf") },
+		...tags.categories.map((category): MenuEntry => ({
+			kind: "item",
+			label: category.name,
+			icon: target.categoryIds?.includes(category.id) ? <Check size={16} /> : undefined,
+			onSelect: () => toggleTagCategory(target, category),
+		})),
+		{ kind: "item", label: t("tags.newCategoryFor"), icon: <FolderPlus size={16} />, onSelect: () => setCategoryDialog({ category: null, addTag: target }) },
+	];
+
+	/** A tag chip on the current track: open the tag, take it off, edit it. */
+	const tagChipMenu = (track: Track, target: UserTag): MenuEntry[] => [
+		{ kind: "item", label: t("common.open"), icon: <FolderOpen size={16} />, onSelect: () => showView({ kind: "tag", id: target.id }, listView) },
+		{ kind: "item", label: t("tagChip.removeFromTrack"), icon: <X size={16} />, onSelect: () => trackStats.setTrackTag([track], target.id, false) },
+		{ kind: "item", label: t("detail.editTags"), icon: <Tag size={16} />, onSelect: () => setTagPicker([track]) },
+		{ kind: "separator" },
+		{ kind: "item", label: t("tags.editTag"), icon: <Pencil size={16} />, onSelect: () => setTagDialog({ tag: target }) },
+	];
+
 	const tagMenu = (target: UserTag): MenuEntry[] => [
 		{ kind: "item", label: t("common.open"), icon: <FolderOpen size={16} />, onSelect: () => showView({ kind: "tag", id: target.id }) },
 		{
@@ -1042,6 +1150,8 @@ function App() {
 		},
 		{ kind: "separator" },
 		{ kind: "item", label: t("common.edit"), icon: <Pencil size={16} />, onSelect: () => setTagDialog({ tag: target }) },
+		...tagCategoryEntries(target),
+		{ kind: "separator" },
 		{ kind: "item", label: t("common.delete"), icon: <Trash2 size={16} />, danger: true, onSelect: () => deleteTag(target) },
 	];
 
@@ -1145,12 +1255,20 @@ function App() {
 					) : listView.kind === "tags" ? (
 						<TagsPage
 							tags={tags.tags}
+							categories={tags.categories}
 							counts={tagCounts}
+							layout={layouts.tags}
+							onLayoutChange={(layout) => setLayout("tags", layout)}
 							onOpen={(target) => showView({ kind: "tag", id: target.id })}
 							onPlay={(target) => playTracks(tracksOfTag(target), { kind: "tag", id: target.id })}
 							playingId={playingIn("tag")}
 							onOpenMenu={(target, x, y) => setMenu({ x, y, entries: tagMenu(target) })}
-							onCreate={() => setTagDialog({ tag: null })}
+							onCreate={(category) => setTagDialog({ tag: null, categoryIds: category ? [category.id] : [] })}
+							onCreateCategory={() => setCategoryDialog({ category: null })}
+							onRenameCategory={(category) => setCategoryDialog({ category })}
+							onMoveTag={moveTag}
+							onOpenCategoryMenu={(target, x, y) => setMenu({ x, y, entries: categoryMenu(target) })}
+							onReorderCategories={tags.reorderCategories}
 						/>
 					) : listView.kind === "settings" ? (
 						<SettingsPage
@@ -1425,6 +1543,8 @@ function App() {
 					onEditTags={(track) => setTagPicker([track])}
 					onEditDetails={(track) => setEditing([track])}
 					onOpenTag={(target) => showView({ kind: "tag", id: target.id }, listView)}
+					onRemoveTag={(track, target) => trackStats.setTrackTag([track], target.id, false)}
+					onOpenTagMenu={(track, target, x, y) => setMenu({ x, y, entries: tagChipMenu(track, target) })}
 					canOpenArtist={canOpenArtist}
 					onOpenArtist={openArtist}
 					canOpenAlbum={(track) => { const key = albumKeyOf(track); return !!key && albumsByKey.has(key); }}
@@ -1524,26 +1644,45 @@ function App() {
 				/>
 			)}
 
-			{tagDialog && (
-				<TagDialog
-					tag={tagDialog.tag}
-					initialColor={nextTagColor(tags.tags)}
-					tags={tags.tags}
-					onSave={saveTag}
-					onClose={() => setTagDialog(null)}
-				/>
-			)}
-
 			{tagPicker && (
 				<TagPicker
 					tracks={tagPicker}
 					tags={tags.tags}
+					categories={tags.categories}
+					counts={tagCounts}
 					stats={trackStats.stats}
 					onToggle={(tag, assigned) => trackStats.setTrackTag(tagPicker, tag.id, assigned)}
-					onCreate={(name) => createTagFor(name, tagPicker)}
-					onClose={() => setTagPicker(null)}
+					onCreate={(name, categoryIds) => setTagDialog({ tag: null, name, categoryIds, assignTo: tagPicker })}
+					// Escape closes the tag dialog over it, not the picker as well.
+					onClose={() => {
+						if (!tagDialog) setTagPicker(null);
+					}}
 				/>
 			)}
+
+			{tagDialog && (
+				<TagDialog
+					tag={tagDialog.tag}
+					initialColor={nextTagColor(tags.tags)}
+					initialCategoryIds={tagDialog.categoryIds}
+					initialName={tagDialog.name}
+					tags={tags.tags}
+					categories={tags.categories}
+					onSave={saveTag}
+					onCreateCategory={tags.createCategory}
+					onClose={() => setTagDialog(null)}
+				/>
+			)}
+
+			{categoryDialog && (
+				<CategoryDialog
+					category={categoryDialog.category}
+					categories={tags.categories}
+					onSave={saveCategory}
+					onClose={() => setCategoryDialog(null)}
+				/>
+			)}
+
 
 			<Notices />
 		</>

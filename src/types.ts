@@ -75,6 +75,17 @@ export interface UserTag {
     name: string;
     // "#rrggbb"
     color: string;
+    /** Categories the tag is shown in; none (or missing) for "no category". */
+    categoryIds?: string[];
+    createdAt: number;
+    updatedAt: number;
+}
+
+/** A named group of user tags ("Genre", "Mood"), in the user's order. */
+export interface TagCategory {
+    id: string;
+    name: string;
+    position: number;
     createdAt: number;
     updatedAt: number;
 }

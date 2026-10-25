@@ -209,12 +209,13 @@ mod tests {
         let lib = TempLibrary::new();
         let mut store = lib.open();
 
-        tags::create(&store, "Mine", "#000000").unwrap();
+        tags::create(&store, "Mine", "#000000", &[]).unwrap();
         let mut theirs = tags::TagsDoc::default();
         theirs.tags.push(tags::TagDef {
             id: crate::store::new_uuid(),
             name: "Theirs".into(),
             color: "#ffffff".into(),
+            category_ids: Vec::new(),
             created_at: 1,
             updated_at: 1,
             deleted_at: None,

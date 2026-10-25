@@ -25,6 +25,10 @@ interface TrackDetailPanelProps {
     /** Open the metadata editor for the track. */
     onEditDetails: (track: Track) => void;
     onOpenTag: (tag: UserTag) => void;
+    /** Take the tag off the track (the chip's ×). */
+    onRemoveTag: (track: Track, tag: UserTag) => void;
+    /** The menu of a tag chip (right click). */
+    onOpenTagMenu: (track: Track, tag: UserTag, x: number, y: number) => void;
     canOpenArtist: (name: string) => boolean;
     onOpenArtist: (name: string) => void;
     canOpenAlbum: (track: Track) => boolean;
@@ -78,6 +82,8 @@ export const TrackDetailPanel = ({
     onEditTags,
     onEditDetails,
     onOpenTag,
+    onRemoveTag,
+    onOpenTagMenu,
     canOpenArtist,
     onOpenArtist,
     canOpenAlbum,
@@ -146,7 +152,16 @@ export const TrackDetailPanel = ({
 
             <div className="detail-tags">
                 {tags.map(tag => (
-                    <TagChip key={tag.id} tag={tag} onClick={() => onOpenTag(tag)} />
+                    <TagChip
+                        key={tag.id}
+                        tag={tag}
+                        onClick={() => onOpenTag(tag)}
+                        onRemove={() => onRemoveTag(track, tag)}
+                        onContextMenu={(e) => {
+                            e.preventDefault();
+                            onOpenTagMenu(track, tag, e.clientX, e.clientY);
+                        }}
+                    />
                 ))}
                 <button className="detail-tags-edit" onClick={() => onEditTags(track)}>
                     <Tag size={13} /> {tags.length > 0 ? t("detail.editTags") : t("detail.addTags")}

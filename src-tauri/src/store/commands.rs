@@ -8,7 +8,7 @@ use super::events::{self, EventKind, TrackStats};
 use super::playlists::{self, PlaylistView, SmartRules, SortSpec};
 use super::settings::{self, LibrarySettings};
 use crate::artists::ArtistRules;
-use super::tags::{self, TagDef};
+use super::tags::{self, CategoryDef, TagDef};
 use super::{conflicts, Store, StoreError};
 use crate::db::search::SearchHit;
 use crate::db::LibraryDb;
@@ -301,8 +301,13 @@ pub(crate) async fn list_tags(state: State<'_, StoreState>) -> Result<Vec<TagDef
 }
 
 #[tauri::command]
-pub(crate) async fn create_tag(state: State<'_, StoreState>, name: String, color: String) -> Result<TagDef, StoreError> {
-    with_store(&state, |store| tags::create(store, &name, &color))
+pub(crate) async fn create_tag(
+    state: State<'_, StoreState>,
+    name: String,
+    color: String,
+    category_ids: Option<Vec<String>>,
+) -> Result<TagDef, StoreError> {
+    with_store(&state, |store| tags::create(store, &name, &color, category_ids.as_deref().unwrap_or_default()))
 }
 
 #[tauri::command]
@@ -311,13 +316,40 @@ pub(crate) async fn update_tag(
     id: String,
     name: Option<String>,
     color: Option<String>,
+    category_ids: Option<Vec<String>>,
 ) -> Result<TagDef, StoreError> {
-    with_store(&state, |store| tags::update(store, &id, name.as_deref(), color.as_deref()))
+    with_store(&state, |store| tags::update(store, &id, name.as_deref(), color.as_deref(), category_ids.as_deref()))
 }
 
 #[tauri::command]
 pub(crate) async fn delete_tag(state: State<'_, StoreState>, id: String) -> Result<(), StoreError> {
     with_store(&state, |store| tags::delete(store, &id))
+}
+
+#[tauri::command]
+pub(crate) async fn list_tag_categories(state: State<'_, StoreState>) -> Result<Vec<CategoryDef>, StoreError> {
+    with_store(&state, |store| tags::list_categories(store))
+}
+
+#[tauri::command]
+pub(crate) async fn create_tag_category(state: State<'_, StoreState>, name: String) -> Result<CategoryDef, StoreError> {
+    with_store(&state, |store| tags::create_category(store, &name))
+}
+
+#[tauri::command]
+pub(crate) async fn rename_tag_category(state: State<'_, StoreState>, id: String, name: String) -> Result<CategoryDef, StoreError> {
+    with_store(&state, |store| tags::rename_category(store, &id, &name))
+}
+
+#[tauri::command]
+pub(crate) async fn delete_tag_category(state: State<'_, StoreState>, id: String) -> Result<(), StoreError> {
+    with_store(&state, |store| tags::delete_category(store, &id))
+}
+
+/// The categories in the order of `ids`; returns them all, in order.
+#[tauri::command]
+pub(crate) async fn reorder_tag_categories(state: State<'_, StoreState>, ids: Vec<String>) -> Result<Vec<CategoryDef>, StoreError> {
+    with_store(&state, |store| tags::reorder_categories(store, &ids))
 }
 
 // ---- Playlists ----

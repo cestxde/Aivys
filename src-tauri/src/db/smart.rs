@@ -316,7 +316,7 @@ mod tests {
         )
         .unwrap();
 
-        let tag = tags::create(&store, "Chill", "#000000").unwrap();
+        let tag = tags::create(&store, "Chill", "#000000", &[]).unwrap();
         append(&store, "b.flac", EventKind::Rating, Some(5), None).unwrap();
         append(&store, "b.flac", EventKind::Play, None, None).unwrap();
         append(&store, "a.flac", EventKind::Favorite, None, None).unwrap();

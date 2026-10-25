@@ -35,3 +35,53 @@ button.tag-chip:hover {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* A chip with a remove button: the name and the × are separate buttons. */
+.tag-chip.removable {
+    gap: 0;
+    padding: 0;
+}
+
+.tag-chip-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 2px 2px 2px 7px;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    color: inherit;
+    font: inherit;
+}
+
+button.tag-chip-main {
+    cursor: pointer;
+}
+
+.tag-chip.removable:hover {
+    background: color-mix(in srgb, var(--tag-color) 28%, transparent);
+}
+
+.tag-chip-remove {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-right: 3px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--text-h);
+    cursor: pointer;
+    opacity: 0.55;
+}
+
+.tag-chip-remove:hover,
+.tag-chip-remove:focus-visible {
+    opacity: 1;
+    background: color-mix(in srgb, var(--tag-color) 45%, transparent);
+}

@@ -1,3 +1,45 @@
+/* With categories the dialog is wider: the sidebar beside the list. */
+.tag-picker.with-sidebar {
+    width: min(680px, 100%);
+}
+
+.tag-picker-body {
+    display: flex;
+    gap: 12px;
+    min-height: 0;
+}
+
+.tag-picker-body .category-sidebar {
+    flex-shrink: 0;
+    width: 190px;
+    max-height: 380px;
+    padding-right: 12px;
+    border-right: 1px solid var(--border);
+}
+
+.tag-picker-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 0.6rem;
+    min-width: 0;
+}
+
+/* Narrow (phones): the categories above the list. */
+@media (max-width: 560px) {
+    .tag-picker-body {
+        flex-direction: column;
+    }
+
+    .tag-picker-body .category-sidebar {
+        width: auto;
+        max-height: 120px;
+        padding: 0 0 6px;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+}
+
 .tag-picker-list {
     min-height: 160px;
 }
@@ -27,7 +69,17 @@
 }
 
 .tag-picker-row .add-to-row-name {
-    flex: 1;
+    flex: 0 1 auto;
+}
+
+/* Tracks with the tag in the library, gray beside its name. */
+.tag-picker-count {
+    flex-shrink: 0;
+    margin-right: auto;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    opacity: 0.6;
 }
 
 /* One highlighted row, whether the keys or the pointer moved it. */
@@ -37,4 +89,47 @@
 
 .tag-picker-list button.tag-picker-row.highlighted {
     background: var(--surface);
+}
+
+.tag-picker-search {
+    display: flex;
+    gap: 8px;
+}
+
+.tag-picker-search .search-input {
+    flex: 1;
+    min-width: 0;
+}
+
+/* A category's heading in "All": collapses its tags. */
+.tag-picker-heading {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 4px 4px;
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: left;
+    color: var(--text);
+    opacity: 0.7;
+    cursor: pointer;
+}
+
+.tag-picker-heading:hover {
+    opacity: 1;
+}
+
+.tag-picker-heading:first-child {
+    padding-top: 2px;
+}
+
+.tag-picker-heading-count {
+    font-weight: 400;
+    opacity: 0.8;
 }

@@ -339,7 +339,7 @@ mod tests {
         assert_eq!(db.sync_events(&store).unwrap(), 2);
         assert_eq!(db.sync_events(&store).unwrap(), 0);
 
-        let tag = tags::create(&store, "Chill", "#000000").unwrap();
+        let tag = tags::create(&store, "Chill", "#000000", &[]).unwrap();
         append(&store, "a.flac", EventKind::Play, None, None).unwrap();
         append(&store, "a.flac", EventKind::Rating, Some(5), None).unwrap();
         append(&store, "b.flac", EventKind::Tag, None, Some(tag.id.clone())).unwrap();
@@ -405,7 +405,7 @@ mod tests {
         assert!(db.track_stats().unwrap()["a.flac"].favorite);
 
         // A deleted tag goes from the tracks without any journal change.
-        let tag = tags::create(&store, "Chill", "#000000").unwrap();
+        let tag = tags::create(&store, "Chill", "#000000", &[]).unwrap();
         append(&store, "a.flac", EventKind::Tag, None, Some(tag.id.clone())).unwrap();
         db.sync_events_if_changed(&store).unwrap();
         assert_eq!(db.track_stats().unwrap()["a.flac"].tags, vec![tag.id.clone()]);

@@ -1,21 +1,33 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Check, Minus, Plus, X } from "lucide-react";
-import type { Track, TrackStats, UserTag } from "../../types";
+import { Check, ChevronDown, ChevronRight, Minus, Plus, X } from "lucide-react";
+import type { TagCategory, Track, TrackStats, UserTag } from "../../types";
 import { displayTitle } from "../../utils/track";
+import { groupTags, sortTags } from "../../utils/tags";
+import { useTagSort } from "../../hooks/useTags";
+import { useRememberedState, useStoredState } from "../../hooks/useRemembered";
 import { TagDot } from "../TagChip/TagChip";
+import { TagSortButton } from "../TagSortButton/TagSortButton";
+import { CategorySidebar, type CategoryFilter } from "../CategorySidebar/CategorySidebar";
 import { t } from "../../i18n";
 import "./TagPicker.css";
 
 interface TagPickerProps {
     tracks: Track[];
     tags: UserTag[];
+    /** In the user's order. */
+    categories: TagCategory[];
+    /** Tagged library tracks per tag id. */
+    counts: Map<string, number>;
     stats: Record<string, TrackStats>;
     /** Assign the tag to all `tracks`, or remove it from all of them. */
     onToggle: (tag: UserTag, assigned: boolean) => void;
-    /** Create a tag named `name` and assign it. */
-    onCreate: (name: string) => void;
+    /** Create a tag named `name` (in `categoryIds`) and assign it. */
+    onCreate: (name: string, categoryIds: string[]) => void;
     onClose: () => void;
 }
+
+const isIdList = (value: unknown): value is string[] =>
+    Array.isArray(value) && value.every(item => typeof item === "string");
 
 /** How well `name` matches the typed `query` (lower case): lower is closer. */
 const closeness = (name: string, query: string) => {
@@ -26,18 +38,27 @@ const closeness = (name: string, query: string) => {
     return 3;
 };
 
+/** A row of the list: a category's heading, or a tag (once per category it is in). */
+type Entry =
+    | { kind: "heading"; key: string; id: string; name: string; count: number; collapsed: boolean }
+    | { kind: "tag"; key: string; tag: UserTag };
+
 /**
- * "Tags…" for one or more tracks: a filterable checklist, where every click
- * is saved at once. Typing filters the tags, closest first, and highlights
- * the closest one; with no tag found, "Create" (always first) is highlighted
- * instead. Enter applies the highlighted row and clears the field for the
- * next name; the arrow keys move the highlight.
+ * "Tags…" for one or more tracks: a checklist by category, where every click
+ * is saved at once; the sidebar shows all categories or one. Typing searches
+ * all tags into one list, closest first, and highlights the closest one; with
+ * no tag found, "Create" (always first) is highlighted instead. Enter applies
+ * the highlighted row and clears the field for the next name; the arrow keys
+ * move the highlight.
  */
-export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: TagPickerProps) => {
+export const TagPicker = ({ tracks, tags, categories, counts, stats, onToggle, onCreate, onClose }: TagPickerProps) => {
     const [filter, setFilter] = useState("");
+    const [sort, setSort] = useTagSort();
+    const [picked, setPicked] = useRememberedState<CategoryFilter>("tagPicker.category", null);
+    const [collapsed, setCollapsed] = useStoredState<string[]>("tagPicker.collapsed", [], isIdList);
     // The highlighted row, for the query it was chosen at: a new query
     // highlights its closest row again.
-    const [picked, setPicked] = useState<{ query: string; index: number } | null>(null);
+    const [highlight, setHighlight] = useState<{ query: string; index: number } | null>(null);
     const list = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -48,32 +69,55 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
         return () => window.removeEventListener("keydown", onKey);
     }, [onClose]);
 
+    // A picked category that was deleted meanwhile shows all again.
+    const selected = picked === null || categories.some(c => c.id === picked) || (picked === "" && categories.length > 0)
+        ? picked
+        : null;
     const query = filter.trim();
     const lower = query.toLowerCase();
-    const shown = lower
-        ? tags
-            .filter(tag => tag.name.toLowerCase().includes(lower))
-            .map(tag => ({ tag, rank: closeness(tag.name, lower) }))
-            .sort((a, b) => a.rank - b.rank)
-            .map(({ tag }) => tag)
-        : tags;
     const canCreate = query !== "" && !tags.some(tag => tag.name.toLowerCase() === lower);
+
+    const toEntry = (tag: UserTag, prefix = ""): Entry => ({ kind: "tag", key: `${prefix}:${tag.id}`, tag });
+    const groups = groupTags(tags, categories);
+    const entries: Entry[] = lower
+        ? sortTags(tags.filter(tag => tag.name.toLowerCase().includes(lower)), sort, counts)
+            .map(tag => ({ tag, rank: closeness(tag.name, lower) }))
+            // Stable: within a rank the chosen order stays.
+            .sort((a, b) => a.rank - b.rank)
+            .map(({ tag }) => toEntry(tag))
+        : categories.length === 0
+            ? sortTags(tags, sort, counts).map(tag => toEntry(tag))
+            : selected !== null
+                ? sortTags(groups.find(group => (group.category?.id ?? "") === selected)?.tags ?? [], sort, counts)
+                    .map(tag => toEntry(tag, selected))
+                : groups
+                    .filter(group => group.tags.length > 0)
+                    .flatMap(({ category, tags: inGroup }): Entry[] => {
+                        const id = category?.id ?? "";
+                        const isCollapsed = collapsed.includes(id);
+                        return [
+                            { kind: "heading", key: `heading:${id}`, id, name: category?.name ?? t("tags.noCategory"), count: inGroup.length, collapsed: isCollapsed },
+                            ...(isCollapsed ? [] : sortTags(inGroup, sort, counts).map(tag => toEntry(tag, id))),
+                        ];
+                    });
+    const tagEntries = entries.flatMap(entry => (entry.kind === "tag" ? [entry] : []));
 
     /** How many of the tracks have the tag. */
     const countOf = (tag: UserTag) =>
         tracks.filter(track => stats[track.relPath]?.tags.includes(tag.id)).length;
 
     // The rows Enter and the arrows go through: "Create" first, then the tags.
-    const rowCount = (canCreate ? 1 : 0) + shown.length;
-    const closest = query === "" ? -1 : canCreate && shown.length > 0 ? 1 : 0;
-    const highlighted = picked?.query === query ? Math.min(picked.index, rowCount - 1) : closest;
-    const tagAt = (index: number) => shown[index - (canCreate ? 1 : 0)];
+    const rowCount = (canCreate ? 1 : 0) + tagEntries.length;
+    const closest = query === "" ? -1 : canCreate && tagEntries.length > 0 ? 1 : 0;
+    const highlighted = highlight?.query === query ? Math.min(highlight.index, rowCount - 1) : closest;
+    const indexOf = (key: string) => tagEntries.findIndex(entry => entry.key === key) + (canCreate ? 1 : 0);
 
     const subject = tracks.length === 1 ? displayTitle(tracks[0]) : t("common.tracks", { count: tracks.length });
 
+    // A new tag starts in the category shown.
     const create = () => {
         if (!canCreate) return;
-        onCreate(query);
+        onCreate(query, selected ? [selected] : []);
         setFilter("");
     };
 
@@ -85,15 +129,18 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
             create();
             return;
         }
-        toggle(tagAt(highlighted));
+        toggle(tagEntries[highlighted - (canCreate ? 1 : 0)].tag);
         setFilter("");
     };
 
     const move = (step: number) => {
         if (rowCount === 0) return;
         const from = highlighted < 0 ? (step > 0 ? -1 : rowCount) : highlighted;
-        setPicked({ query, index: (from + step + rowCount) % rowCount });
+        setHighlight({ query, index: (from + step + rowCount) % rowCount });
     };
+
+    const toggleCollapsed = (id: string) =>
+        setCollapsed(collapsed.includes(id) ? collapsed.filter(other => other !== id) : [...collapsed, id]);
 
     useLayoutEffect(() => {
         list.current?.querySelector(".highlighted")?.scrollIntoView({ block: "nearest" });
@@ -101,13 +148,17 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
 
     const rowProps = (index: number) => ({
         onPointerMove: () => {
-            if (highlighted !== index) setPicked({ query, index });
+            if (highlighted !== index) setHighlight({ query, index });
         },
     });
 
     return (
         <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-            <div className="add-to-dialog" role="dialog" aria-label={t("tagPicker.title")}>
+            <div
+                className={`add-to-dialog tag-picker ${categories.length > 0 ? "with-sidebar" : ""}`}
+                role="dialog"
+                aria-label={t("tagPicker.title")}
+            >
                 <div className="add-to-header">
                     <div className="add-to-heading">
                         <h2>{t("tagPicker.title")}</h2>
@@ -118,66 +169,102 @@ export const TagPicker = ({ tracks, tags, stats, onToggle, onCreate, onClose }: 
                     </button>
                 </div>
 
-                <input
-                    className="search-input"
-                    placeholder={tags.length > 0 ? t("tagPicker.find") : t("tagPicker.nameNew")}
-                    value={filter}
-                    autoFocus
-                    onChange={(e) => setFilter(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") apply();
-                        else if (e.key === "ArrowDown") move(1);
-                        else if (e.key === "ArrowUp") move(-1);
-                        else return;
-                        e.preventDefault();
-                    }}
-                />
-
-                <div className="add-to-list tag-picker-list" ref={list}>
-                    {canCreate && (
-                        <button
-                            className={`add-to-row tag-picker-row ${highlighted === 0 ? "highlighted" : ""}`}
-                            onClick={create}
-                            {...rowProps(0)}
-                        >
-                            <span className="tag-picker-check"><Plus size={14} /></span>
-                            <span className="add-to-row-name">{t("tagPicker.create", { name: query })}</span>
-                        </button>
+                <div className="tag-picker-body">
+                    {categories.length > 0 && (
+                        <CategorySidebar
+                            tags={tags}
+                            categories={categories}
+                            selected={selected}
+                            onSelect={setPicked}
+                        />
                     )}
 
-                    {shown.map((tag, i) => {
-                        const index = i + (canCreate ? 1 : 0);
-                        const count = countOf(tag);
-                        const all = count > 0 && count === tracks.length;
-                        const state = all ? "on" : count > 0 ? "mixed" : "off";
-                        return (
-                            <button
-                                key={tag.id}
-                                className={`add-to-row tag-picker-row ${state} ${highlighted === index ? "highlighted" : ""}`}
-                                role="checkbox"
-                                aria-checked={all ? true : count > 0 ? "mixed" : false}
-                                onClick={() => toggle(tag)}
-                                {...rowProps(index)}
-                            >
-                                <span className="tag-picker-check">
-                                    {all && <Check size={14} />}
-                                    {state === "mixed" && <Minus size={14} />}
-                                </span>
-                                <TagDot color={tag.color} size={12} />
-                                <span className="add-to-row-name">{tag.name}</span>
-                                {state === "mixed" && (
-                                    <span className="add-to-row-meta">{t("tagPicker.partial", { count, total: tracks.length })}</span>
-                                )}
-                            </button>
-                        );
-                    })}
+                    <div className="tag-picker-main">
+                        <div className="tag-picker-search">
+                            <input
+                                className="search-input"
+                                placeholder={tags.length > 0 ? t("tagPicker.find") : t("tagPicker.nameNew")}
+                                value={filter}
+                                autoFocus
+                                onChange={(e) => setFilter(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") apply();
+                                    else if (e.key === "ArrowDown") move(1);
+                                    else if (e.key === "ArrowUp") move(-1);
+                                    else return;
+                                    e.preventDefault();
+                                }}
+                            />
+                            {tags.length > 1 && <TagSortButton sort={sort} onChange={setSort} />}
+                        </div>
 
-                    {tags.length === 0 && !canCreate && (
-                        <div className="add-to-empty">{t("tagPicker.empty")}</div>
-                    )}
-                    {tags.length > 0 && shown.length === 0 && !canCreate && (
-                        <div className="add-to-empty">{t("tagPicker.noMatch")}</div>
-                    )}
+                        <div className="add-to-list tag-picker-list" ref={list}>
+                            {canCreate && (
+                                <button
+                                    className={`add-to-row tag-picker-row ${highlighted === 0 ? "highlighted" : ""}`}
+                                    onClick={create}
+                                    {...rowProps(0)}
+                                >
+                                    <span className="tag-picker-check"><Plus size={14} /></span>
+                                    <span className="add-to-row-name">{t("tagPicker.create", { name: query })}</span>
+                                </button>
+                            )}
+
+                            {entries.map(entry => {
+                                if (entry.kind === "heading") {
+                                    return (
+                                        <button
+                                            key={entry.key}
+                                            className="tag-picker-heading"
+                                            aria-expanded={!entry.collapsed}
+                                            title={entry.collapsed ? t("tags.expand") : t("tags.collapse")}
+                                            onClick={() => toggleCollapsed(entry.id)}
+                                        >
+                                            {entry.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                                            {entry.name}
+                                            <span className="tag-picker-heading-count">{entry.count}</span>
+                                        </button>
+                                    );
+                                }
+                                const { tag } = entry;
+                                const index = indexOf(entry.key);
+                                const count = countOf(tag);
+                                const all = count > 0 && count === tracks.length;
+                                const state = all ? "on" : count > 0 ? "mixed" : "off";
+                                const tracksWith = counts.get(tag.id) ?? 0;
+                                return (
+                                    <button
+                                        key={entry.key}
+                                        className={`add-to-row tag-picker-row ${state} ${highlighted === index ? "highlighted" : ""}`}
+                                        role="checkbox"
+                                        aria-checked={all ? true : count > 0 ? "mixed" : false}
+                                        onClick={() => toggle(tag)}
+                                        {...rowProps(index)}
+                                    >
+                                        <span className="tag-picker-check">
+                                            {all && <Check size={14} />}
+                                            {state === "mixed" && <Minus size={14} />}
+                                        </span>
+                                        <TagDot color={tag.color} size={12} />
+                                        <span className="add-to-row-name">{tag.name}</span>
+                                        <span className="tag-picker-count" title={t("common.tracks", { count: tracksWith })}>
+                                            ({tracksWith})
+                                        </span>
+                                        {state === "mixed" && (
+                                            <span className="add-to-row-meta">{t("tagPicker.partial", { count, total: tracks.length })}</span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+
+                            {tags.length === 0 && !canCreate && (
+                                <div className="add-to-empty">{t("tagPicker.empty")}</div>
+                            )}
+                            {tags.length > 0 && tagEntries.length === 0 && !canCreate && entries.length === 0 && (
+                                <div className="add-to-empty">{query ? t("tagPicker.noMatch") : t("tagPicker.categoryEmpty")}</div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

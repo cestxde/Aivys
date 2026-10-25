@@ -1,14 +1,48 @@
+/* The category sidebar beside the tags, each scrolling on its own. */
 .tags-page {
     display: flex;
-    flex-direction: column;
     gap: 1rem;
+    min-height: 0;
+}
+
+.tags-sidebar {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    width: 210px;
+    min-height: 0;
+    padding-right: 0.75rem;
+    border-right: 1px solid var(--border);
+}
+
+.tags-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 1rem;
+    min-width: 0;
     min-height: 0;
     overflow-y: auto;
 }
 
-/* The page scrolls; its sections keep their full height. */
-.tags-page > * {
+/* The tags scroll; their sections keep their full height. */
+.tags-main > * {
     flex-shrink: 0;
+}
+
+/* Narrow (phones): the categories above the tags. */
+@media (max-width: 640px) {
+    .tags-page {
+        flex-direction: column;
+    }
+
+    .tags-sidebar {
+        width: auto;
+        max-height: 30%;
+        padding: 0 0 0.5rem;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
 }
 
 .tags-toolbar {
@@ -132,3 +166,145 @@
     opacity: 1 !important;
     background: var(--border);
 }
+
+.tag-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.tag-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-radius: 8px;
+}
+
+.tag-section-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.tag-section-name {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-h);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tag-section-count {
+    font-size: 0.8rem;
+    color: var(--text);
+    opacity: 0.6;
+}
+
+.tag-section-button {
+    display: flex;
+    padding: 4px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text);
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+/* The first button after the count goes to the right. */
+.tag-section-count + .tag-section-button {
+    margin-left: auto;
+}
+
+.tag-section-button:hover {
+    opacity: 1;
+    background: var(--border);
+}
+
+.tag-section-empty {
+    padding: 0.5rem 0;
+    font-size: 0.85rem;
+    color: var(--text);
+    opacity: 0.6;
+}
+
+.tag-card.dragging {
+    opacity: 0.45;
+}
+
+/* A tag dragged over a category: it goes there. */
+.tag-section.drop-into {
+    outline: 2px dashed var(--accent);
+    outline-offset: 4px;
+}
+
+.tag-section-toggle {
+    display: flex;
+    padding: 2px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text);
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.tag-section-toggle:hover {
+    opacity: 1;
+    background: var(--border);
+}
+
+.tag-sections.is-reordering {
+    cursor: grabbing;
+    user-select: none;
+}
+
+/* The list layout: one row per tag, its track count beside the name. */
+.tags-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.tag-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    height: 40px;
+    padding: 0 6px 0 10px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.tag-row:hover,
+.tag-row:focus-visible {
+    background: color-mix(in srgb, var(--tag-color) 10%, var(--bg));
+    outline: none;
+}
+
+.tag-row.dragging {
+    opacity: 0.45;
+}
+
+.tag-row-text {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.tag-row-count {
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    color: var(--text);
+    opacity: 0.6;
+}
+
+.tag-row:hover .tag-card-menu {
+    opacity: 0.7;
+}
+

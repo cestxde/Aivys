@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import type { PlaylistsLayout } from "../components/PlaylistsPage/PlaylistsPage";
 
 /** Collection pages with a grid / list switch. */
-export type LayoutPage = "playlists" | "artists" | "albums";
+export type LayoutPage = "playlists" | "artists" | "albums" | "tags";
 
 type Layouts = Record<LayoutPage, PlaylistsLayout>;
 
@@ -11,7 +11,7 @@ const KEY = "aivys.layouts";
 // Before layouts were per page, only the playlists page had one.
 const LEGACY_KEY = "aivys.playlistsLayout";
 
-const DEFAULTS: Layouts = { playlists: "grid", artists: "grid", albums: "grid" };
+const DEFAULTS: Layouts = { playlists: "grid", artists: "grid", albums: "grid", tags: "grid" };
 
 const load = (): Layouts => {
     try {

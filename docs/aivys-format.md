@@ -367,6 +367,17 @@ journals (`tag`/`untag`, §8.2).
       "id": "8f1c...uuid",
       "name": "Chill",
       "color": "#4f9dff",
+      "categoryIds": ["2b7e...uuid"],
+      "createdAt": 1730000000,
+      "updatedAt": 1730000000,
+      "deletedAt": null
+    }
+  ],
+  "categories": [
+    {
+      "id": "2b7e...uuid",
+      "name": "Mood",
+      "position": 0,
       "createdAt": 1730000000,
       "updatedAt": 1730000000,
       "deletedAt": null
@@ -380,9 +391,20 @@ journals (`tag`/`untag`, §8.2).
 - `color` is a CSS hex string (`#RRGGBB`).
 - Deleting a tag sets `deletedAt` (tombstone) and `updatedAt`. Assignments to a
   deleted tag are ignored when deriving state; the journal is not touched.
+- **Categories** group tags for display ("Genre", "Mood"). `categories` and a
+  tag's `categoryIds` are optional (a file without them has no categories, a
+  tag without `categoryIds` is in none). A tag may be in several categories;
+  its `categoryIds` are part of the tag, so changing them updates the tag's
+  `updatedAt`.
+- Categories are shown by ascending `position` (ties by `name`); reordering
+  rewrites the positions of the moved categories.
+- Deleting a category sets its `deletedAt` (tombstone) and `updatedAt`; tags
+  keep its id in `categoryIds`, and ids of deleted or unknown categories are
+  ignored.
 - **Merge strategy:** union of `tags` by `id`. For a tag present on both
   sides, the entry with the greater **per-tag** `updatedAt` wins as a whole
-  (including `deletedAt`). Document `updatedAt` is informational.
+  (including `deletedAt`). `categories` merge the same way, by `id` and
+  per-category `updatedAt`. Document `updatedAt` is informational.
 
 ### 8.4 `playlists/<uuid>.json`
 
