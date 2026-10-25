@@ -1,8 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { getVersion } from "@tauri-apps/api/app";
-import { FolderOpen, Info, Keyboard, MicVocal, Palette, RefreshCw, Library, Share2 } from "lucide-react";
+import { Download, FolderOpen, Info, Keyboard, MicVocal, Palette, RefreshCw, Library, Share2 } from "lucide-react";
 import { ArtistRulesEditor } from "./ArtistRules";
 import { ShortcutSettings } from "./ShortcutSettings";
+import {
+    checkForUpdates, openUpdateDialog, setUpdatePrompt, useUpdatePrompt, useUpdateStatus,
+} from "../../utils/updates";
 import type { ThemePreference } from "../../utils/theme";
 import {
     getLanguagePreference, getLogoPreference, setLanguagePreference, setLogoPreference, t,
@@ -81,6 +84,8 @@ export const SettingsPage = ({
 }: SettingsPageProps) => {
     const [version, setVersion] = useState<string | null>(null);
     const [checking, setChecking] = useState(false);
+    const updates = useUpdateStatus();
+    const prompt = useUpdatePrompt();
 
     useEffect(() => {
         getVersion().then(setVersion).catch(() => setVersion(null));
@@ -181,8 +186,40 @@ export const SettingsPage = ({
                 </Row>
             </Section>
 
-            <Section icon={<Info size={16} />} title={t("settings.about")}>
-                <Row title="Aivys" description={version ? t("settings.version", { version }) : undefined} />
+            <Section icon={<Info size={16} />} title={t("settings.updates")}>
+                <Row
+                    title={version ? t("settings.version", { version }) : "Aivys"}
+                    description={
+                        updates.kind === "checking" ? t("updates.checking")
+                            : updates.kind === "current" ? t("updates.upToDate")
+                            : updates.kind === "available" || updates.kind === "downloading" ? t("updates.available", { version: updates.update.version })
+                            : updates.kind === "error" ? t("updates.checkFailed", { message: updates.message })
+                            : undefined
+                    }
+                >
+                    {updates.kind === "available" || updates.kind === "downloading" || (updates.kind === "error" && updates.update) ? (
+                        <button className="settings-button" onClick={openUpdateDialog}>
+                            <Download size={14} /> {t("updates.install")}
+                        </button>
+                    ) : (
+                        <button
+                            className="settings-button"
+                            disabled={updates.kind === "checking"}
+                            onClick={() => checkForUpdates({ manual: true })}
+                        >
+                            <RefreshCw size={14} className={updates.kind === "checking" ? "settings-spin" : ""} /> {t("updates.check")}
+                        </button>
+                    )}
+                </Row>
+                <Row title={t("updates.prompt")} description={t("updates.promptHint")}>
+                    <input
+                        type="checkbox"
+                        className="settings-checkbox"
+                        aria-label={t("updates.prompt")}
+                        checked={prompt}
+                        onChange={(e) => setUpdatePrompt(e.target.checked)}
+                    />
+                </Row>
             </Section>
         </div>
     );

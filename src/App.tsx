@@ -40,6 +40,9 @@ import { AlbumStrip } from "./components/AlbumStrip/AlbumStrip";
 import { SelectionBar } from "./components/SelectionBar/SelectionBar";
 import { QueuePanel } from "./components/QueuePanel/QueuePanel";
 import { MetadataEditor, type MetadataEdit } from "./components/MetadataEditor/MetadataEditor";
+import { UpdateDialog } from "./components/UpdateDialog/UpdateDialog";
+import { checkForUpdates, useUpdateDialogOpen } from "./utils/updates";
+import { savePosition } from "./utils/session";
 import { FolderGrid, GroupHeader, type Crumb } from "./components/GroupHeader/GroupHeader";
 import { AddToDialog } from "./components/AddToDialog/AddToDialog";
 import { TagsPage } from "./components/TagsPage/TagsPage";
@@ -164,6 +167,9 @@ interface EditResult {
 	tracks: Track[];
 	failed: string[];
 }
+
+/** How long after startup the update check waits (ms): the library loads first. */
+const UPDATE_CHECK_DELAY = 5000;
 
 /** How much the volume shortcuts change the volume (of 1). */
 const VOLUME_STEP = 0.05;
@@ -396,6 +402,13 @@ function App() {
 		})();
 		// Run once on mount.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	// A new version on GitHub: looked for quietly a little after startup.
+	const updateDialogOpen = useUpdateDialogOpen();
+	useEffect(() => {
+		const timer = setTimeout(() => checkForUpdates({ manual: false }), UPDATE_CHECK_DELAY);
+		return () => clearTimeout(timer);
 	}, []);
 
 	// The sort of the list on screen: remembered per kind of view, a manual
@@ -1443,6 +1456,16 @@ function App() {
 
 			{menu && (
 				<ContextMenu x={menu.x} y={menu.y} entries={menu.entries} onClose={closeMenu} />
+			)}
+
+			{updateDialogOpen && (
+				<UpdateDialog
+					// The installer ends the app right away: keep where playback was.
+					onBeforeInstall={() => {
+						element.pause();
+						if (activePath) savePosition(activePath, element.currentTime);
+					}}
+				/>
 			)}
 
 			{editing && (

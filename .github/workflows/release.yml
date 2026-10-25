@@ -1,0 +1,59 @@
+# A pushed version tag (`npm version …` then `git push --follow-tags`) builds
+# the Windows installer, signs the update with the updater key and puts both,
+# with latest.json for the app's updater, on a draft GitHub release. Publishing
+# the draft is what makes installed apps see the new version.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The release notes need the previous tag.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Release notes
+        id: notes
+        shell: bash
+        run: |
+          {
+            echo "body<<NOTES_EOF"
+            node scripts/release-notes.js "$GITHUB_REF_NAME"
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Aivys ${{ github.ref_name }}
+          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          # Update artifacts only here: a local build has no signing key.
+          args: --config src-tauri/tauri.release.conf.json

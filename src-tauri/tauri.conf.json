@@ -60,7 +60,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -68,5 +70,16 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEEzM0FBNkFFQzY3RTRBOTEKUldTUlNuN0dycVk2bzJFV3FRdGJSTWEwYjhKOGxOTDVMQmRQenpSMW93RnYrREZ1ODdHbmNHNHIK",
+      "endpoints": [
+        "https://github.com/cestxde/Aivys/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

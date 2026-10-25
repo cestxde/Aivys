@@ -339,3 +339,12 @@
     background: var(--border);
     color: var(--text-h);
 }
+
+/* A checkbox standing alone as a row's control. */
+.settings-checkbox {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}

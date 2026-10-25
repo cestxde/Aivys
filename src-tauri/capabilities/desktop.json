@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "Updates, on the platforms that have them",
+  "windows": [
+    "main"
+  ],
+  "platforms": [
+    "windows",
+    "macOS",
+    "linux"
+  ],
+  "permissions": [
+    "updater:default",
+    "process:allow-restart"
+  ]
+}

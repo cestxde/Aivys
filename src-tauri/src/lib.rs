@@ -32,13 +32,18 @@ pub fn run() {
     // Reopen the window where and as big as it was closed. Visibility is not
     // restored: the window stays hidden until the frontend has painted.
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    let builder = builder.plugin(
-        tauri_plugin_window_state::Builder::default()
-            .with_state_flags(
-                tauri_plugin_window_state::StateFlags::all() - tauri_plugin_window_state::StateFlags::VISIBLE,
-            )
-            .build(),
-    );
+    let builder = builder
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::all() - tauri_plugin_window_state::StateFlags::VISIBLE,
+                )
+                .build(),
+        )
+        // Updates from the GitHub releases (endpoint and key in tauri.conf.json),
+        // and the restart into the new version.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init());
 
     builder
         .manage(StoreState::default())
