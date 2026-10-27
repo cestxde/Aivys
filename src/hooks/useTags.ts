@@ -87,6 +87,21 @@ export const useTags = (files: Track[]) => {
         }
     }, []);
 
+    /**
+     * Merge tag `from` into `into` (tracks, categories, pin, smart-playlist
+     * rules); `from` is deleted. Reload stats, pins and playlists after.
+     */
+    const merge = useCallback(async (from: string, into: string): Promise<boolean> => {
+        try {
+            const merged = await invoke<UserTag>("merge_tags", { from, into });
+            setLoaded(prev => prev.filter(t => t.id !== from).map(t => (t.id === into ? merged : t)));
+            return true;
+        } catch (e) {
+            notifyError(t("error.mergeTag"), e);
+            return false;
+        }
+    }, []);
+
     const createCategory = useCallback(async (name: string): Promise<TagCategory | null> => {
         try {
             const category = await invoke<TagCategory>("create_tag_category", { name });
@@ -132,7 +147,7 @@ export const useTags = (files: Track[]) => {
     }, []);
 
     return {
-        tags, byId, create, update, remove,
+        tags, byId, create, update, remove, merge,
         categories, createCategory, renameCategory, removeCategory, reorderCategories,
     };
 };

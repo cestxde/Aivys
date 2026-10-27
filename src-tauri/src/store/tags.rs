@@ -1,5 +1,6 @@
 use super::fsio::{default_schema_version, now_unix, read_json_or_default, write_json, SCHEMA_VERSION};
-use super::{new_uuid, Store, StoreError};
+use super::events::{self, EventKind};
+use super::{new_uuid, pins, playlists, Store, StoreError};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashSet;
@@ -307,6 +308,65 @@ pub(crate) fn reorder_categories(store: &Store, ids: &[String]) -> Result<Vec<Ca
     list_categories(store)
 }
 
+/// Points a smart-playlist rule value naming tag `from` (by id or name) at
+/// `into` instead; returns whether it changed.
+fn retarget(value: &mut Value, from: &TagDef, into: &str) -> bool {
+    match value {
+        Value::String(text) if *text == from.id || text.to_lowercase() == from.name.to_lowercase() => {
+            *text = into.to_owned();
+            true
+        }
+        Value::Array(items) => items.iter_mut().fold(false, |changed, item| retarget(item, from, into) || changed),
+        _ => false,
+    }
+}
+
+/// Merge tag `from` into `into`: every track with `from` gets `into`, which
+/// also takes over its categories, its pin and its smart-playlist rules;
+/// then `from` is deleted. Returns `into` as it is then.
+pub(crate) fn merge_into(store: &Store, from: &str, into: &str) -> Result<TagDef, StoreError> {
+    if from == into {
+        return Err(StoreError::Invalid("a tag cannot be merged into itself".to_owned()));
+    }
+    let live = list(store)?;
+    let find = |id: &str| live.iter().find(|tag| tag.id == id).cloned().ok_or_else(|| StoreError::NotFound(format!("tag {id}")));
+    let (source, target) = (find(from)?, find(into)?);
+
+    let stats = events::derive(&events::read_all(store)?, &deleted_ids(store)?);
+    for (path, track) in &stats {
+        if track.tags.iter().any(|id| id == from) && !track.tags.iter().any(|id| id == into) {
+            events::append(store, path, EventKind::Tag, None, Some(into.to_owned()))?;
+        }
+    }
+
+    let mut category_ids = target.category_ids.clone();
+    category_ids.extend(source.category_ids.iter().filter(|id| !target.category_ids.contains(id)).cloned());
+    let merged = update(store, into, None, None, Some(&category_ids))?;
+
+    if pins::list(store)?.iter().any(|pin| pin.kind == "tag" && pin.key == from) {
+        pins::set(store, "tag", into, true)?;
+        pins::set(store, "tag", from, false)?;
+    }
+
+    for view in playlists::list(store)? {
+        let Some(mut rules) = view.playlist.rules.clone() else { continue };
+        if view.read_only {
+            continue;
+        }
+        let changed = rules
+            .conditions
+            .iter_mut()
+            .filter(|condition| condition.field == "tag")
+            .fold(false, |changed, condition| retarget(&mut condition.value, &source, into) || changed);
+        if changed {
+            playlists::set_rules(store, &view.playlist.id, rules)?;
+        }
+    }
+
+    delete(store, from)?;
+    Ok(merged)
+}
+
 /// Merge strategy: union by id; for a tag (or category) on both sides the
 /// entry with the greater per-entry `updatedAt` wins as a whole.
 pub(crate) fn merge(a: TagsDoc, b: TagsDoc) -> TagsDoc {
@@ -428,5 +488,52 @@ mod tests {
         let text = std::fs::read_to_string(store.path(FILE)).unwrap();
         assert!(!text.contains("categor"), "{text}");
         assert!(list(&store).unwrap()[0].category_ids.is_empty());
+    }
+
+    #[test]
+    fn merging_moves_tracks_categories_pin_and_rules() {
+        let lib = TempLibrary::new();
+        let store = lib.open();
+        let mood = create_category(&store, "Mood").unwrap();
+        let genre = create_category(&store, "Genre").unwrap();
+        let from = create(&store, "Rock music", "#ff0000", &[mood.id.clone()]).unwrap();
+        let into = create(&store, "Rock", "#00ff00", &[genre.id.clone()]).unwrap();
+        for path in ["a.mp3", "b.mp3"] {
+            events::append(&store, path, EventKind::Tag, None, Some(from.id.clone())).unwrap();
+        }
+        // b already has both: it gets no second assignment.
+        events::append(&store, "b.mp3", EventKind::Tag, None, Some(into.id.clone())).unwrap();
+        pins::set(&store, "tag", &from.id, true).unwrap();
+        let rules: playlists::SmartRules = serde_json::from_value(serde_json::json!({
+            "match": "any",
+            "conditions": [
+                { "field": "tag", "op": "eq", "value": "rock MUSIC" },
+                { "field": "tag", "op": "in", "value": [from.id, "other"] },
+            ],
+        }))
+        .unwrap();
+        let smart = playlists::create_smart(&store, "Loud", rules).unwrap();
+
+        let merged = merge_into(&store, &from.id, &into.id).unwrap();
+        assert_eq!(merged.category_ids, vec![genre.id.clone(), mood.id.clone()]);
+
+        let stats = events::derive(&events::read_all(&store).unwrap(), &deleted_ids(&store).unwrap());
+        assert_eq!(stats["a.mp3"].tags, vec![into.id.clone()], "the deleted tag no longer counts");
+        assert_eq!(stats["b.mp3"].tags, vec![into.id.clone()]);
+        let tagged_b = events::read_all(&store).unwrap().iter()
+            .filter(|e| e.line.path == "b.mp3" && e.line.tag_id.as_deref() == Some(into.id.as_str()))
+            .count();
+        assert_eq!(tagged_b, 1);
+
+        assert!(list(&store).unwrap().iter().all(|tag| tag.id != from.id));
+        let pinned = pins::list(&store).unwrap();
+        assert_eq!((pinned.len(), pinned[0].key.as_str()), (1, into.id.as_str()));
+
+        let view = playlists::list(&store).unwrap().into_iter().find(|v| v.playlist.id == smart.playlist.id).unwrap();
+        let values: Vec<Value> = view.playlist.rules.unwrap().conditions.into_iter().map(|c| c.value).collect();
+        assert_eq!(values, vec![serde_json::json!(into.id), serde_json::json!([into.id, "other"])]);
+
+        assert!(merge_into(&store, &into.id, &into.id).is_err());
+        assert!(merge_into(&store, &from.id, &into.id).is_err(), "a deleted tag cannot be merged");
     }
 }

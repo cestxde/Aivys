@@ -13,6 +13,9 @@ const NONE: Playlist[] = [];
 
 export const usePlaylists = (files: Track[]) => {
     const [playlists, setPlaylists] = useState<Playlist[]>([]);
+    // Bumped to load the playlists again (another change rewrote some).
+    const [version, setVersion] = useState(0);
+    const reload = useCallback(() => setVersion(v => v + 1), []);
 
     useEffect(() => {
         if (files.length === 0) return;
@@ -25,7 +28,7 @@ export const usePlaylists = (files: Track[]) => {
         return () => {
             cancelled = true;
         };
-    }, [files]);
+    }, [files, version]);
 
     const upsert = useCallback((playlist: Playlist) => {
         setPlaylists(prev => prev.some(p => p.id === playlist.id)
@@ -104,7 +107,7 @@ export const usePlaylists = (files: Track[]) => {
     return {
         // An empty library shows none (not those of the library opened before).
         playlists: files.length > 0 ? playlists : NONE,
-        createManual, createSmart, rename, setSort, setRules,
+        reload, createManual, createSmart, rename, setSort, setRules,
         addTracks, removeItems, reorder, remove, setCover, clearCover,
     };
 };

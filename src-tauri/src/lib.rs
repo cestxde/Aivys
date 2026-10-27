@@ -68,6 +68,7 @@ pub fn run() {
             create_tag,
             update_tag,
             delete_tag,
+            merge_tags,
             list_tag_categories,
             create_tag_category,
             rename_tag_category,

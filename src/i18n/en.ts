@@ -162,6 +162,12 @@ export const en = {
     },
     "confirm.deleteCategory.title": "Delete category",
     "confirm.deleteCategory.body": "Delete the category “{name}”? Its tags stay.",
+    "confirm.mergeTag.title": "Merge tags",
+    "confirm.mergeTag.ok": "Merge",
+    "confirm.mergeTag.body": {
+        one: "The tag “{from}” will be deleted. Its {count} track gets the tag “{into}”, which also takes over its categories, pin and smart-playlist rules.",
+        other: "The tag “{from}” will be deleted. Its {count} tracks get the tag “{into}”, which also takes over its categories, pin and smart-playlist rules.",
+    },
 
     // Errors (the backend's reason follows after a colon)
     "error.playback": "Playback failed",
@@ -176,6 +182,7 @@ export const en = {
     "error.createTag": "Could not create the tag",
     "error.saveTag": "Could not save the tag",
     "error.deleteTag": "Could not delete the tag",
+    "error.mergeTag": "Could not merge the tags",
     "error.saveCategory": "Could not save the category",
     "error.deleteCategory": "Could not delete the category",
     "error.loadPins": "Could not load the pinned items",
@@ -358,6 +365,9 @@ export const en = {
     "tagPicker.empty": "No tags yet. Type a name to create one.",
     "tagPicker.noMatch": "No tags match.",
     "tagPicker.categoryEmpty": "No tags in this category yet. Type a name to create one.",
+    "mergeTag.menu": "Merge into…",
+    "mergeTag.title": "Merge tag",
+    "mergeTag.subject": "“{name}” goes into the tag you pick",
     "tagPicker.partial": "{count} of {total}",
     "tagChip.remove": "Remove the tag “{name}”",
     "tagChip.removeFromTrack": "Remove from track",

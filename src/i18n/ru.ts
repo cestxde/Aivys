@@ -172,6 +172,14 @@ export const ru: Record<MessageKey, Message> = {
     },
     "confirm.deleteCategory.title": "Удаление категории",
     "confirm.deleteCategory.body": "Удалить категорию «{name}»? Её теги останутся.",
+    "confirm.mergeTag.title": "Объединение тегов",
+    "confirm.mergeTag.ok": "Объединить",
+    "confirm.mergeTag.body": {
+        one: "Тег «{from}» будет удалён. Его {count} трек получит тег «{into}», к «{into}» перейдут и его категории, закрепление и правила умных плейлистов.",
+        few: "Тег «{from}» будет удалён. Его {count} трека получат тег «{into}», к «{into}» перейдут и его категории, закрепление и правила умных плейлистов.",
+        many: "Тег «{from}» будет удалён. Его {count} треков получат тег «{into}», к «{into}» перейдут и его категории, закрепление и правила умных плейлистов.",
+        other: "Тег «{from}» будет удалён. Его {count} трека получат тег «{into}», к «{into}» перейдут и его категории, закрепление и правила умных плейлистов.",
+    },
 
     // Errors (the backend's reason follows after a colon)
     "error.playback": "Не удалось воспроизвести",
@@ -186,6 +194,7 @@ export const ru: Record<MessageKey, Message> = {
     "error.createTag": "Не удалось создать тег",
     "error.saveTag": "Не удалось сохранить тег",
     "error.deleteTag": "Не удалось удалить тег",
+    "error.mergeTag": "Не удалось объединить теги",
     "error.saveCategory": "Не удалось сохранить категорию",
     "error.deleteCategory": "Не удалось удалить категорию",
     "error.loadPins": "Не удалось загрузить закреплённое",
@@ -373,6 +382,9 @@ export const ru: Record<MessageKey, Message> = {
     "tagPicker.empty": "Тегов пока нет. Введите название, чтобы создать тег.",
     "tagPicker.noMatch": "Теги не найдены.",
     "tagPicker.categoryEmpty": "В этой категории пока нет тегов. Введите название, чтобы создать.",
+    "mergeTag.menu": "Объединить с…",
+    "mergeTag.title": "Объединить тег",
+    "mergeTag.subject": "«{name}» войдёт в выбранный тег",
     "tagPicker.partial": "{count} из {total}",
     "tagChip.remove": "Снять тег «{name}»",
     "tagChip.removeFromTrack": "Снять с трека",

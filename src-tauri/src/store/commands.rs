@@ -327,6 +327,13 @@ pub(crate) async fn delete_tag(state: State<'_, StoreState>, id: String) -> Resu
     with_store(&state, |store| tags::delete(store, &id))
 }
 
+/// Merge tag `from` into `into`: its tracks, categories, pin and smart-playlist
+/// rules go to `into`, then `from` is deleted. Returns `into`.
+#[tauri::command]
+pub(crate) async fn merge_tags(state: State<'_, StoreState>, from: String, into: String) -> Result<TagDef, StoreError> {
+    with_store(&state, |store| tags::merge_into(store, &from, &into))
+}
+
 #[tauri::command]
 pub(crate) async fn list_tag_categories(state: State<'_, StoreState>) -> Result<Vec<CategoryDef>, StoreError> {
     with_store(&state, |store| tags::list_categories(store))

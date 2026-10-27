@@ -28,6 +28,9 @@ export const pinnedFirst = <T,>(items: T[], isPinned: (item: T) => boolean): T[]
  */
 export const usePins = (files: Track[]) => {
     const [loaded, setLoaded] = useState<Pin[]>([]);
+    // Bumped to load the pins again (another change moved some).
+    const [version, setVersion] = useState(0);
+    const reload = useCallback(() => setVersion(v => v + 1), []);
 
     useEffect(() => {
         if (files.length === 0) return;
@@ -40,7 +43,7 @@ export const usePins = (files: Track[]) => {
         return () => {
             cancelled = true;
         };
-    }, [files]);
+    }, [files, version]);
 
     // An empty library pins nothing (not what the library opened before did).
     const empty = files.length === 0;
@@ -59,5 +62,5 @@ export const usePins = (files: Track[]) => {
         }
     }, []);
 
-    return { isPinned, setPinned };
+    return { isPinned, setPinned, reload };
 };

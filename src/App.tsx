@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import {
-	ArrowDown, ArrowUp, Check, FolderPlus, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
+	ArrowDown, ArrowUp, Check, FolderPlus, GitMerge, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
 } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
@@ -50,6 +50,7 @@ import { TagsPage } from "./components/TagsPage/TagsPage";
 import { TagHeader } from "./components/TagHeader/TagHeader";
 import { TagDialog } from "./components/TagDialog/TagDialog";
 import { CategoryDialog } from "./components/TagDialog/CategoryDialog";
+import { MergeTagDialog } from "./components/TagPicker/MergeTagDialog";
 import { TagPicker } from "./components/TagPicker/TagPicker";
 import { SettingsPage } from "./components/SettingsPage/SettingsPage";
 import { systemViewTracks, tagTracks } from "./utils/views";
@@ -217,6 +218,8 @@ function App() {
 	const [addTo, setAddTo] = useState<Track[] | null>(null);
 	const [tagDialog, setTagDialog] = useState<TagDialogState | null>(null);
 	const [categoryDialog, setCategoryDialog] = useState<CategoryDialogState | null>(null);
+	// The tag the "Merge into…" dialog is open for.
+	const [mergeTag, setMergeTag] = useState<UserTag | null>(null);
 	// Tracks the tag picker is open for.
 	const [tagPicker, setTagPicker] = useState<Track[] | null>(null);
 	// The view playback was started from (a view key), highlighted on its card.
@@ -795,6 +798,24 @@ function App() {
 		if (confirmed && await tags.remove(target.id)) trackStats.reload();
 	};
 
+	/** Merge `from` into `into` after a warning that `from` is deleted. */
+	const mergeTags = async (from: UserTag, into: UserTag) => {
+		const count = tagCounts.get(from.id) ?? 0;
+		const confirmed = await ask(t("confirm.mergeTag.body", { from: from.name, into: into.name, count }), {
+			title: t("confirm.mergeTag.title"),
+			kind: "warning",
+			okLabel: t("confirm.mergeTag.ok"),
+			cancelLabel: t("common.cancel"),
+		});
+		if (!confirmed) return;
+		setMergeTag(null);
+		if (await tags.merge(from.id, into.id)) {
+			trackStats.reload();
+			pins.reload();
+			playlists.reload();
+		}
+	};
+
 	/** Move track files to the trash (after confirming) and drop them from the library. */
 	const deleteTracks = async (tracks: Track[]) => {
 		const confirmed = await ask(
@@ -1166,6 +1187,7 @@ function App() {
 		pinEntry("tag", target.id),
 		{ kind: "separator" },
 		{ kind: "item", label: t("common.edit"), icon: <Pencil size={16} />, onSelect: () => setTagDialog({ tag: target }) },
+		{ kind: "item", label: t("mergeTag.menu"), icon: <GitMerge size={16} />, disabled: tags.tags.length < 2, onSelect: () => setMergeTag(target) },
 		...tagCategoryEntries(target),
 		{ kind: "separator" },
 		{ kind: "item", label: t("common.delete"), icon: <Trash2 size={16} />, danger: true, onSelect: () => deleteTag(target) },
@@ -1693,6 +1715,16 @@ function App() {
 					onSave={saveTag}
 					onCreateCategory={tags.createCategory}
 					onClose={() => setTagDialog(null)}
+				/>
+			)}
+
+			{mergeTag && (
+				<MergeTagDialog
+					tag={mergeTag}
+					tags={tags.tags}
+					counts={tagCounts}
+					onPick={(into) => mergeTags(mergeTag, into)}
+					onClose={() => setMergeTag(null)}
 				/>
 			)}
 
