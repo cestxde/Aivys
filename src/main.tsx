@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import { invoke } from '@tauri-apps/api/core'
 import './index.css'
 import App from './App.tsx'
+import { trackSafeArea } from './utils/safeArea'
+
+// Before the first paint: on Android the content keeps out of the system bars.
+trackSafeArea()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
