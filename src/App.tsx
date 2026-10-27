@@ -171,9 +171,6 @@ interface EditResult {
 	failed: string[];
 }
 
-/** How long after startup the update check waits (ms): the library loads first. */
-const UPDATE_CHECK_DELAY = 5000;
-
 /** How much the volume shortcuts change the volume (of 1). */
 const VOLUME_STEP = 0.05;
 
@@ -423,12 +420,15 @@ function App() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	// A new version on GitHub: looked for quietly a little after startup.
+	// A new version on GitHub: looked for quietly once, as soon as the app has
+	// started (the library loaded, or the folder picker shown without one).
 	const updateDialogOpen = useUpdateDialogOpen();
+	const updatesChecked = useRef(false);
 	useEffect(() => {
-		const timer = setTimeout(() => checkForUpdates({ manual: false }), UPDATE_CHECK_DELAY);
-		return () => clearTimeout(timer);
-	}, []);
+		if (view === "loading" || updatesChecked.current) return;
+		updatesChecked.current = true;
+		checkForUpdates({ manual: false });
+	}, [view]);
 
 	// The sort of the list on screen: remembered per kind of view, a manual
 	// playlist's own in its file.
