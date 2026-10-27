@@ -1,4 +1,7 @@
+/* The unfilled part of the track: the text color, faint, so it shows on any
+   background (the player's gradient on phones too). */
 .base-slider-wrapper {
+    --slider-track: color-mix(in srgb, var(--text-h) 22%, transparent);
     position: relative;
     display: flex;
     align-items: center;
@@ -17,7 +20,7 @@
     background-image:
         linear-gradient(var(--accent), var(--accent)),
         linear-gradient(var(--accent-border), var(--accent-border)),
-        linear-gradient(var(--border), var(--border));
+        linear-gradient(var(--slider-track), var(--slider-track));
 
     background-size:
         var(--slider-progress) 100%,
