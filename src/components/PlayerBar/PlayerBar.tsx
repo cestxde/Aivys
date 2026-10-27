@@ -7,7 +7,7 @@ import {
     Repeat,
     Repeat1, ListMusic
 } from "lucide-react";
-import { useRef, useEffect, useState } from "react";
+import { useState } from "react";
 import type { Track } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { CoverArt } from "../CoverArt";
@@ -15,6 +15,7 @@ import { ArtistLinks } from "../ArtistLinks/ArtistLinks";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { TrackSlider } from "./TrackSlider";
 import { VolumeControl } from "./VolumeControl";
+import { Marquee } from "./Marquee";
 import { t } from "../../i18n";
 import "./PlayerBar.css";
 
@@ -45,29 +46,7 @@ export const PlayerBar = (props: PlayerBarProps) => {
     const title = props.currentTrack ? displayTitle(props.currentTrack) : null;
     const artist = props.currentTrack ? displayArtists(props.currentTrack) : null;
 
-    const containerRef = useRef<HTMLSpanElement>(null);
-    const textRef = useRef<HTMLSpanElement>(null);
-    const [isOverflowing, setIsOverflowing] = useState(false);
     const [showCover, setShowCover] = useState(false);
-
-    const checkOverflow = () => {
-        if (containerRef.current && textRef.current) {
-            const containerWidth = containerRef.current.offsetWidth;
-            const textWidth = textRef.current.scrollWidth;
-            setIsOverflowing(textWidth > containerWidth);
-        }
-    };
-
-    useEffect(() => {
-        const timer = setTimeout(checkOverflow, 50);
-
-        window.addEventListener('resize', checkOverflow);
-
-        return () => {
-            clearTimeout(timer);
-            window.removeEventListener('resize', checkOverflow);
-        };
-    }, [title]);
 
     return (
         <div className="player-bar-wrapper">
@@ -86,20 +65,7 @@ export const PlayerBar = (props: PlayerBarProps) => {
                         onClick={hasTrack ? () => setShowCover(true) : undefined}
                     />
                     <div className="track-info">
-                        <span
-                            ref={containerRef}
-                            key={title}
-                            className={`track-name-display ${isOverflowing ? "is-overflowing" : ""}`}
-                        >
-                            <span ref={textRef} className="marquee-content">
-                                {title || t("player.noTrack")}
-                            </span>
-                            {isOverflowing && (
-                                <span className="marquee-duplicate">
-                                    {title}
-                                </span>
-                            )}
-                        </span>
+                        <Marquee text={title || t("player.noTrack")} />
                         {artist && props.currentTrack && (
                             <span className="track-artist-display">
                                 <ArtistLinks

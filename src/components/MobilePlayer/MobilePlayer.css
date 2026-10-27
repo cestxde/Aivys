@@ -1,0 +1,297 @@
+/* Phones: the mini player at the bottom, the full-screen player and the
+   screens over it (the queue, the track's details). */
+
+/* Over the bottom of the screen, its top rounded, reaching the edges and down
+   under the navigation bar; the pages' scrolling keeps room for it
+   (--mini-player-space, in App.css). */
+.mini-player {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 950;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px calc(8px + var(--safe-right, 0px)) calc(10px + var(--safe-bottom, 0px)) calc(12px + var(--safe-left, 0px));
+    border-radius: 20px 20px 0 0;
+    background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.18);
+    cursor: pointer;
+}
+
+.mini-player-cover {
+    border-radius: 50%;
+}
+
+.mini-player-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.mini-player-title.track-name-display {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.mini-player-artist {
+    font-size: 13.5px;
+    color: var(--text);
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mini-player-buttons {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+.mini-player-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--text-h);
+    cursor: pointer;
+}
+
+.mini-player-button:active {
+    background: color-mix(in srgb, var(--text-h) 12%, transparent);
+}
+
+/* The full-screen player. */
+.now-playing,
+.phone-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 1030;
+    display: flex;
+    flex-direction: column;
+    padding: var(--safe-top, 0px) var(--safe-right, 0px) var(--safe-bottom, 0px) var(--safe-left, 0px);
+    background: var(--bg);
+}
+
+.now-playing {
+    background: linear-gradient(to bottom, var(--bg) 35%, color-mix(in srgb, var(--accent) 18%, var(--bg)));
+    animation: now-playing-in 0.2s ease-out;
+}
+
+@keyframes now-playing-in {
+    from {
+        transform: translateY(8%);
+        opacity: 0;
+    }
+}
+
+.now-playing-header,
+.phone-sheet-header {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 8px;
+    height: 56px;
+    padding: 0 8px;
+}
+
+.now-playing-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    min-height: 0;
+    padding: 0.5rem 1.5rem 0;
+    overflow-y: auto;
+}
+
+.now-playing-cover-wrap {
+    width: min(82vw, 42vh);
+    aspect-ratio: 1;
+    flex-shrink: 0;
+}
+
+/* The cover fills its square, whatever size CoverArt was given. */
+.now-playing-cover.cover-art {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 16px;
+    box-shadow: var(--shadow-dialog);
+}
+
+.now-playing-heading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    text-align: center;
+}
+
+.now-playing-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-h);
+    overflow-wrap: anywhere;
+}
+
+.now-playing-artist {
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.now-playing-tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+}
+
+.now-playing-actions,
+.now-playing-controls {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+}
+
+.now-playing-actions {
+    padding-top: 0.75rem;
+}
+
+.now-playing-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--text-h);
+    cursor: pointer;
+}
+
+.now-playing-icon:active {
+    background: color-mix(in srgb, var(--text-h) 12%, transparent);
+}
+
+.now-playing-icon.secondary {
+    color: var(--text);
+    opacity: 0.7;
+}
+
+.now-playing-icon.secondary.active {
+    color: var(--accent);
+    opacity: 1;
+}
+
+/* Shuffle and repeat on: a dot under them, as on the desktop's bar. */
+.now-playing-icon.secondary.active::after {
+    content: "";
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    transform: translateX(-50%);
+}
+
+.now-playing-icon.is-favorite {
+    color: var(--favorite);
+}
+
+.now-playing-badge {
+    position: absolute;
+    top: 4px;
+    right: 2px;
+    min-width: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-size: 10px;
+    line-height: 16px;
+    text-align: center;
+}
+
+/* The seek bar with its times below it. */
+.now-playing-seek .seek-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    row-gap: 4px;
+    padding: 0 1.5rem;
+    margin: 0.5rem 0 0;
+}
+
+.now-playing-seek .seek-slider-layout {
+    grid-column: 1 / -1;
+    grid-row: 1;
+}
+
+.now-playing-seek .time-label {
+    grid-row: 2;
+    font-size: 0.8rem;
+}
+
+.now-playing-seek .time-label:last-child {
+    justify-self: end;
+}
+
+.now-playing-controls {
+    padding-top: 0.5rem;
+    padding-bottom: 1.5rem;
+}
+
+/* Play / pause: the biggest of the controls, without a circle around it. */
+.now-playing-play {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--text-h);
+    cursor: pointer;
+}
+
+.now-playing-play:active {
+    background: color-mix(in srgb, var(--text-h) 12%, transparent);
+}
+
+/* A screen over the player: the queue, the track's details. */
+.phone-sheet {
+    z-index: 1035;
+    animation: now-playing-in 0.15s ease-out;
+}
+
+.phone-sheet-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-h);
+}
+
+.phone-sheet-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0 1rem 1rem;
+    overflow-y: auto;
+}

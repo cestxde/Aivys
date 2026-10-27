@@ -14,6 +14,10 @@ import { Toolbar } from "./components/ToolBar/ToolBar";
 import { LibraryPicker } from "./components/LibraryPicker/LibraryPicker";
 import { ThemedLogo } from "./components/ThemedLogo";
 import { MobileHeader, Sidebar } from "./components/Sidebar/Sidebar";
+import { MiniPlayer } from "./components/MobilePlayer/MiniPlayer";
+import { NowPlaying, PhoneSheet } from "./components/MobilePlayer/NowPlaying";
+import { useIsPhone } from "./hooks/useIsPhone";
+import { useBackLayer } from "./hooks/useBackLayer";
 import { TrackDetailPanel } from "./components/TrackDetailPanel/TrackDetailPanel";
 import { Notices } from "./components/Notices/Notices";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
@@ -219,6 +223,14 @@ function App() {
 	const [mergeTag, setMergeTag] = useState<UserTag | null>(null);
 	// Phones: the sidebar is a drawer, open while this is true.
 	const [drawerOpen, setDrawerOpen] = useState(false);
+	// Phones: the full-screen player, and a screen over it (the queue or the track's details).
+	const isPhone = useIsPhone();
+	const [nowPlayingOpen, setNowPlayingOpen] = useState(false);
+	const [phonePanel, setPhonePanel] = useState<"track" | "queue" | null>(null);
+	// The system's Back closes them, the topmost first.
+	useBackLayer(drawerOpen, () => setDrawerOpen(false));
+	useBackLayer(isPhone && nowPlayingOpen, () => setNowPlayingOpen(false));
+	useBackLayer(isPhone && phonePanel !== null, () => setPhonePanel(null));
 	// Tracks the tag picker is open for.
 	const [tagPicker, setTagPicker] = useState<Track[] | null>(null);
 	// The view playback was started from (a view key), highlighted on its card.
@@ -246,6 +258,13 @@ function App() {
 
 	const files = library.files;
 	const currentTrack = files.find(f => f.path === activePath);
+
+	// Phones: the pages keep room at their end for the mini player over them (App.css).
+	const miniPlayer = isPhone && !!currentTrack;
+	useEffect(() => {
+		document.getElementById("root")?.classList.toggle("has-mini-player", miniPlayer);
+	}, [miniPlayer]);
+
 	const tracksByPath = useMemo(() => new Map(files.map(f => [f.relPath, f])), [files]);
 
 	const trackStats = useTrackStats(files);
@@ -1261,6 +1280,50 @@ function App() {
 		);
 	}
 
+	// Phones close their player screens when one of these opens another view.
+	const leavePlayer = () => {
+		setPhonePanel(null);
+		setNowPlayingOpen(false);
+	};
+
+	// The right panel's two views; on phones each is a screen of its own.
+	const queuePanel = (
+		<QueuePanel
+			order={queue.order}
+			index={queue.index}
+			onPlayAt={playAt}
+			onOpenMenu={(row, x, y) => setMenu({ x, y, entries: queueMenu(row) })}
+			onSetUpcoming={setUpcoming}
+		/>
+	);
+	const detailPanel = (
+		<TrackDetailPanel
+			track={currentTrack ?? null}
+			stats={currentTrack ? trackStats.stats[currentTrack.relPath] ?? null : null}
+			onToggleFavorite={trackStats.toggleFavorite}
+			onSetRating={trackStats.setRating}
+			tagsById={tags.byId}
+			onEditTags={(track) => setTagPicker([track])}
+			onEditDetails={(track) => setEditing([track])}
+			onOpenTag={(target) => {
+				leavePlayer();
+				showView({ kind: "tag", id: target.id }, listView);
+			}}
+			onRemoveTag={(track, target) => trackStats.setTrackTag([track], target.id, false)}
+			onOpenTagMenu={(track, target, x, y) => setMenu({ x, y, entries: tagChipMenu(track, target) })}
+			canOpenArtist={canOpenArtist}
+			onOpenArtist={(name) => {
+				leavePlayer();
+				openArtist(name);
+			}}
+			canOpenAlbum={(track) => { const key = albumKeyOf(track); return !!key && albumsByKey.has(key); }}
+			onOpenAlbum={(track) => {
+				leavePlayer();
+				openAlbum(track);
+			}}
+		/>
+	);
+
 	return (
 		<>
 			<MobileHeader onOpenDrawer={() => setDrawerOpen(true)} />
@@ -1552,7 +1615,7 @@ function App() {
 					)}
 				</main>
 
-				<aside className={`track-detail-panel ${panelTab === "queue" ? "overlay" : ""}`}>
+				{!isPhone && <aside className={`track-detail-panel ${panelTab === "queue" ? "overlay" : ""}`}>
 					<div className="panel-tabs" role="tablist">
 						<button
 							role="tab"
@@ -1572,54 +1635,86 @@ function App() {
 							<span className="panel-tab-count">{Math.max(0, queue.order.length - queue.index - 1)}</span>
 						</button>
 					</div>
-					{panelTab === "queue" ? (
-						<QueuePanel
-							order={queue.order}
-							index={queue.index}
-							onPlayAt={playAt}
-							onOpenMenu={(row, x, y) => setMenu({ x, y, entries: queueMenu(row) })}
-							onSetUpcoming={setUpcoming}
-						/>
-					) : (
-				<TrackDetailPanel
-					track={currentTrack ?? null}
-					stats={currentTrack ? trackStats.stats[currentTrack.relPath] ?? null : null}
-					onToggleFavorite={trackStats.toggleFavorite}
-					onSetRating={trackStats.setRating}
-					tagsById={tags.byId}
-					onEditTags={(track) => setTagPicker([track])}
-					onEditDetails={(track) => setEditing([track])}
-					onOpenTag={(target) => showView({ kind: "tag", id: target.id }, listView)}
-					onRemoveTag={(track, target) => trackStats.setTrackTag([track], target.id, false)}
-					onOpenTagMenu={(track, target, x, y) => setMenu({ x, y, entries: tagChipMenu(track, target) })}
-					canOpenArtist={canOpenArtist}
-					onOpenArtist={openArtist}
-					canOpenAlbum={(track) => { const key = albumKeyOf(track); return !!key && albumsByKey.has(key); }}
-					onOpenAlbum={openAlbum}
-				/>
-					)}
-				</aside>
+					{panelTab === "queue" ? queuePanel : detailPanel}
+				</aside>}
 			</div>
 
-			<PlayerBar
-				currentTrack={currentTrack ?? null}
-				canOpenArtist={canOpenArtist}
-				onOpenArtist={openArtist}
-				isPlaying={isPlaying}
-				volume={volume}
-				onTogglePlay={togglePlay}
-				onVolumeChange={setVolume}
-				onPrev={onPrev}
-				onNext={onNext}
-				element={element}
-				onSeek={seek}
-				isShuffle={isShuffle}
-				repeatMode={repeatMode}
-				onToggleShuffle={toggleShuffle}
-				queueOpen={panelTab === "queue"}
-				onToggleQueue={() => setPanelTab(panelTab === "queue" ? "track" : "queue")}
-				onToggleRepeat={toggleRepeatMode}
-			/>
+			{isPhone ? (
+				<>
+					{currentTrack && (
+						<MiniPlayer
+							track={currentTrack}
+							isPlaying={isPlaying}
+							onTogglePlay={togglePlay}
+							onPrev={onPrev}
+							onNext={onNext}
+							onOpen={() => setNowPlayingOpen(true)}
+						/>
+					)}
+					{currentTrack && nowPlayingOpen && (
+						<NowPlaying
+							track={currentTrack}
+							stats={trackStats.stats[currentTrack.relPath] ?? null}
+							tagsById={tags.byId}
+							element={element}
+							isPlaying={isPlaying}
+							isShuffle={isShuffle}
+							repeatMode={repeatMode}
+							upcoming={Math.max(0, queue.order.length - queue.index - 1)}
+							onClose={() => setNowPlayingOpen(false)}
+							onTogglePlay={togglePlay}
+							onPrev={onPrev}
+							onNext={onNext}
+							onSeek={seek}
+							onToggleShuffle={toggleShuffle}
+							onToggleRepeat={toggleRepeatMode}
+							onToggleFavorite={trackStats.toggleFavorite}
+							onAddTo={(track) => setAddTo([track])}
+							onEditTags={(track) => setTagPicker([track])}
+							onOpenTag={(target) => {
+								leavePlayer();
+								showView({ kind: "tag", id: target.id }, listView);
+							}}
+							onRemoveTag={(track, target) => trackStats.setTrackTag([track], target.id, false)}
+							onOpenQueue={() => setPhonePanel("queue")}
+							onOpenDetails={() => setPhonePanel("track")}
+							canOpenArtist={canOpenArtist}
+							onOpenArtist={(name) => {
+								leavePlayer();
+								openArtist(name);
+							}}
+						/>
+					)}
+					{phonePanel && (
+						<PhoneSheet
+							title={phonePanel === "queue" ? t("player.queue") : t("panel.track")}
+							onBack={() => setPhonePanel(null)}
+						>
+							{phonePanel === "queue" ? queuePanel : detailPanel}
+						</PhoneSheet>
+					)}
+				</>
+			) : (
+				<PlayerBar
+					currentTrack={currentTrack ?? null}
+					canOpenArtist={canOpenArtist}
+					onOpenArtist={openArtist}
+					isPlaying={isPlaying}
+					volume={volume}
+					onTogglePlay={togglePlay}
+					onVolumeChange={setVolume}
+					onPrev={onPrev}
+					onNext={onNext}
+					element={element}
+					onSeek={seek}
+					isShuffle={isShuffle}
+					repeatMode={repeatMode}
+					onToggleShuffle={toggleShuffle}
+					queueOpen={panelTab === "queue"}
+					onToggleQueue={() => setPanelTab(panelTab === "queue" ? "track" : "queue")}
+					onToggleRepeat={toggleRepeatMode}
+				/>
+			)}
 
 			{menu && (
 				<ContextMenu x={menu.x} y={menu.y} entries={menu.entries} onClose={closeMenu} />

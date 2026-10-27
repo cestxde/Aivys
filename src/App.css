@@ -112,8 +112,28 @@
 @media (max-width: 720px) {
   .container {
     --list-bleed: 0.5rem;
-    padding: 0.75rem;
+    padding: 0.75rem 0.75rem 0;
   }
+}
+
+/* Phones with a track: the mini player lies over the bottom of the screen;
+   the scrolling parts reach under it and end with room to show their last
+   row above it. */
+.has-mini-player {
+  --mini-player-space: calc(76px + var(--safe-bottom, 0px));
+}
+
+.has-mini-player .track-list-wrapper,
+.has-mini-player .playlists-page,
+.has-mini-player .tags-main,
+.has-mini-player .category-sidebar,
+.has-mini-player .settings-page {
+  padding-bottom: var(--mini-player-space);
+}
+
+/* #root keeps out of the navigation bar; the pages go down under it here. */
+#root.has-mini-player {
+  padding-bottom: 0;
 }
 /* Name and size of a built-in view, above its toolbar. */
 .view-heading {
