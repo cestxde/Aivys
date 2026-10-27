@@ -540,6 +540,7 @@ Fixed vocabulary so rules can later be translated to queries over the index.
 | `lastPlayedAt` | number | derived from events |
 | `favorite`   | boolean | derived from events |
 | `tag`        | string  | user tag id or name (derived assignment) |
+| `tagCategory`| string  | id or name of a tag category (§8.3): `eq` matches a track with any tag of it, `neq` one with none |
 
 **Operators:**
 

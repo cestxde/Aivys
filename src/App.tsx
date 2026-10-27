@@ -1659,6 +1659,7 @@ function App() {
 					initialName={editor.playlist?.name ?? t("smart.defaultName")}
 					initialRules={editor.playlist?.rules}
 					tags={tags.tags}
+					categories={tags.categories}
 					onSave={saveSmartPlaylist}
 					onClose={() => setEditor(null)}
 				/>

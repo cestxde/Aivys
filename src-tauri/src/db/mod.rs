@@ -26,6 +26,15 @@ const UNLISTED_ARTISTS: &str = "CREATE TABLE IF NOT EXISTS unlisted_artists (nam
 const SYNC_FINGERPRINTS: &str =
     "CREATE TABLE IF NOT EXISTS sync_fingerprints (name TEXT PRIMARY KEY, fingerprint TEXT NOT NULL);";
 
+/// The live categories of the live tags (`tags.json`), for the `tagCategory`
+/// smart-playlist rule. Additive; see `connect` for how an existing index fills it.
+const USER_TAG_CATEGORIES: &str = "CREATE TABLE IF NOT EXISTS user_tag_categories (
+    tag_id TEXT NOT NULL,
+    category_id TEXT NOT NULL,
+    category_name TEXT NOT NULL,
+    PRIMARY KEY (tag_id, category_id)
+);";
+
 /// Bump on any schema change. A database with another version is deleted and
 /// rebuilt from scratch: it only holds rebuildable data, so no migrations.
 /// Also bump when the event vocabulary changes, so journals are re-ingested,
@@ -197,6 +206,17 @@ fn connect(path: &Path) -> rusqlite::Result<Connection> {
     smart::register_functions(&conn)?;
     conn.execute_batch(UNLISTED_ARTISTS)?;
     conn.execute_batch(SYNC_FINGERPRINTS)?;
+    // A new table in an existing index: forget the fingerprints, so the next
+    // sync reads tags.json (and fills it) even though nothing changed.
+    let had_categories: bool = conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'user_tag_categories')",
+        [],
+        |row| row.get(0),
+    )?;
+    conn.execute_batch(USER_TAG_CATEGORIES)?;
+    if !had_categories {
+        conn.execute("DELETE FROM sync_fingerprints", [])?;
+    }
     Ok(conn)
 }
 

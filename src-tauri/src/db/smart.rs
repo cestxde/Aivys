@@ -29,6 +29,7 @@ enum Field {
     /// Multi-value field stored in a side table (`track_id`, `position`, `name`).
     List(&'static str),
     Tag,
+    TagCategory,
 }
 
 fn field(name: &str) -> Option<Field> {
@@ -47,6 +48,7 @@ fn field(name: &str) -> Option<Field> {
         "artist" => Field::List("track_artists"),
         "genre" => Field::List("track_genres"),
         "tag" => Field::Tag,
+        "tagCategory" => Field::TagCategory,
         _ => return None,
     })
 }
@@ -129,8 +131,9 @@ fn list_condition(table: &str, op: &str, value: &Value, params: &mut Vec<SqlValu
     Some(if negate { format!("NOT {exists}") } else { exists })
 }
 
-/// Tag membership by tag id or name; deleted tags never match.
-fn tag_condition(op: &str, value: &Value, params: &mut Vec<SqlValue>) -> Option<String> {
+/// Tag membership by tag id or name (`category` false), or by the id or name
+/// of a category of the tag (`category` true); deleted tags never match.
+fn tag_condition(op: &str, value: &Value, params: &mut Vec<SqlValue>, category: bool) -> Option<String> {
     let (values, negate) = match op {
         "eq" => (vec![value], false),
         "neq" => (vec![value], true),
@@ -142,14 +145,19 @@ fn tag_condition(op: &str, value: &Value, params: &mut Vec<SqlValue>) -> Option<
     for value in values {
         params.push(SqlValue::Text(value.as_str()?.to_owned()));
         params.push(folded(value)?);
-        matches.push("(u.id = ? OR fold(u.name) = ?)");
+        matches.push(if category {
+            "(c.category_id = ? OR fold(c.category_name) = ?)"
+        } else {
+            "(u.id = ? OR fold(u.name) = ?)"
+        });
     }
     if matches.is_empty() {
         matches.push("0");
     }
 
+    let categories = if category { "JOIN user_tag_categories c ON c.tag_id = u.id" } else { "" };
     let exists = format!(
-        "EXISTS (SELECT 1 FROM track_tags tt JOIN user_tags u ON u.id = tt.tag_id AND u.deleted = 0
+        "EXISTS (SELECT 1 FROM track_tags tt JOIN user_tags u ON u.id = tt.tag_id AND u.deleted = 0 {categories}
                  WHERE tt.rel_path = t.rel_path AND ({}))",
         matches.join(" OR ")
     );
@@ -167,7 +175,8 @@ fn condition_sql(condition: &Condition, params: &mut Vec<SqlValue>) -> String {
         Field::Number(expr) => number_condition(expr, op, value, &mut own),
         Field::Bool(expr) => bool_condition(expr, op, value, &mut own),
         Field::List(table) => list_condition(table, op, value, &mut own),
-        Field::Tag => tag_condition(op, value, &mut own),
+        Field::Tag => tag_condition(op, value, &mut own, false),
+        Field::TagCategory => tag_condition(op, value, &mut own, true),
     });
 
     match sql {
@@ -194,7 +203,7 @@ fn sort_sql(field_name: &str) -> Option<String> {
         Field::List(table) => {
             format!("(SELECT fold(x.name) FROM {table} x WHERE x.track_id = t.id ORDER BY x.position LIMIT 1)")
         }
-        Field::Tag => return None,
+        Field::Tag | Field::TagCategory => return None,
     })
 }
 
@@ -316,7 +325,8 @@ mod tests {
         )
         .unwrap();
 
-        let tag = tags::create(&store, "Chill", "#000000", &[]).unwrap();
+        let mood = tags::create_category(&store, "Mood").unwrap();
+        let tag = tags::create(&store, "Chill", "#000000", &[mood.id]).unwrap();
         append(&store, "b.flac", EventKind::Rating, Some(5), None).unwrap();
         append(&store, "b.flac", EventKind::Play, None, None).unwrap();
         append(&store, "a.flac", EventKind::Favorite, None, None).unwrap();
@@ -360,6 +370,11 @@ mod tests {
 
         let by_id = json!([{ "field": "tag", "op": "in", "value": [tag_id] }]);
         assert_eq!(run(rules(MatchMode::All, by_id)), vec!["c.flac"]);
+
+        let in_category = json!([{ "field": "tagCategory", "op": "eq", "value": "MOOD" }]);
+        assert_eq!(run(rules(MatchMode::All, in_category)), vec!["c.flac"]);
+        let not_in_category = json!([{ "field": "tagCategory", "op": "neq", "value": "mood" }]);
+        assert_eq!(run(rules(MatchMode::All, not_in_category)), vec!["b.flac", "a.flac"]);
 
         let no_year = json!([{ "field": "year", "op": "neq", "value": 1988 }]);
         assert_eq!(run(rules(MatchMode::All, no_year)), vec!["b.flac", "c.flac"]);

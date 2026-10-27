@@ -5,7 +5,7 @@ import type { Condition, SmartRules, SortSpec } from "../../types";
 import { t, type MessageKey } from "../../i18n";
 import "./SmartPlaylistEditor.css";
 
-type FieldType = "text" | "number" | "date" | "boolean" | "tag";
+type FieldType = "text" | "number" | "date" | "boolean" | "tag" | "category";
 
 interface FieldDef {
     id: string;
@@ -29,6 +29,7 @@ const FIELDS: FieldDef[] = [
     { id: "favorite", label: "smart.field.favorite", type: "boolean" },
     { id: "format", label: "smart.field.format", type: "text" },
     { id: "tag", label: "smart.field.tag", type: "tag" },
+    { id: "tagCategory", label: "smart.field.tagCategory", type: "category" },
 ];
 
 const OPS: Record<FieldType, { id: string; label: MessageKey }[]> = {
@@ -54,6 +55,11 @@ const OPS: Record<FieldType, { id: string; label: MessageKey }[]> = {
         { id: "eq", label: "smart.op.has" },
         { id: "neq", label: "smart.op.hasNot" },
     ],
+    // "Has a tag of" the category, or none of its tags.
+    category: [
+        { id: "eq", label: "smart.op.has" },
+        { id: "neq", label: "smart.op.hasNot" },
+    ],
 };
 
 const SORT_FIELDS: { id: string; label: MessageKey }[] = [
@@ -70,12 +76,13 @@ const SORT_FIELDS: { id: string; label: MessageKey }[] = [
 
 const fieldDef = (id: string): FieldDef => FIELDS.find(f => f.id === id) ?? FIELDS[0];
 
-const defaultValue = (type: FieldType, tags: { id: string }[]): Condition["value"] => {
+const defaultValue = (type: FieldType, tags: { id: string }[], categories: { id: string }[]): Condition["value"] => {
     switch (type) {
         case "number": return 0;
         case "date": return Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
         case "boolean": return true;
         case "tag": return tags[0]?.id ?? "";
+        case "category": return categories[0]?.id ?? "";
         default: return "";
     }
 };
@@ -98,12 +105,14 @@ interface SmartPlaylistEditorProps {
     initialName: string;
     initialRules?: SmartRules;
     tags: TagOption[];
+    /** Tag categories, for "tag category" rules. */
+    categories: TagOption[];
     onSave: (name: string, rules: SmartRules) => void;
     onClose: () => void;
 }
 
 /** Modal editor for a smart playlist's name and rules, with a live match count. */
-export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, onSave, onClose }: SmartPlaylistEditorProps) => {
+export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, categories, onSave, onClose }: SmartPlaylistEditorProps) => {
     const [name, setName] = useState(initialName);
     const [match, setMatch] = useState<SmartRules["match"]>(initialRules?.match ?? "all");
     const [conditions, setConditions] = useState<Condition[]>(
@@ -147,7 +156,7 @@ export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, on
 
     const changeField = (index: number, fieldId: string) => {
         const type = fieldDef(fieldId).type;
-        updateCondition(index, { field: fieldId, op: OPS[type][0].id, value: defaultValue(type, tags) });
+        updateCondition(index, { field: fieldId, op: OPS[type][0].id, value: defaultValue(type, tags, categories) });
     };
 
     const renderValue = (condition: Condition, index: number) => {
@@ -193,6 +202,17 @@ export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, on
                     >
                         {tags.length === 0 && <option value="">{t("smart.noTags")}</option>}
                         {tags.map(tag => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
+                    </select>
+                );
+            case "category":
+                return (
+                    <select
+                        className="rule-input"
+                        value={String(condition.value)}
+                        onChange={(e) => updateCondition(index, { value: e.target.value })}
+                    >
+                        {categories.length === 0 && <option value="">{t("smart.noCategories")}</option>}
+                        {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                     </select>
                 );
             default:

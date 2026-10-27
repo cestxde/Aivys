@@ -299,7 +299,8 @@ fn recompute(tx: &Transaction, paths: &HashSet<String>) -> rusqlite::Result<()> 
     Ok(())
 }
 
-/// Mirror `tags.json` into `user_tags`. Keeps the old copy if it is unreadable.
+/// Mirror `tags.json` into `user_tags` and `user_tag_categories`. Keeps the
+/// old copy if it is unreadable.
 fn refresh_user_tags(tx: &Transaction, store: &Store) -> rusqlite::Result<()> {
     let doc = match tags::load(store) {
         Ok(doc) => doc,
@@ -309,9 +310,24 @@ fn refresh_user_tags(tx: &Transaction, store: &Store) -> rusqlite::Result<()> {
         }
     };
     tx.execute("DELETE FROM user_tags", [])?;
+    tx.execute("DELETE FROM user_tag_categories", [])?;
+    let categories: HashMap<&str, &str> = doc
+        .categories
+        .iter()
+        .filter(|category| category.deleted_at.is_none())
+        .map(|category| (category.id.as_str(), category.name.as_str()))
+        .collect();
     let mut insert = tx.prepare("INSERT OR REPLACE INTO user_tags (id, name, deleted) VALUES (?1, ?2, ?3)")?;
-    for tag in doc.tags {
+    let mut insert_category = tx.prepare(
+        "INSERT OR REPLACE INTO user_tag_categories (tag_id, category_id, category_name) VALUES (?1, ?2, ?3)",
+    )?;
+    for tag in &doc.tags {
         insert.execute(params![tag.id, tag.name, tag.deleted_at.is_some()])?;
+        for id in &tag.category_ids {
+            if let Some(name) = categories.get(id.as_str()) {
+                insert_category.execute(params![tag.id, id, name])?;
+            }
+        }
     }
     Ok(())
 }
