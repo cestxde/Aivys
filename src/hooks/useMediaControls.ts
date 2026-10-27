@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Track } from "../types";
 import { displayArtists, displayTitle } from "../utils/track";
+import { asNativeAudio } from "../utils/nativeAudio";
 
 interface MediaControl {
     action: "play" | "pause" | "stop" | "next" | "previous" | "seek";
@@ -20,8 +21,10 @@ interface MediaActions {
 
 /**
  * The system's media controls (Windows: the volume flyout, quick settings,
- * the lock screen, media keys): they show the loaded track and control
- * playback. Elsewhere the backend ignores this.
+ * the lock screen, media keys; Android: the notification, the lock screen,
+ * headset buttons): they show the loaded track and control playback. On
+ * Windows through the backend; on Android the app's player has them, and
+ * plays and pauses by itself.
  */
 export const useMediaControls = (
     element: HTMLAudioElement,
@@ -50,6 +53,28 @@ export const useMediaControls = (
             unlisten.then((stop) => stop()).catch(() => {});
         };
     }, []);
+
+    // Android: "next" / "previous" from the system's controls.
+    useEffect(() => {
+        const next = () => latest.current.next();
+        const previous = () => latest.current.previous();
+        element.addEventListener("nexttrack", next);
+        element.addEventListener("previoustrack", previous);
+        return () => {
+            element.removeEventListener("nexttrack", next);
+            element.removeEventListener("previoustrack", previous);
+        };
+    }, [element]);
+
+    useEffect(() => {
+        if (!track) return;
+        asNativeAudio(element)?.setNowPlaying({
+            title: displayTitle(track),
+            artist: displayArtists(track),
+            album: track.album,
+            cover: track.coverPath,
+        });
+    }, [element, track]);
 
     // The track and its status; the position too, when it jumps (a seek, a
     // new track: the system moves it on by itself while playing).

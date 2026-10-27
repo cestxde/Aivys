@@ -1,6 +1,7 @@
 import { useCallback, useState, useRef, useEffect, useSyncExternalStore } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { notifyError } from "../utils/notify";
+import { createPlayer } from "../utils/nativeAudio";
 import { t } from "../i18n";
 
 // An AbortError only means a newer load interrupted play(): not worth a notice.
@@ -47,8 +48,9 @@ export const useAudioController = (
 ) => {
     const [isPlaying, setIsPlaying] = useState(false);
     // One element for the whole session: every track is loaded into it, so
-    // listeners attached once keep working.
-    const [element] = useState(() => new Audio());
+    // listeners attached once keep working. On Android the app's own player
+    // in its look (utils/nativeAudio.ts).
+    const [element] = useState(createPlayer);
     const audioRef = useRef<HTMLAudioElement | null>(element);
 
     // Playing or not follows the element itself, so a failed start or a pause
