@@ -331,7 +331,7 @@ export const TrackList = ({
                     </span>
                 )}
                 {numberOf && <span className="track-number">{numberOf(file)}</span>}
-                <CoverArt path={file.coverPath} size={36} className="track-cover" />
+                <CoverArt path={file.coverPath} size={42} className="track-cover" />
                 <div className="track-main-info">
                     <span className="track-title">{title}</span>
                     <span className="track-artist">{artist}</span>

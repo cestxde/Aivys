@@ -1,4 +1,7 @@
+/* --list-bleed: how far the track list's separators reach past the page's
+   padding, toward the window's edges (its text stays in line). */
 .container {
+  --list-bleed: 1rem;
   display: flex;
   flex-direction: column;
   padding: 1.5rem;
@@ -97,6 +100,20 @@
   min-height: 0;
   min-width: 0;
   overflow-y: auto;
+  margin-inline: calc(-1 * var(--list-bleed, 0px));
+  padding-inline: var(--list-bleed, 0px);
+}
+
+.track-list-wrapper > .music-grid {
+  margin-inline: calc(-1 * var(--list-bleed, 0px));
+}
+
+/* Phones: less page padding, the list nearer still to the edges. */
+@media (max-width: 720px) {
+  .container {
+    --list-bleed: 0.5rem;
+    padding: 0.75rem;
+  }
 }
 /* Name and size of a built-in view, above its toolbar. */
 .view-heading {

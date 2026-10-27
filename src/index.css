@@ -101,7 +101,7 @@ h3 {
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 12px;
 }
 
 ::-webkit-scrollbar-track {
@@ -109,6 +109,7 @@ h3 {
 }
 
 ::-webkit-scrollbar-thumb {
+  min-height: 40px;
   background: var(--border);
   border-radius: 10px;
 }
