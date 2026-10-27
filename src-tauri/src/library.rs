@@ -248,9 +248,36 @@ pub(crate) fn validate_directory(path: String) -> bool {
     std::path::Path::new(&path).is_dir()
 }
 
+/// The folders directly in `path`, by name, hidden ones (`.name`) left out:
+/// the in-app folder browser of platforms without a folder dialog (Android).
+#[tauri::command]
+pub(crate) fn list_folders(path: String) -> Result<Vec<String>, String> {
+    let mut names: Vec<String> = std::fs::read_dir(&path)
+        .map_err(|err| err.to_string())?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| !name.starts_with('.'))
+        .collect();
+    names.sort_by_key(|name| name.to_lowercase());
+    Ok(names)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lists_visible_folders_by_name() {
+        let dir = std::env::temp_dir().join(format!("aivys-folders-{}", crate::store::new_uuid()));
+        for name in ["b", "A", ".hidden"] {
+            std::fs::create_dir_all(dir.join(name)).unwrap();
+        }
+        std::fs::write(dir.join("file.mp3"), b"").unwrap();
+        assert_eq!(list_folders(dir.to_string_lossy().into_owned()).unwrap(), ["A", "b"]);
+        assert!(list_folders(dir.join("missing").to_string_lossy().into_owned()).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     /// A tiny valid PCM WAV file with `samples` silent 16-bit mono samples.
     fn write_wav(path: &Path, samples: u32) {

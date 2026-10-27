@@ -146,3 +146,77 @@
     opacity: 1;
     color: var(--danger);
 }
+
+/* The in-app folder browser (Android). */
+.folder-browser {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.folder-browser-note {
+    margin: 0;
+    font-size: 14px;
+    text-align: center;
+    color: var(--text);
+}
+
+.folder-browser-path {
+    align-self: stretch;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-h);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.folder-browser-list {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    max-height: 50vh;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.folder-browser-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: none;
+    color: var(--text-h);
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.folder-browser-item:last-child {
+    border-bottom: none;
+}
+
+.folder-browser-item svg {
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.folder-browser-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.folder-browser-empty {
+    padding: 12px;
+    font-size: 13px;
+    color: var(--text);
+    opacity: 0.6;
+}

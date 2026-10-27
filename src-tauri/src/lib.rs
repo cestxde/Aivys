@@ -9,7 +9,7 @@ mod taskbar;
 mod text;
 mod track;
 
-use library::{scan_directory, validate_directory};
+use library::{list_folders, scan_directory, validate_directory};
 use store::commands::*;
 use media_controls::set_media_state;
 use taskbar::set_taskbar_state;
@@ -51,6 +51,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             scan_directory,
             validate_directory,
+            list_folders,
             show_main_window,
             set_taskbar_state,
             set_media_state,

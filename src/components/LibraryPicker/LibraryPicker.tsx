@@ -1,6 +1,8 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, X } from "lucide-react";
 import { t } from "../../i18n";
+import { androidStorage } from "../../utils/androidStorage";
+import { FolderBrowser } from "./FolderBrowser";
 import "./LibraryPicker.css";
 
 interface LibraryPickerProps {
@@ -22,7 +24,6 @@ const folderName = (path: string): string => {
 
 export const LibraryPicker = ({ recentPaths, error, onOpen, onRemoveRecent }: LibraryPickerProps) => {
     const handleChoose = async () => {
-        // Folder picking is desktop-only; on mobile this returns null.
         const selected = await open({ directory: true, multiple: false });
         if (typeof selected === "string") {
             onOpen(selected);
@@ -37,10 +38,13 @@ export const LibraryPicker = ({ recentPaths, error, onOpen, onRemoveRecent }: Li
                     {t("picker.subtitle")}
                 </p>
 
-                <button className="library-choose-btn" onClick={handleChoose}>
-                    <FolderOpen size={18} />
-                    {t("picker.choose")}
-                </button>
+                {/* Android has no folder dialog that gives a path: an in-app browser. */}
+                {androidStorage ? <FolderBrowser onOpen={onOpen} /> : (
+                    <button className="library-choose-btn" onClick={handleChoose}>
+                        <FolderOpen size={18} />
+                        {t("picker.choose")}
+                    </button>
+                )}
 
                 {error && <div className="library-picker-error">{error}</div>}
 

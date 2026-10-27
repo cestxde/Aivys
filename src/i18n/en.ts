@@ -55,6 +55,14 @@ export const en = {
     "picker.removeRecent": "Remove from recent",
     "picker.folderNotFound": "Folder not found: {path}",
     "picker.lastGone": "Last folder is no longer available: {path}",
+    "picker.android.needAccess": "To find your music and keep the library's data in its folder, Aivys needs access to all files.",
+    "picker.android.grant": "Allow access",
+    "picker.android.storage": "Phone storage",
+    "picker.android.card": "Memory card",
+    "picker.android.where": "Where is the music?",
+    "picker.android.up": "Up",
+    "picker.android.noFolders": "No folders here.",
+    "picker.android.open": "Open this folder",
     "loading.indexing": "Indexing...",
 
     // Empty track lists

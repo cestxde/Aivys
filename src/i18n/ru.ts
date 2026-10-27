@@ -51,6 +51,14 @@ export const ru: Record<MessageKey, Message> = {
     "picker.removeRecent": "Убрать из недавних",
     "picker.folderNotFound": "Папка не найдена: {path}",
     "picker.lastGone": "Последняя папка больше недоступна: {path}",
+    "picker.android.needAccess": "Чтобы находить музыку и хранить данные медиатеки в её папке, Aivys нужен доступ ко всем файлам.",
+    "picker.android.grant": "Разрешить доступ",
+    "picker.android.storage": "Память телефона",
+    "picker.android.card": "Карта памяти",
+    "picker.android.where": "Где музыка?",
+    "picker.android.up": "Наверх",
+    "picker.android.noFolders": "Здесь нет папок.",
+    "picker.android.open": "Открыть эту папку",
     "loading.indexing": "Индексация...",
 
     // Empty track lists
