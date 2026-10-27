@@ -42,6 +42,7 @@ export const ru: Record<MessageKey, Message> = {
     "nav.mostPlayed": "Часто прослушиваемые",
     "nav.recentlyPlayed": "Недавно воспроизведённые",
     "nav.settings": "Настройки",
+    "nav.menu": "Меню",
 
     // Start screen
     "picker.title": "Выберите папку с музыкой",

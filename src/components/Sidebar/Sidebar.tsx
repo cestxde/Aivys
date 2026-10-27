@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Settings } from "lucide-react";
+import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Settings } from "lucide-react";
 import { ThemedLogo } from "../ThemedLogo";
 import { PlayingMark } from "../CardPlayButton/CardPlayButton";
 import type { View } from "../../types";
@@ -46,6 +46,9 @@ interface SidebarProps {
     showFolders: boolean;
     /** Key of the view playback was started from ("album:<key>"), if playing. */
     playingKey: string | null;
+    /** Narrow screens: the rail is a drawer, shown while this is true. */
+    drawerOpen: boolean;
+    onCloseDrawer: () => void;
 }
 
 /** Whether playback started from `item`'s view or something under it. */
@@ -85,16 +88,24 @@ const folderName = (path: string): string => {
 /**
  * Left navigation rail: brand, the current library folder + a "change folder"
  * action, and the views in groups: the library, its collections, history.
- * Hidden on narrow layouts by CSS, keeping the track list as the primary view.
+ * On narrow screens (phones) a drawer over the content, opened from the
+ * `MobileHeader` and closed by picking something or tapping beside it.
  */
-export const Sidebar = ({ libraryPath, onChangeLibrary, view, onViewChange, showFolders, playingKey }: SidebarProps) => {
+export const Sidebar = ({
+    libraryPath, onChangeLibrary, view, onViewChange, showFolders, playingKey, drawerOpen, onCloseDrawer,
+}: SidebarProps) => {
+    const go = (next: View) => {
+        onViewChange(next);
+        onCloseDrawer();
+    };
+
     const renderItem = (item: SidebarItem) => (
         <button
             key={item.label}
             className={`sidebar-item ${isCurrent(item.view, view) ? "active" : ""}`}
             title={t(item.label)}
             aria-current={isCurrent(item.view, view) ? "page" : undefined}
-            onClick={() => onViewChange(item.view)}
+            onClick={() => go(item.view)}
         >
             <span className="sidebar-icon">{item.icon}</span>
             <span className="sidebar-label">{t(item.label)}</span>
@@ -103,14 +114,19 @@ export const Sidebar = ({ libraryPath, onChangeLibrary, view, onViewChange, show
     );
 
     return (
-        <nav className="sidebar">
+        <>
+        <div className={`sidebar-backdrop ${drawerOpen ? "open" : ""}`} onClick={onCloseDrawer} />
+        <nav className={`sidebar ${drawerOpen ? "open" : ""}`}>
             <div className="sidebar-brand">
                 <ThemedLogo className="sidebar-logo" />
             </div>
 
             <button
                 className="sidebar-item sidebar-library-btn"
-                onClick={onChangeLibrary}
+                onClick={() => {
+                    onCloseDrawer();
+                    onChangeLibrary();
+                }}
                 title={libraryPath}
             >
                 <span className="sidebar-icon"><FolderOpen size={18} /></span>
@@ -134,5 +150,16 @@ export const Sidebar = ({ libraryPath, onChangeLibrary, view, onViewChange, show
                 {renderItem(SETTINGS)}
             </div>
         </nav>
+        </>
     );
 };
+
+/** Narrow screens only: a bar above the content with the button that opens the sidebar. */
+export const MobileHeader = ({ onOpenDrawer }: { onOpenDrawer: () => void }) => (
+    <header className="mobile-header">
+        <button className="mobile-header-menu" title={t("nav.menu")} aria-label={t("nav.menu")} onClick={onOpenDrawer}>
+            <Menu size={22} />
+        </button>
+        <ThemedLogo className="mobile-header-logo" />
+    </header>
+);

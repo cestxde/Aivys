@@ -13,7 +13,7 @@ import { PlayerBar } from "./components/PlayerBar/PlayerBar";
 import { Toolbar } from "./components/ToolBar/ToolBar";
 import { LibraryPicker } from "./components/LibraryPicker/LibraryPicker";
 import { ThemedLogo } from "./components/ThemedLogo";
-import { Sidebar } from "./components/Sidebar/Sidebar";
+import { MobileHeader, Sidebar } from "./components/Sidebar/Sidebar";
 import { TrackDetailPanel } from "./components/TrackDetailPanel/TrackDetailPanel";
 import { Notices } from "./components/Notices/Notices";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
@@ -217,6 +217,8 @@ function App() {
 	const [categoryDialog, setCategoryDialog] = useState<CategoryDialogState | null>(null);
 	// The tag the "Merge into…" dialog is open for.
 	const [mergeTag, setMergeTag] = useState<UserTag | null>(null);
+	// Phones: the sidebar is a drawer, open while this is true.
+	const [drawerOpen, setDrawerOpen] = useState(false);
 	// Tracks the tag picker is open for.
 	const [tagPicker, setTagPicker] = useState<Track[] | null>(null);
 	// The view playback was started from (a view key), highlighted on its card.
@@ -1261,6 +1263,7 @@ function App() {
 
 	return (
 		<>
+			<MobileHeader onOpenDrawer={() => setDrawerOpen(true)} />
 			<div className="app-layout">
 				<Sidebar
 					libraryPath={settings.lastPath}
@@ -1269,6 +1272,8 @@ function App() {
 					onViewChange={showView}
 					showFolders={showFolders}
 					playingKey={playingKey}
+					drawerOpen={drawerOpen}
+					onCloseDrawer={() => setDrawerOpen(false)}
 				/>
 
 				<main className="container">

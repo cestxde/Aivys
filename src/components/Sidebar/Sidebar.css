@@ -106,3 +106,73 @@
     margin: 0 0 0 auto;
     flex-shrink: 0;
 }
+
+/* Narrow screens (phones): the sidebar is a drawer over the content, opened
+   from the MobileHeader's button. */
+.mobile-header,
+.sidebar-backdrop {
+    display: none;
+}
+
+@media (max-width: 720px) {
+    .mobile-header {
+        display: flex;
+        flex-shrink: 0;
+        align-items: center;
+        gap: 8px;
+        height: 48px;
+        padding: 0 8px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .mobile-header-menu {
+        display: flex;
+        padding: 8px;
+        border: none;
+        border-radius: 8px;
+        background: none;
+        color: var(--text-h);
+        cursor: pointer;
+    }
+
+    .mobile-header-logo {
+        height: 20px;
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 1040;
+        width: min(280px, 85vw);
+        flex: none;
+        padding-top: calc(1rem + var(--safe-top, 0px));
+        padding-bottom: calc(1rem + var(--safe-bottom, 0px));
+        padding-left: calc(0.5rem + var(--safe-left, 0px));
+        background: var(--bg);
+        box-shadow: var(--shadow-popup);
+        transform: translateX(-105%);
+        transition: transform 0.2s ease;
+    }
+
+    .sidebar.open {
+        transform: none;
+    }
+
+    .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 1039;
+        background: var(--backdrop);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+    }
+
+    .sidebar-backdrop.open {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}

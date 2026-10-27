@@ -46,6 +46,7 @@ export const en = {
     "nav.mostPlayed": "Most played",
     "nav.recentlyPlayed": "Recently played",
     "nav.settings": "Settings",
+    "nav.menu": "Menu",
 
     // Start screen
     "picker.title": "Choose your music folder",
