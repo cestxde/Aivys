@@ -14,6 +14,10 @@ class MainActivity : TauriActivity() {
   // content out of the system bars and plays through the app's player,
   // through these.
   override fun onWebViewCreate(webView: WebView) {
+    // An app, not a page: no pinch zoom.
+    webView.settings.setSupportZoom(false)
+    webView.settings.builtInZoomControls = false
+    webView.settings.displayZoomControls = false
     webView.addJavascriptInterface(StorageAccess(this), "AivysStorage")
     webView.addJavascriptInterface(SafeInsets(webView), "AivysInsets")
     webView.addJavascriptInterface(NativePlayer(this, webView), "AivysPlayer")
