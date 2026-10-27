@@ -15,7 +15,7 @@
         "title": "Aivys",
         "width": 1000,
         "height": 650,
-        "minWidth": 700,
+        "minWidth": 360,
         "minHeight": 450,
         "fullscreen": false,
         "visible": false,
