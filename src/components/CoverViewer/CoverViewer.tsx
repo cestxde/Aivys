@@ -3,6 +3,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { Music, X } from "lucide-react";
 import { t } from "../../i18n";
 import "./CoverViewer.css";
+import { useBackLayer } from "../../hooks/useBackLayer";
 
 interface CoverViewerProps {
     /** Cover file path, or null for the placeholder. */
@@ -13,6 +14,7 @@ interface CoverViewerProps {
 
 /** Full-screen overlay showing the current cover art at a large size. */
 export const CoverViewer = ({ path, onClose }: CoverViewerProps) => {
+    useBackLayer(true, onClose);
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             if (e.key === "Escape") onClose();

@@ -4,6 +4,7 @@ import type { Track } from "../../types";
 import { CoverArt } from "../CoverArt";
 import { t, type MessageKey } from "../../i18n";
 import "./MetadataEditor.css";
+import { useBackLayer } from "../../hooks/useBackLayer";
 
 const TEXT_FIELDS = ["title", "artist", "album", "albumArtist", "genre"] as const;
 const NUMBER_FIELDS = ["year", "trackNumber", "trackTotal", "discNumber"] as const;
@@ -66,6 +67,7 @@ interface MetadataEditorProps {
  * written.
  */
 export const MetadataEditor = ({ tracks, onSave, onClose }: MetadataEditorProps) => {
+    useBackLayer(true, onClose);
     const fields: Field[] = [...TEXT_FIELDS, ...NUMBER_FIELDS];
     const [initial] = useState(() => {
         const values = {} as Record<Field, string>;

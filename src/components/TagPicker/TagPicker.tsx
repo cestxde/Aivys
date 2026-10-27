@@ -11,6 +11,7 @@ import { TagSortButton } from "../TagSortButton/TagSortButton";
 import { CategorySidebar, PINNED, type CategoryFilter } from "../CategorySidebar/CategorySidebar";
 import { t } from "../../i18n";
 import "./TagPicker.css";
+import { useBackLayer } from "../../hooks/useBackLayer";
 
 interface TagPickerProps {
     tracks: Track[];
@@ -55,6 +56,7 @@ type Entry =
  * move the highlight.
  */
 export const TagPicker = ({ tracks, tags, categories, counts, isPinned, stats, onToggle, onCreate, onClose }: TagPickerProps) => {
+    useBackLayer(true, onClose);
     const [filter, setFilter] = useState("");
     const [sort, setSort] = useTagSort();
     const [picked, setPicked] = useRememberedState<CategoryFilter>("tagPicker.category", null);

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import "./ContextMenu.css";
+import { useBackLayer } from "../../hooks/useBackLayer";
 
 export type MenuEntry =
     | {
@@ -27,6 +28,7 @@ interface ContextMenuProps {
  * selection, a click outside, Escape, scroll or resize.
  */
 export const ContextMenu = ({ x, y, entries, onClose }: ContextMenuProps) => {
+    useBackLayer(true, onClose);
     const ref = useRef<HTMLDivElement>(null);
 
     // Flip/shift so the menu never overflows the window (before paint).

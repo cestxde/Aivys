@@ -5,6 +5,7 @@ import { sortTags } from "../../utils/tags";
 import { TagDot } from "../TagChip/TagChip";
 import { t } from "../../i18n";
 import "./TagPicker.css";
+import { useBackLayer } from "../../hooks/useBackLayer";
 
 interface MergeTagDialogProps {
     /** The tag merged away (deleted afterwards). */
@@ -19,6 +20,7 @@ interface MergeTagDialogProps {
 
 /** "Merge into…": picks the tag that takes over another one's tracks. */
 export const MergeTagDialog = ({ tag, tags, counts, onPick, onClose }: MergeTagDialogProps) => {
+    useBackLayer(true, onClose);
     const [filter, setFilter] = useState("");
 
     useEffect(() => {

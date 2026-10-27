@@ -5,6 +5,7 @@ import {
 } from "../../utils/updates";
 import { formatFileSize } from "../../utils/format";
 import { t } from "../../i18n";
+import { useBackLayer } from "../../hooks/useBackLayer";
 import "./UpdateDialog.css";
 
 /**
@@ -40,6 +41,7 @@ interface UpdateDialogProps {
 
 /** "A new version is available": its notes, install now or later. */
 export const UpdateDialog = ({ onBeforeInstall }: UpdateDialogProps) => {
+    useBackLayer(true, closeUpdateDialog);
     const status = useUpdateStatus();
     const prompt = useUpdatePrompt();
     const update = "update" in status ? status.update : null;

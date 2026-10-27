@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import type { TagCategory } from "../../types";
 import { t } from "../../i18n";
 import "./TagDialog.css";
+import { useBackLayer } from "../../hooks/useBackLayer";
 
 interface CategoryDialogProps {
     /** The category being renamed, or null to create one. */
@@ -15,6 +16,7 @@ interface CategoryDialogProps {
 
 /** Create or rename a tag category. */
 export const CategoryDialog = ({ category, categories, onSave, onClose }: CategoryDialogProps) => {
+    useBackLayer(true, onClose);
     const [name, setName] = useState(category?.name ?? "");
 
     useEffect(() => {

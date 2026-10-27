@@ -5,6 +5,7 @@ import { TAG_COLORS } from "../../utils/tags";
 import { TagChip } from "../TagChip/TagChip";
 import { t } from "../../i18n";
 import "./TagDialog.css";
+import { useBackLayer } from "../../hooks/useBackLayer";
 
 interface TagDialogProps {
     /** The tag being edited, or null to create one. */
@@ -25,6 +26,7 @@ interface TagDialogProps {
 
 /** Create or edit a tag: its name, a color (preset or custom) and its categories. */
 export const TagDialog = ({ tag, initialColor, initialCategoryIds = [], initialName = "", tags, categories, onSave, onCreateCategory, onClose }: TagDialogProps) => {
+    useBackLayer(true, onClose);
     const [name, setName] = useState(tag?.name ?? initialName);
     const [color, setColor] = useState(tag?.color ?? initialColor);
     const [categoryIds, setCategoryIds] = useState(tag?.categoryIds ?? initialCategoryIds);

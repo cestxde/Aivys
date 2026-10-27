@@ -5,6 +5,7 @@ import { displayTitle } from "../../utils/track";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
 import { t } from "../../i18n";
 import "./AddToDialog.css";
+import { useBackLayer } from "../../hooks/useBackLayer";
 
 interface AddToDialogProps {
     tracks: Track[];
@@ -35,6 +36,7 @@ export const AddToDialog = ({
     onCreatePlaylist,
     onClose,
 }: AddToDialogProps) => {
+    useBackLayer(true, onClose);
     const [filter, setFilter] = useState("");
     const [newName, setNewName] = useState<string | null>(null);
 

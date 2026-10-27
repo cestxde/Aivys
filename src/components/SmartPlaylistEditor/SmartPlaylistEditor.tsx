@@ -4,6 +4,7 @@ import { Plus, X } from "lucide-react";
 import type { Condition, SmartRules, SortSpec } from "../../types";
 import { t, type MessageKey } from "../../i18n";
 import "./SmartPlaylistEditor.css";
+import { useBackLayer } from "../../hooks/useBackLayer";
 
 type FieldType = "text" | "number" | "date" | "boolean" | "tag" | "category";
 
@@ -113,6 +114,7 @@ interface SmartPlaylistEditorProps {
 
 /** Modal editor for a smart playlist's name and rules, with a live match count. */
 export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, categories, onSave, onClose }: SmartPlaylistEditorProps) => {
+    useBackLayer(true, onClose);
     const [name, setName] = useState(initialName);
     const [match, setMatch] = useState<SmartRules["match"]>(initialRules?.match ?? "all");
     const [conditions, setConditions] = useState<Condition[]>(
