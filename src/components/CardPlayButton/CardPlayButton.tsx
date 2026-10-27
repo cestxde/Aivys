@@ -1,4 +1,4 @@
-import { AudioLines, Play } from "lucide-react";
+import { AudioLines, Pin, Play } from "lucide-react";
 import { t } from "../../i18n";
 import "./CardPlayButton.css";
 
@@ -27,5 +27,12 @@ export const CardPlayButton = ({ onPlay }: { onPlay: () => void }) => (
 export const PlayingMark = () => (
     <span className="playing-mark" title={t("common.playingFrom")}>
         <AudioLines size={13} />
+    </span>
+);
+
+/** Marks a card or row pinned to the top of its list. */
+export const PinnedMark = () => (
+    <span className="pinned-mark" title={t("pin.pinned")}>
+        <Pin size={12} />
     </span>
 );

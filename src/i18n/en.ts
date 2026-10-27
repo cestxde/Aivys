@@ -30,6 +30,9 @@ export const en = {
     "common.variousArtists": "Various artists",
     "common.addToFavorites": "Add to favorites",
     "common.removeFromFavorites": "Remove from favorites",
+    "pin.pin": "Pin",
+    "pin.unpin": "Unpin",
+    "pin.pinned": "Pinned",
 
     // Sidebar and views
     "nav.changeFolder": "Change folder",
@@ -175,6 +178,8 @@ export const en = {
     "error.deleteTag": "Could not delete the tag",
     "error.saveCategory": "Could not save the category",
     "error.deleteCategory": "Could not delete the category",
+    "error.loadPins": "Could not load the pinned items",
+    "error.savePin": "Could not pin",
     "error.loadPlaylists": "Could not load playlists",
     "error.createPlaylist": "Could not create the playlist",
     "error.createSmart": "Could not create the smart playlist",
@@ -310,6 +315,7 @@ export const en = {
     "tags.newCategory": "New category",
     "tags.noCategory": "No category",
     "tags.all": "All",
+    "tags.pinned": "Pinned",
     "tags.categoryEmpty": "Empty: drag a tag here or press +.",
     "tags.newTagIn": "New tag in this category",
     "tags.renameCategory": "Rename",

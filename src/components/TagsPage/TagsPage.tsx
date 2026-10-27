@@ -1,13 +1,14 @@
 import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
-import { ChevronDown, ChevronRight, MoreVertical, Plus, Tag } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreVertical, Pin, Plus, Tag } from "lucide-react";
 import type { TagCategory, UserTag } from "../../types";
 import { groupTags, sortTags } from "../../utils/tags";
 import { useTagSort } from "../../hooks/useTags";
 import { TagDot } from "../TagChip/TagChip";
 import { TagSortButton } from "../TagSortButton/TagSortButton";
-import { CategorySidebar, type CategoryFilter } from "../CategorySidebar/CategorySidebar";
+import { CategorySidebar, PINNED, type CategoryFilter } from "../CategorySidebar/CategorySidebar";
 import { LayoutToggle, type PlaylistsLayout } from "../PlaylistsPage/PlaylistsPage";
-import { CardPlayButton, PlayingMark } from "../CardPlayButton/CardPlayButton";
+import { CardPlayButton, PinnedMark, PlayingMark } from "../CardPlayButton/CardPlayButton";
+import { pinnedFirst } from "../../hooks/usePins";
 import { t } from "../../i18n";
 import { useRememberedScroll, useRememberedState, useStoredState } from "../../hooks/useRemembered";
 import "./TagsPage.css";
@@ -25,6 +26,8 @@ interface TagsPageProps {
     /** Id of the tag playback was started from, to highlight it. */
     playingId: string | null;
     onOpenMenu: (tag: UserTag, x: number, y: number) => void;
+    /** Pinned to the top of the list (of each category). */
+    isPinned: (tag: UserTag) => boolean;
     /** A new tag, in `category` if given. */
     onCreate: (category: TagCategory | null) => void;
     onCreateCategory: () => void;
@@ -66,7 +69,7 @@ const sectionAt = (x: number, y: number): string | null =>
  * tag is dragged to another category (in the list or the sidebar) to move it.
  */
 export const TagsPage = ({
-    tags, categories, counts, layout, onLayoutChange, onOpen, onPlay, playingId, onOpenMenu, onCreate,
+    tags, categories, counts, layout, onLayoutChange, onOpen, onPlay, playingId, onOpenMenu, isPinned, onCreate,
     onCreateCategory, onRenameCategory, onOpenCategoryMenu, onReorderCategories, onMoveTag,
 }: TagsPageProps) => {
     const [filter, setFilter] = useRememberedState("tags.filter", "");
@@ -76,8 +79,11 @@ export const TagsPage = ({
     const { ref: scrollRef, onScroll: onPageScroll } = useRememberedScroll("tags");
     const query = filter.trim().toLowerCase();
     const shown = tags.filter(tag => !query || tag.name.toLowerCase().includes(query));
-    // A picked category that was deleted meanwhile shows all again.
+    const pinned = tags.filter(isPinned);
+    // A picked category that was deleted meanwhile (or "Pinned" with nothing
+    // pinned) shows all again.
     const selected = picked === null || categories.some(c => c.id === picked) || (picked === "" && categories.length > 0)
+        || (picked === PINNED && pinned.length > 0)
         ? picked
         : null;
     const selectedCategory = categories.find(c => c.id === selected) ?? null;
@@ -134,9 +140,12 @@ export const TagsPage = ({
     const toggleCollapsed = (id: string) =>
         setCollapsed(collapsed.includes(id) ? collapsed.filter(other => other !== id) : [...collapsed, id]);
 
-    /** A tag as a card (grid) or a row (list), in the section of `category`. */
-    const item = (tag: UserTag, category: TagCategory | null) => {
-        const key = `${category?.id ?? ""}:${tag.id}`;
+    /**
+     * A tag as a card (grid) or a row (list), in the section `section` (of
+     * `category`; the pinned and the uncategorized have none).
+     */
+    const item = (tag: UserTag, category: TagCategory | null, section = category?.id ?? "") => {
+        const key = `${section}:${tag.id}`;
         const count = counts.get(tag.id) ?? 0;
         const grid = layout === "grid";
         return (
@@ -165,6 +174,7 @@ export const TagsPage = ({
                     <div className="tag-card-text">
                         <span className="tag-card-name">
                             {tag.id === playingId && <PlayingMark />}
+                            {isPinned(tag) && <PinnedMark />}
                             {tag.name}
                         </span>
                         <span className="tag-card-meta">{describe(count)}</span>
@@ -173,6 +183,7 @@ export const TagsPage = ({
                     <span className="tag-row-text">
                         <span className="tag-card-name">
                             {tag.id === playingId && <PlayingMark />}
+                            {isPinned(tag) && <PinnedMark />}
                             {tag.name}
                         </span>
                         <span className="tag-row-count" title={describe(count)}>({count})</span>
@@ -195,14 +206,15 @@ export const TagsPage = ({
         );
     };
 
-    const items = (inGroup: UserTag[], category: TagCategory | null) => (
+    const items = (inGroup: UserTag[], category: TagCategory | null, section?: string) => (
         <div className={layout === "grid" ? "tags-grid" : "tags-list"}>
-            {sortTags(inGroup, sort, counts).map(tag => item(tag, category))}
+            {pinnedFirst(sortTags(inGroup, sort, counts), isPinned).map(tag => item(tag, category, section))}
         </div>
     );
 
     // All tags: every category (a tag in several, in each), the tags in none
     // last. While dragging a tag every category shows, to be dropped on.
+    const shownPinned = shown.filter(isPinned);
     const groups = groupTags(shown, categories)
         .filter(group => selected === null || (group.category?.id ?? "") === selected)
         .filter(group => selected !== null || group.tags.length > 0
@@ -215,6 +227,7 @@ export const TagsPage = ({
                 <CategorySidebar
                     tags={tags}
                     categories={categories}
+                    pinnedCount={pinned.length}
                     selected={selected}
                     onSelect={setPicked}
                     onReorder={onReorderCategories}
@@ -246,12 +259,36 @@ export const TagsPage = ({
                         <Tag size={28} />
                         <span>{t("tags.empty")}</span>
                     </div>
-                ) : categories.length === 0 ? (
+                ) : selected === PINNED ? (
+                    shownPinned.length > 0 ? items(shownPinned, null, PINNED) : <div className="tags-empty">{t("tags.noMatch")}</div>
+                ) : categories.length === 0 && pinned.length === 0 ? (
                     shown.length > 0 ? items(shown, null) : <div className="tags-empty">{t("tags.noMatch")}</div>
-                ) : groups.length === 0 ? (
+                ) : groups.length === 0 && shownPinned.length === 0 ? (
                     <div className="tags-empty">{t("tags.noMatch")}</div>
                 ) : (
                     <div className={`tag-sections ${draggedTag ? "is-reordering" : ""}`}>
+                        {selected === null && shownPinned.length > 0 && (() => {
+                            // Not a drop target: pinning is not a category.
+                            const isCollapsed = collapsed.includes(PINNED) && !query;
+                            return (
+                                <section className="tag-section">
+                                    <div className="tag-section-header">
+                                        <button
+                                            className="tag-section-toggle"
+                                            title={isCollapsed ? t("tags.expand") : t("tags.collapse")}
+                                            aria-expanded={!isCollapsed}
+                                            onClick={() => toggleCollapsed(PINNED)}
+                                        >
+                                            {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                                        </button>
+                                        <Pin size={14} className="tag-section-icon" />
+                                        <h2 className="tag-section-name">{t("tags.pinned")}</h2>
+                                        <span className="tag-section-count">{shownPinned.length}</span>
+                                    </div>
+                                    {!isCollapsed && items(shownPinned, null, PINNED)}
+                                </section>
+                            );
+                        })()}
                         {groups.map(({ category, tags: inGroup }) => {
                             const id = category?.id ?? "";
                             // One category picked, or a filter: what it holds is shown.

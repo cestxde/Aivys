@@ -1,16 +1,24 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { FolderPlus, Layers, Tag } from "lucide-react";
+import { FolderPlus, Layers, Pin, Tag } from "lucide-react";
 import type { TagCategory, UserTag } from "../../types";
 import { t } from "../../i18n";
 import "./CategorySidebar.css";
 
-/** The shown tags: all (null), those in no category (""), or a category's (its id). */
+/**
+ * The shown tags: all (null), the pinned ones (`PINNED`), those in no
+ * category (""), or a category's (its id).
+ */
 export type CategoryFilter = string | null;
+
+/** The filter (and section id) of the pinned tags. */
+export const PINNED = "\u0000pinned";
 
 interface CategorySidebarProps {
     tags: UserTag[];
     /** In the user's order. */
     categories: TagCategory[];
+    /** How many tags are pinned; with some, "Pinned" is offered. */
+    pinnedCount: number;
     selected: CategoryFilter;
     onSelect: (selected: CategoryFilter) => void;
     /** Given, the categories are reordered by dragging them here. */
@@ -37,7 +45,7 @@ interface Drag {
  * on the tags page can be dropped on them.
  */
 export const CategorySidebar = ({
-    tags, categories, selected, onSelect, onReorder, onOpenMenu, onRename, onCreate, dropTarget = null,
+    tags, categories, pinnedCount, selected, onSelect, onReorder, onOpenMenu, onRename, onCreate, dropTarget = null,
 }: CategorySidebarProps) => {
     const known = new Set(categories.map(category => category.id));
     const countOf = (id: string) => tags.filter(tag => tag.categoryIds?.includes(id)).length;
@@ -101,6 +109,17 @@ export const CategorySidebar = ({
                 <span className="category-item-name">{t("tags.all")}</span>
                 <span className="category-item-count">{tags.length}</span>
             </button>
+
+            {pinnedCount > 0 && (
+                <button
+                    className={`category-item ${selected === PINNED ? "active" : ""}`}
+                    onClick={() => onSelect(PINNED)}
+                >
+                    <Pin size={15} />
+                    <span className="category-item-name">{t("tags.pinned")}</span>
+                    <span className="category-item-count">{pinnedCount}</span>
+                </button>
+            )}
 
             {categories.map(category => {
                 const line = drop?.id === category.id && dragging !== category.id

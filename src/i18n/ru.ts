@@ -26,6 +26,9 @@ export const ru: Record<MessageKey, Message> = {
     "common.variousArtists": "Разные исполнители",
     "common.addToFavorites": "Добавить в избранное",
     "common.removeFromFavorites": "Убрать из избранного",
+    "pin.pin": "Закрепить",
+    "pin.unpin": "Открепить",
+    "pin.pinned": "Закреплено",
 
     // Sidebar and views
     "nav.changeFolder": "Сменить папку",
@@ -185,6 +188,8 @@ export const ru: Record<MessageKey, Message> = {
     "error.deleteTag": "Не удалось удалить тег",
     "error.saveCategory": "Не удалось сохранить категорию",
     "error.deleteCategory": "Не удалось удалить категорию",
+    "error.loadPins": "Не удалось загрузить закреплённое",
+    "error.savePin": "Не удалось закрепить",
     "error.loadPlaylists": "Не удалось загрузить плейлисты",
     "error.createPlaylist": "Не удалось создать плейлист",
     "error.createSmart": "Не удалось создать умный плейлист",
@@ -325,6 +330,7 @@ export const ru: Record<MessageKey, Message> = {
     "tags.newCategory": "Новая категория",
     "tags.noCategory": "Без категории",
     "tags.all": "Все",
+    "tags.pinned": "Закреплённые",
     "tags.categoryEmpty": "Пока пусто: перетащите сюда тег или нажмите +.",
     "tags.newTagIn": "Новый тег в категории",
     "tags.renameCategory": "Переименовать",

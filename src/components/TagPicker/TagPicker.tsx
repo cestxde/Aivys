@@ -4,10 +4,11 @@ import type { TagCategory, Track, TrackStats, UserTag } from "../../types";
 import { displayTitle } from "../../utils/track";
 import { groupTags, sortTags } from "../../utils/tags";
 import { useTagSort } from "../../hooks/useTags";
+import { pinnedFirst } from "../../hooks/usePins";
 import { useRememberedState, useStoredState } from "../../hooks/useRemembered";
 import { TagDot } from "../TagChip/TagChip";
 import { TagSortButton } from "../TagSortButton/TagSortButton";
-import { CategorySidebar, type CategoryFilter } from "../CategorySidebar/CategorySidebar";
+import { CategorySidebar, PINNED, type CategoryFilter } from "../CategorySidebar/CategorySidebar";
 import { t } from "../../i18n";
 import "./TagPicker.css";
 
@@ -18,6 +19,8 @@ interface TagPickerProps {
     categories: TagCategory[];
     /** Tagged library tracks per tag id. */
     counts: Map<string, number>;
+    /** Pinned to the top (of each category). */
+    isPinned: (tag: UserTag) => boolean;
     stats: Record<string, TrackStats>;
     /** Assign the tag to all `tracks`, or remove it from all of them. */
     onToggle: (tag: UserTag, assigned: boolean) => void;
@@ -51,7 +54,7 @@ type Entry =
  * the highlighted row and clears the field for the next name; the arrow keys
  * move the highlight.
  */
-export const TagPicker = ({ tracks, tags, categories, counts, stats, onToggle, onCreate, onClose }: TagPickerProps) => {
+export const TagPicker = ({ tracks, tags, categories, counts, isPinned, stats, onToggle, onCreate, onClose }: TagPickerProps) => {
     const [filter, setFilter] = useState("");
     const [sort, setSort] = useTagSort();
     const [picked, setPicked] = useRememberedState<CategoryFilter>("tagPicker.category", null);
@@ -69,8 +72,11 @@ export const TagPicker = ({ tracks, tags, categories, counts, stats, onToggle, o
         return () => window.removeEventListener("keydown", onKey);
     }, [onClose]);
 
-    // A picked category that was deleted meanwhile shows all again.
+    const pinned = tags.filter(isPinned);
+    // A picked category that was deleted meanwhile (or "Pinned" with nothing
+    // pinned) shows all again.
     const selected = picked === null || categories.some(c => c.id === picked) || (picked === "" && categories.length > 0)
+        || (picked === PINNED && pinned.length > 0)
         ? picked
         : null;
     const query = filter.trim();
@@ -78,6 +84,7 @@ export const TagPicker = ({ tracks, tags, categories, counts, stats, onToggle, o
     const canCreate = query !== "" && !tags.some(tag => tag.name.toLowerCase() === lower);
 
     const toEntry = (tag: UserTag, prefix = ""): Entry => ({ kind: "tag", key: `${prefix}:${tag.id}`, tag });
+    const ordered = (list: UserTag[]) => pinnedFirst(sortTags(list, sort, counts), isPinned);
     const groups = groupTags(tags, categories);
     const entries: Entry[] = lower
         ? sortTags(tags.filter(tag => tag.name.toLowerCase().includes(lower)), sort, counts)
@@ -85,19 +92,26 @@ export const TagPicker = ({ tracks, tags, categories, counts, stats, onToggle, o
             // Stable: within a rank the chosen order stays.
             .sort((a, b) => a.rank - b.rank)
             .map(({ tag }) => toEntry(tag))
-        : categories.length === 0
-            ? sortTags(tags, sort, counts).map(tag => toEntry(tag))
+        : selected === PINNED
+            ? sortTags(pinned, sort, counts).map(tag => toEntry(tag, PINNED))
+            : categories.length === 0 && pinned.length === 0
+            ? ordered(tags).map(tag => toEntry(tag))
             : selected !== null
-                ? sortTags(groups.find(group => (group.category?.id ?? "") === selected)?.tags ?? [], sort, counts)
+                ? ordered(groups.find(group => (group.category?.id ?? "") === selected)?.tags ?? [])
                     .map(tag => toEntry(tag, selected))
-                : groups
+                // All: the pinned first, then the categories (or, without any, the rest).
+                : [
+                    ...(pinned.length > 0 ? [{ id: PINNED, name: t("tags.pinned"), tags: pinned }] : []),
+                    ...(categories.length > 0
+                        ? groups.map(({ category, tags: inGroup }) => ({ id: category?.id ?? "", name: category?.name ?? t("tags.noCategory"), tags: inGroup }))
+                        : [{ id: "", name: t("tags.noCategory"), tags: tags.filter(tag => !isPinned(tag)) }]),
+                ]
                     .filter(group => group.tags.length > 0)
-                    .flatMap(({ category, tags: inGroup }): Entry[] => {
-                        const id = category?.id ?? "";
+                    .flatMap(({ id, name, tags: inGroup }): Entry[] => {
                         const isCollapsed = collapsed.includes(id);
                         return [
-                            { kind: "heading", key: `heading:${id}`, id, name: category?.name ?? t("tags.noCategory"), count: inGroup.length, collapsed: isCollapsed },
-                            ...(isCollapsed ? [] : sortTags(inGroup, sort, counts).map(tag => toEntry(tag, id))),
+                            { kind: "heading", key: `heading:${id}`, id, name, count: inGroup.length, collapsed: isCollapsed },
+                            ...(isCollapsed ? [] : ordered(inGroup).map(tag => toEntry(tag, id))),
                         ];
                     });
     const tagEntries = entries.flatMap(entry => (entry.kind === "tag" ? [entry] : []));
@@ -155,7 +169,7 @@ export const TagPicker = ({ tracks, tags, categories, counts, stats, onToggle, o
     return (
         <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
             <div
-                className={`add-to-dialog tag-picker ${categories.length > 0 ? "with-sidebar" : ""}`}
+                className={`add-to-dialog tag-picker ${categories.length > 0 || pinned.length > 0 ? "with-sidebar" : ""}`}
                 role="dialog"
                 aria-label={t("tagPicker.title")}
             >
@@ -170,10 +184,11 @@ export const TagPicker = ({ tracks, tags, categories, counts, stats, onToggle, o
                 </div>
 
                 <div className="tag-picker-body">
-                    {categories.length > 0 && (
+                    {(categories.length > 0 || pinned.length > 0) && (
                         <CategorySidebar
                             tags={tags}
                             categories={categories}
+                            pinnedCount={pinned.length}
                             selected={selected}
                             onSelect={setPicked}
                         />

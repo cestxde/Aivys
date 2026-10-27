@@ -75,6 +75,7 @@ conform to this spec. Changes to a shipped field are a `schemaVersion` bump.
     devices/
       <deviceId>.json           # optional per-device descriptor (§7)
     tags.json                   # user-defined colored tag definitions (§8.3)
+    pins.json                   # playlists, albums, artists, tags pinned to the top (§8.7)
     playlists/
       <uuid>.json               # one file per manual or smart playlist (§8.4)
       covers/
@@ -599,6 +600,38 @@ System playlists are **not files**. They are computed views:
   The journals keep the raw history, so the window (all-time vs. rolling N
   days, or per-device views) can be changed later without a format change.
 - Do not persist separate aggregates; always derive from `events/`.
+
+### 8.7 `pins.json` — pinned items
+
+Playlists, albums, artists and tags the user pinned to the top of their
+lists. Shared by all devices of the library; a missing file means nothing is
+pinned.
+
+```json
+{
+  "schemaVersion": 1,
+  "pins": [
+    { "kind": "playlist", "key": "3f2a...uuid", "pinnedAt": 1730000000, "updatedAt": 1730000000, "deletedAt": null },
+    { "kind": "artist", "key": "radiohead", "pinnedAt": 1730000100, "updatedAt": 1730000100, "deletedAt": null }
+  ],
+  "updatedAt": 1730000100
+}
+```
+
+- `kind` ∈ `{ "playlist", "album", "artist", "tag" }`; one entry per
+  `kind` + `key`.
+- `key`: a playlist's or tag's `id`; an artist's name trimmed and in lower
+  case; an album's album artist (trimmed, lower case) or, without one,
+  `dir:` + its folder, then U+001F, then its title in lower case. Albums and
+  artists have no files of their own, so they are pinned by these keys; a
+  renamed one is no longer pinned.
+- Unpinning sets `deletedAt` (tombstone) and `updatedAt`; pinning again clears
+  it and sets a new `pinnedAt`. A pin of something that no longer exists is
+  ignored.
+- Pinned items come first in their list, among themselves in the list's
+  current order.
+- **Merge strategy:** union by `kind` + `key`; for a pin on both sides the
+  entry with the greater `updatedAt` wins as a whole (including `deletedAt`).
 
 ---
 

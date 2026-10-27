@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import {
-	ArrowDown, ArrowUp, Check, FolderPlus, Heart, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
+	ArrowDown, ArrowUp, Check, FolderPlus, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
 } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
@@ -29,6 +29,7 @@ import { useMediaControls } from "./hooks/useMediaControls";
 import { useShortcutActions } from "./hooks/useShortcutActions";
 import { usePlaylists } from "./hooks/usePlaylists";
 import { useTags, type TagChange } from "./hooks/useTags";
+import { usePins, type PinKind } from "./hooks/usePins";
 import { useViewRows } from "./hooks/useViewRows";
 import { useSmartPlaylistPaths } from "./hooks/useSmartPlaylistPaths";
 import { PlaylistHeader } from "./components/PlaylistHeader/PlaylistHeader";
@@ -258,6 +259,7 @@ function App() {
 
 	const playlists = usePlaylists(files);
 	const tags = useTags(files);
+	const pins = usePins(files);
 
 	// eslint-disable-next-line react-hooks/exhaustive-deps -- names are translated
 	const artists = useMemo(() => groupArtists(files), [files, language]);
@@ -1042,6 +1044,17 @@ function App() {
 		];
 	};
 
+	/** "Pin" / "Unpin": keeps the thing at the top of its list. */
+	const pinEntry = (kind: PinKind, key: string): MenuEntry => {
+		const pinned = pins.isPinned(kind, key);
+		return {
+			kind: "item",
+			label: pinned ? t("pin.unpin") : t("pin.pin"),
+			icon: pinned ? <PinOff size={16} /> : <Pin size={16} />,
+			onSelect: () => pins.setPinned(kind, key, !pinned),
+		};
+	};
+
 	const playlistMenu = (target: Playlist): MenuEntry[] => [
 		{ kind: "item", label: t("common.open"), icon: <FolderOpen size={16} />, onSelect: () => showView({ kind: "playlist", id: target.id }) },
 		{
@@ -1059,6 +1072,7 @@ function App() {
 				if (tracks.length > 0) setAddTo(tracks);
 			},
 		},
+		pinEntry("playlist", target.id),
 		...(target.readOnly ? [] : [
 			{ kind: "separator" } as const,
 			{
@@ -1078,6 +1092,7 @@ function App() {
 		{ kind: "separator" },
 		{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo(group.tracks) },
 		{ kind: "item", label: t("common.tags"), icon: <Tag size={16} />, onSelect: () => setTagPicker(group.tracks) },
+		...(open.kind === "artist" || open.kind === "album" ? [pinEntry(open.kind, group.key)] : []),
 	];
 
 	/** The folder path as breadcrumbs, from the library root. */
@@ -1148,6 +1163,7 @@ function App() {
 				if (tracks.length > 0) setAddTo(tracks);
 			},
 		},
+		pinEntry("tag", target.id),
 		{ kind: "separator" },
 		{ kind: "item", label: t("common.edit"), icon: <Pencil size={16} />, onSelect: () => setTagDialog({ tag: target }) },
 		...tagCategoryEntries(target),
@@ -1249,6 +1265,7 @@ function App() {
 							onOpen={(target) => showView({ kind: "playlist", id: target.id })}
 							onPlay={playPlaylist}
 							onOpenMenu={(target, x, y) => setMenu({ x, y, entries: playlistMenu(target) })}
+							isPinned={(target) => pins.isPinned("playlist", target.id)}
 							onCreate={createPlaylist}
 							onCreateSmart={() => openEditor(null)}
 						/>
@@ -1263,6 +1280,7 @@ function App() {
 							onPlay={(target) => playTracks(tracksOfTag(target), { kind: "tag", id: target.id })}
 							playingId={playingIn("tag")}
 							onOpenMenu={(target, x, y) => setMenu({ x, y, entries: tagMenu(target) })}
+							isPinned={(target) => pins.isPinned("tag", target.id)}
 							onCreate={(category) => setTagDialog({ tag: null, categoryIds: category ? [category.id] : [] })}
 							onCreateCategory={() => setCategoryDialog({ category: null })}
 							onRenameCategory={(category) => setCategoryDialog({ category })}
@@ -1301,6 +1319,7 @@ function App() {
 							playingKey={playingIn("artist")}
 							onOpenMenu={(group, x, y) =>
 								setMenu({ x, y, entries: groupMenu(group, { kind: "artist", id: group.key }) })}
+							isPinned={(group) => pins.isPinned("artist", group.key)}
 						/>
 					) : listView.kind === "albums" ? (
 						<CollectionPage
@@ -1322,6 +1341,7 @@ function App() {
 							playingKey={playingIn("album")}
 							onOpenMenu={(group, x, y) =>
 								setMenu({ x, y, entries: groupMenu(group, { kind: "album", id: group.key }) })}
+							isPinned={(group) => pins.isPinned("album", group.key)}
 						/>
 					) : (
 						<>
@@ -1650,6 +1670,7 @@ function App() {
 					tags={tags.tags}
 					categories={tags.categories}
 					counts={tagCounts}
+					isPinned={(target) => pins.isPinned("tag", target.id)}
 					stats={trackStats.stats}
 					onToggle={(tag, assigned) => trackStats.setTrackTag(tagPicker, tag.id, assigned)}
 					onCreate={(name, categoryIds) => setTagDialog({ tag: null, name, categoryIds, assignTo: tagPicker })}

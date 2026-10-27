@@ -3,7 +3,8 @@ import { ArrowUpDown, Check, ChevronDown, ChevronRight, MoreVertical } from "luc
 import type { TrackGroup } from "../../utils/groups";
 import { groupCovers } from "../../utils/groups";
 import { CoverMosaic } from "../PlaylistCover/PlaylistCover";
-import { CardPlayButton, PlayingMark } from "../CardPlayButton/CardPlayButton";
+import { CardPlayButton, PinnedMark, PlayingMark } from "../CardPlayButton/CardPlayButton";
+import { pinnedFirst } from "../../hooks/usePins";
 import { LayoutToggle, type PlaylistsLayout } from "../PlaylistsPage/PlaylistsPage";
 import { t } from "../../i18n";
 import { useRememberedScroll, useRememberedState, useStoredState } from "../../hooks/useRemembered";
@@ -57,6 +58,8 @@ interface CollectionPageProps {
     /** Key of the group playback was started from, to highlight it. */
     playingKey: string | null;
     onOpenMenu: (group: TrackGroup, x: number, y: number) => void;
+    /** Pinned to the top of the list (of its section). */
+    isPinned: (group: TrackGroup) => boolean;
     /** Ways to order the cards, the first being the default. */
     sorts: CollectionSort[];
     /** Split into parts (otherwise one list). */
@@ -84,6 +87,7 @@ export const CollectionPage = ({
     onPlay,
     playingKey,
     onOpenMenu,
+    isPinned,
     sorts,
     sections,
 }: CollectionPageProps) => {
@@ -99,10 +103,10 @@ export const CollectionPage = ({
 
     const sort = sorts.find(option => option.id === sortChoice.id) ?? sorts[0];
     const query = filter.trim().toLowerCase();
-    const matching = (query
+    const matching = pinnedFirst((query
         ? groups.filter(g => g.name.toLowerCase().includes(query) || g.subtitle?.toLowerCase().includes(query))
         : [...groups]
-    ).sort((a, b) => (sortChoice.reversed ? -1 : 1) * sort.compare(a, b));
+    ).sort((a, b) => (sortChoice.reversed ? -1 : 1) * sort.compare(a, b)), isPinned);
     const parts = sections
         ? sections.map(section => ({ ...section, groups: matching.filter(section.test) }))
         : [{ id: "all", label: "", test: () => true, folded: false, groups: matching }];
@@ -172,6 +176,7 @@ export const CollectionPage = ({
                         <div className="playlist-card-text">
                             <span className="playlist-card-name" title={group.name}>
                                 {group.key === playingKey && <PlayingMark />}
+                                {isPinned(group) && <PinnedMark />}
                                 {group.name}
                             </span>
                             <span className="playlist-card-meta" title={describe(group)}>{describe(group)}</span>
@@ -190,6 +195,7 @@ export const CollectionPage = ({
                     <div className="track-main-info">
                         <span className="track-title">
                             {group.key === playingKey && <PlayingMark />}
+                            {isPinned(group) && <PinnedMark />}
                             {group.name}
                         </span>
                         <span className="track-artist" title={describe(group)}>

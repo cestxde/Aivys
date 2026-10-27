@@ -73,6 +73,8 @@ pub fn run() {
             rename_tag_category,
             delete_tag_category,
             reorder_tag_categories,
+            list_pins,
+            set_pinned,
             list_playlists,
             create_manual_playlist,
             create_smart_playlist,

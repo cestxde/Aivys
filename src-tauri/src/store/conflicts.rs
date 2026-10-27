@@ -1,5 +1,5 @@
 use super::fsio::{now_unix, read_json, write_json};
-use super::{device, events, index, playlists, settings, tags, Store, StoreError};
+use super::{device, events, index, pins, playlists, settings, tags, Store, StoreError};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -130,6 +130,7 @@ fn resolve_one(store: &Store, conflict: &Path, canonical: &Path, canonical_rel: 
     match canonical_rel {
         "library.json" => merge_docs(canonical, conflict, settings::merge),
         "tags.json" => merge_docs(canonical, conflict, tags::merge),
+        "pins.json" => merge_docs(canonical, conflict, pins::merge),
         "index/added-at.json" => {
             let mut map = index::load_added_at(canonical);
             index::merge_added_at(&mut map, index::load_added_at(conflict));

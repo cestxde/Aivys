@@ -8,6 +8,7 @@ use super::events::{self, EventKind, TrackStats};
 use super::playlists::{self, PlaylistView, SmartRules, SortSpec};
 use super::settings::{self, LibrarySettings};
 use crate::artists::ArtistRules;
+use super::pins::{self, PinDef};
 use super::tags::{self, CategoryDef, TagDef};
 use super::{conflicts, Store, StoreError};
 use crate::db::search::SearchHit;
@@ -350,6 +351,20 @@ pub(crate) async fn delete_tag_category(state: State<'_, StoreState>, id: String
 #[tauri::command]
 pub(crate) async fn reorder_tag_categories(state: State<'_, StoreState>, ids: Vec<String>) -> Result<Vec<CategoryDef>, StoreError> {
     with_store(&state, |store| tags::reorder_categories(store, &ids))
+}
+
+// ---- Pins ----
+
+/// What is pinned to the top of its list.
+#[tauri::command]
+pub(crate) async fn list_pins(state: State<'_, StoreState>) -> Result<Vec<PinDef>, StoreError> {
+    with_store(&state, |store| pins::list(store))
+}
+
+/// Pin or unpin a playlist, album, artist or tag (`kind`) by its key; returns what is pinned then.
+#[tauri::command]
+pub(crate) async fn set_pinned(state: State<'_, StoreState>, kind: String, key: String, pinned: bool) -> Result<Vec<PinDef>, StoreError> {
+    with_store(&state, |store| pins::set(store, &kind, &key, pinned))
 }
 
 // ---- Playlists ----

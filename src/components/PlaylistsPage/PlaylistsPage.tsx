@@ -2,7 +2,8 @@ import type { ComponentType, CSSProperties } from "react";
 import { LayoutGrid, List, MoreVertical, Plus, Sparkles } from "lucide-react";
 import type { Playlist, SystemView, Track } from "../../types";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
-import { CardPlayButton, PlayingMark } from "../CardPlayButton/CardPlayButton";
+import { CardPlayButton, PinnedMark, PlayingMark } from "../CardPlayButton/CardPlayButton";
+import { pinnedFirst } from "../../hooks/usePins";
 import { t } from "../../i18n";
 import { useRememberedScroll, useRememberedState } from "../../hooks/useRemembered";
 import "./PlaylistsPage.css";
@@ -36,6 +37,8 @@ interface PlaylistsPageProps {
     onOpen: (playlist: Playlist) => void;
     onPlay: (playlist: Playlist) => void;
     onOpenMenu: (playlist: Playlist, x: number, y: number) => void;
+    /** Pinned to the top of the list. */
+    isPinned: (playlist: Playlist) => boolean;
     onCreate: () => void;
     onCreateSmart: () => void;
 }
@@ -43,9 +46,10 @@ interface PlaylistsPageProps {
 const trackCount = (count: number) => t("common.tracks", { count });
 
 /** A playlist's name; a smart playlist is marked with a sparkle. */
-const PlaylistName = ({ playlist, playing }: { playlist: Playlist; playing: boolean }) => (
+const PlaylistName = ({ playlist, playing, pinned }: { playlist: Playlist; playing: boolean; pinned: boolean }) => (
     <>
         {playing && <PlayingMark />}
+        {pinned && <PinnedMark />}
         {playlist.type === "smart" && (
             <span className="playlist-smart-mark" title={t("playlist.kindSmart")}>
                 <Sparkles size={12} />
@@ -105,6 +109,7 @@ export const PlaylistsPage = ({
     onOpen,
     onPlay,
     onOpenMenu,
+    isPinned,
     onCreate,
     onCreateSmart,
 }: PlaylistsPageProps) => {
@@ -113,9 +118,10 @@ export const PlaylistsPage = ({
     const query = filter.trim().toLowerCase();
     const matches = (name: string) => !query || name.toLowerCase().includes(query);
     const shownPinned = pinned.filter(item => matches(item.name));
-    const shown = [...playlists]
-        .filter(p => matches(p.name))
-        .sort((a, b) => a.name.localeCompare(b.name));
+    const shown = pinnedFirst(
+        playlists.filter(p => matches(p.name)).sort((a, b) => a.name.localeCompare(b.name)),
+        isPinned,
+    );
 
     const actions = (playlist: Playlist) => (
         <>
@@ -249,7 +255,7 @@ export const PlaylistsPage = ({
                             />
                             <div className="playlist-card-footer">
                                 <div className="playlist-card-text">
-                                    <span className="playlist-card-name"><PlaylistName playlist={playlist} playing={playlist.id === playingPlaylistId} /></span>
+                                    <span className="playlist-card-name"><PlaylistName playlist={playlist} playing={playlist.id === playingPlaylistId} pinned={isPinned(playlist)} /></span>
                                     <span className="playlist-card-meta">{describe(playlist)}</span>
                                 </div>
                                 {actions(playlist)}
@@ -275,7 +281,7 @@ export const PlaylistsPage = ({
                                 size={48}
                             />
                             <div className="track-main-info">
-                                <span className="track-title"><PlaylistName playlist={playlist} playing={playlist.id === playingPlaylistId} /></span>
+                                <span className="track-title"><PlaylistName playlist={playlist} playing={playlist.id === playingPlaylistId} pinned={isPinned(playlist)} /></span>
                                 <span className="track-artist">{describe(playlist)}</span>
                             </div>
                             {actions(playlist)}
