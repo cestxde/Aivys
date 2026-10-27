@@ -60,6 +60,21 @@ Before 1.0 a minor bump may still change things freely. A fault in the update
 mechanism itself is hard to fix later (a broken version may be unable to
 update), so it is worth a couple of real updates before calling a version 1.0.
 
+## Android icons
+
+The Android project (`src-tauri/gen/android`) has its own launcher icons,
+made from `src-tauri/branding/icon-mobile.png` (full-bleed, for the launcher's
+masks), not from the desktop icons. After changing that image, generate them
+into a temporary folder, so the desktop icons stay as they are, and copy its
+`android/mipmap-*` folders over `src-tauri/gen/android/app/src/main/res/`:
+
+```powershell
+npx tauri icon src-tauri/branding/icon-mobile.png -o $env:TEMP\aivys-icons
+```
+
+The adaptive icon's background color is in
+`res/values/ic_launcher_background.xml` (the image's own `#0E0D0F`).
+
 ## Windows SmartScreen
 
 The installer is not code-signed, so on the first install Windows shows
