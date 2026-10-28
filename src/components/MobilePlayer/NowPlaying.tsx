@@ -73,6 +73,8 @@ const useSwipe = (onNext: (() => void) | null, onPrevious: (() => void) | null) 
     const start = useRef<{ x: number; y: number; id: number; horizontal: boolean | null } | null>(null);
     const last = useRef({ x: 0, time: 0, speed: 0 });
     const settling = useRef(false);
+    // The strip's width, for how far the swipe has gone.
+    const [width, setWidth] = useState(1);
     // A swipe is no tap: the click that ends it opens nothing.
     const swiped = useRef(false);
 
@@ -96,6 +98,7 @@ const useSwipe = (onNext: (() => void) | null, onPrevious: (() => void) | null) 
                 return;
             }
             e.currentTarget.setPointerCapture(e.pointerId);
+            setWidth(e.currentTarget.offsetWidth || 1);
             swiped.current = true;
             setAnimated(false);
         }
@@ -145,6 +148,15 @@ const useSwipe = (onNext: (() => void) | null, onPrevious: (() => void) | null) 
     };
 
     return {
+        /**
+         * What lies under the strip (the tags) fades out as the swipe goes,
+         * gone by a third of the way (a taller neighbour would run over it),
+         * and fades back in under the new track.
+         */
+        underStyle: {
+            opacity: Math.max(0, 1 - Math.abs(offset) / (width / 3)),
+            transition: animated || offset === 0 ? `opacity ${SLIDE_MS}ms ease-out` : "none",
+        },
         style: {
             transform: offset ? `translateX(${offset}px)` : undefined,
             transition: animated ? `transform ${SLIDE_MS}ms ease-out` : undefined,
@@ -255,7 +267,7 @@ export const NowPlaying = (props: NowPlayingProps) => {
                     </div>
                 </div>
 
-                <div className="now-playing-tags" ref={tagsBox}>
+                <div className="now-playing-tags" ref={tagsBox} style={swipe.underStyle}>
                     {tags.slice(0, shownTags).map(tag => (
                         <TagChip
                             key={tag.id}
