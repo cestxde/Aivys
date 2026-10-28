@@ -33,13 +33,43 @@
     color: var(--accent);
 }
 
-/* Selected rows: a stronger tint than the playing one, which keeps its bar. */
-.audio-item.selected {
-    background: color-mix(in srgb, var(--accent) 14%, var(--bg));
+/* While selecting, a checkbox slides in before each row (selected rows are
+   not tinted: the playing one keeps its look). Hidden, it takes no room: its
+   margin cancels the row's gap after it. */
+.row-check {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    width: 0;
+    height: 100%;
+    margin-right: -14px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: width 0.15s ease, margin-right 0.15s ease;
 }
 
-.audio-item.selected:hover {
-    background: color-mix(in srgb, var(--accent) 20%, var(--bg));
+.row-check.shown {
+    width: 22px;
+    margin-right: 0;
+}
+
+.row-check-box {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 22px;
+    height: 22px;
+    border: 2px solid color-mix(in srgb, var(--text) 55%, transparent);
+    border-radius: 6px;
+    color: var(--accent-text);
+    transition: background 0.1s, border-color 0.1s;
+}
+
+.row-check-box.checked {
+    border-color: var(--accent);
+    background: var(--accent);
 }
 
 .track-cover {
@@ -119,6 +149,13 @@
 .audio-item:hover .row-button,
 .row-button:focus-visible {
     opacity: 0.6;
+}
+
+/* No hover on touch screens: the ⋮ button always shows. */
+@media (hover: none) {
+    .row-button {
+        opacity: 0.6;
+    }
 }
 
 .row-button:hover {

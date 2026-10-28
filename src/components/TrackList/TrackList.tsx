@@ -1,6 +1,6 @@
 import "./TrackList.css";
 import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { ChevronRight, GripVertical, MoreVertical } from "lucide-react";
+import { Check, ChevronRight, GripVertical, MoreVertical } from "lucide-react";
 import type { ListRow, Track } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { formatDuration } from "../../utils/format";
@@ -328,6 +328,23 @@ export const TrackList = ({
                         onPointerCancel={() => endDrag(false)}
                     >
                         <GripVertical size={14} />
+                    </span>
+                )}
+                {onSelect && (
+                    // Slides in while selecting; pressing it adds or removes the row.
+                    <span
+                        className={`row-check ${selected.size > 0 ? "shown" : ""}`}
+                        role="checkbox"
+                        aria-checked={isSelected}
+                        aria-hidden={selected.size === 0}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onSelect(row, index, { range: e.shiftKey, additive: true });
+                        }}
+                    >
+                        <span className={`row-check-box ${isSelected ? "checked" : ""}`}>
+                            {isSelected && <Check size={14} strokeWidth={3} />}
+                        </span>
                     </span>
                 )}
                 {numberOf && <span className="track-number">{numberOf(file)}</span>}

@@ -23,6 +23,10 @@ interface ContextMenuProps {
     onClose: () => void;
 }
 
+/** The navigation bar's height on Android (safeArea.ts); 0 elsewhere. */
+const safeBottom = () =>
+    parseFloat(document.documentElement.style.getPropertyValue("--safe-bottom")) || 0;
+
 /**
  * A menu at the given viewport position, kept inside the window. Closes on
  * selection, a click outside, Escape, scroll or resize.
@@ -31,13 +35,17 @@ export const ContextMenu = ({ x, y, entries, onClose }: ContextMenuProps) => {
     useBackLayer(true, onClose);
     const ref = useRef<HTMLDivElement>(null);
 
-    // Flip/shift so the menu never overflows the window (before paint).
+    // Flip/shift so the menu never overflows the window (before paint). By
+    // touch it is pushed up just enough to fit rather than flipped: its last
+    // entries (the dangerous ones) stay below the finger, not right under it.
     useLayoutEffect(() => {
         const menu = ref.current;
         if (!menu) return;
         const { width, height } = menu.getBoundingClientRect();
+        const bottom = window.innerHeight - 4 - safeBottom();
         menu.style.left = `${Math.max(4, Math.min(x, window.innerWidth - width - 4))}px`;
-        menu.style.top = `${y + height > window.innerHeight - 4 ? Math.max(4, y - height) : y}px`;
+        menu.style.top = `${y + height <= bottom ? y
+            : Math.max(4, window.matchMedia("(pointer: coarse)").matches ? bottom - height : y - height)}px`;
     }, [x, y]);
 
     useEffect(() => {
