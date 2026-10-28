@@ -1,6 +1,8 @@
 /* --list-bleed: how far the track list's separators reach past the page's
    padding, toward the window's edges (its text stays in line). */
 .container {
+  /* Its parts lay themselves out by its width (ToolBar.css). */
+  container: page / inline-size;
   --list-bleed: 1rem;
   display: flex;
   flex-direction: column;

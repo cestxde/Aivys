@@ -89,8 +89,11 @@
     opacity: 0.8;
 }
 
-/* Phones: the search on a row of its own under the sort and play buttons. */
-@media (max-width: 720px) {
+/* A narrow page (a phone, or a narrow window with the side panel taking its
+   share): the search on a row of its own under the sort and play buttons,
+   rather than squeezing them off the edge. By the page's width, not the
+   window's (.container is the container). */
+@container page (max-width: 600px) {
     .toolbar {
         flex-wrap: wrap;
         gap: 8px;

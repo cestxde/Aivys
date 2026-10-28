@@ -269,8 +269,8 @@
     opacity: 0.85;
 }
 
-/* Narrow windows: controls go under their text. */
-@media (max-width: 600px) {
+/* A narrow page: controls go under their text. */
+@container page (max-width: 600px) {
     .settings-row {
         flex-direction: column;
         align-items: stretch;

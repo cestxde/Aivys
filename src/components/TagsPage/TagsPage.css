@@ -30,8 +30,9 @@
     flex-shrink: 0;
 }
 
-/* Narrow (phones): the categories above the tags. */
-@media (max-width: 640px) {
+/* A narrow page (phones, a narrow window beside the side panel): the
+   categories above the tags. */
+@container page (max-width: 560px) {
     .tags-page {
         flex-direction: column;
     }

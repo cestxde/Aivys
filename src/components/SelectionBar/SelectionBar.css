@@ -73,8 +73,9 @@
     display: none;
 }
 
-/* Narrow windows: only the icons. */
-@media (max-width: 760px) {
+/* A narrow page (the side panel takes its share of the window too): only
+   the icons. */
+@container page (max-width: 640px) {
     .selection-action span {
         display: none;
     }
