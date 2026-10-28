@@ -18,6 +18,7 @@ import { MiniPlayer } from "./components/MobilePlayer/MiniPlayer";
 import { NowPlaying, PhoneSheet } from "./components/MobilePlayer/NowPlaying";
 import { useIsPhone } from "./hooks/useIsPhone";
 import { useBackLayer } from "./hooks/useBackLayer";
+import { androidStorage } from "./utils/androidStorage";
 import { TrackDetailPanel } from "./components/TrackDetailPanel/TrackDetailPanel";
 import { Notices } from "./components/Notices/Notices";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
@@ -867,6 +868,10 @@ function App() {
 
 	// Back and forward only within the open library (not on the picker).
 	const inLibrary = view === "library";
+	// Android: Back from any view but the library goes to the library (and from
+	// there the app to the background, MainActivity.kt).
+	const awayFromLibrary = inLibrary && !(listView.kind === "system" && listView.id === "library");
+	useBackLayer(androidStorage !== null && awayFromLibrary, () => showView(LIBRARY_VIEW));
 	useShortcutActions({
 		back: () => inLibrary && goBack(),
 		forward: () => inLibrary && goForward(),

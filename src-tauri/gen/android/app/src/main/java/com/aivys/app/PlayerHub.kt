@@ -1,26 +1,62 @@
 package com.aivys.app
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import org.json.JSONObject
 
 /**
  * The app's one player, shared by the page's bridge (`NativePlayer`) and the
- * background service (`PlaybackService`). It plays one track at a time: the
- * queue stays in the page, which loads the next track when one ends. Only
- * touched on the main thread.
+ * background service (`PlaybackService`). It outlives the page: swiped away
+ * from the recent apps, the app keeps playing here, and a new page finds what
+ * plays (`state`). It plays one track at a time: the queue stays in the page,
+ * which loads the next track when one ends. Only touched on the main thread.
+ *
+ * Its events go to the current page through `sink` (see `NativePlayer`).
  */
 object PlayerHub {
+  private val main = Handler(Looper.getMainLooper())
   private var exo: ExoPlayer? = null
   private var forwarding: Player? = null
 
-  /** Told of "next" / "previous" from the notification, the lock screen or a headset. */
-  var onSkip: ((next: Boolean) -> Unit)? = null
+  /** Where events go: the current page, if there is one. */
+  var sink: ((JSONObject) -> Unit)? = null
+
+  /** The loaded file, for a new page to find. */
+  @Volatile var path: String? = null
+
+  /** What the system's media controls show for it (`NativePlayer.setMetadata`). */
+  var metadata = JSONObject()
+
+  // A copy of the player's state for `state`, read off the main thread
+  // (the player itself is only touched on it).
+  @Volatile private var position = 0.0
+  @Volatile private var duration: Double? = null
+  @Volatile private var playing = false
+
+  /** A new file loaded at `startAt` seconds. */
+  fun loaded(path: String, startAt: Double) {
+    this.path = path
+    position = startAt
+    duration = null
+  }
+
+  private val ticker = object : Runnable {
+    override fun run() {
+      val player = exo ?: return
+      position = player.currentPosition / 1000.0
+      emit(JSONObject().put("type", "time").put("position", position))
+      if (player.isPlaying) main.postDelayed(this, TICK_MS)
+    }
+  }
 
   @OptIn(UnstableApi::class)
   fun player(context: Context): ExoPlayer =
@@ -33,7 +69,10 @@ object PlayerHub {
       .setHandleAudioBecomingNoisy(true)
       .setWakeMode(C.WAKE_MODE_LOCAL)
       .build()
-      .also { exo = it }
+      .also {
+        exo = it
+        it.addListener(events)
+      }
 
   /**
    * The player as the media session shows it: with "previous" and "next",
@@ -52,15 +91,75 @@ object PlayerHub {
       override fun isCommandAvailable(command: Int): Boolean =
         availableCommands.contains(command)
 
-      override fun seekToNext() { onSkip?.invoke(true) }
-      override fun seekToNextMediaItem() { onSkip?.invoke(true) }
-      override fun seekToPrevious() { onSkip?.invoke(false) }
-      override fun seekToPreviousMediaItem() { onSkip?.invoke(false) }
+      override fun seekToNext() = skip(true)
+      override fun seekToNextMediaItem() = skip(true)
+      override fun seekToPrevious() = skip(false)
+      override fun seekToPreviousMediaItem() = skip(false)
     }.also { forwarding = it }
 
+  /**
+   * What plays, for a new page: `{path, position, duration, playing}`
+   * (seconds; `path` null with nothing loaded).
+   */
+  fun state(): JSONObject = JSONObject()
+    .put("path", path ?: JSONObject.NULL)
+    .put("position", position)
+    .put("duration", duration ?: JSONObject.NULL)
+    .put("playing", playing)
+
   fun release() {
+    main.removeCallbacks(ticker)
     exo?.release()
     exo = null
     forwarding = null
+    path = null
+    playing = false
   }
+
+  private fun skip(next: Boolean) = emit(JSONObject().put("type", if (next) "next" else "previous"))
+
+  private fun emit(detail: JSONObject) {
+    sink?.invoke(detail)
+  }
+
+  private val events = object : Player.Listener {
+    override fun onIsPlayingChanged(isPlaying: Boolean) {
+      if (isPlaying) {
+        main.removeCallbacks(ticker)
+        main.post(ticker)
+      }
+    }
+
+    override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+      playing = playWhenReady
+      emit(JSONObject().put("type", if (playWhenReady) "play" else "pause"))
+    }
+
+    override fun onPlaybackStateChanged(state: Int) {
+      val player = exo ?: return
+      when (state) {
+        Player.STATE_READY -> if (player.duration != C.TIME_UNSET) {
+          duration = player.duration / 1000.0
+          emit(JSONObject().put("type", "loaded").put("duration", duration))
+        }
+        Player.STATE_ENDED -> {
+          player.playWhenReady = false
+          emit(JSONObject().put("type", "ended"))
+        }
+      }
+    }
+
+    override fun onPositionDiscontinuity(old: Player.PositionInfo, new: Player.PositionInfo, reason: Int) {
+      if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+        position = new.positionMs / 1000.0
+        emit(JSONObject().put("type", "seeked").put("position", position))
+      }
+    }
+
+    override fun onPlayerError(error: PlaybackException) {
+      emit(JSONObject().put("type", "error").put("message", error.message ?: error.errorCodeName))
+    }
+  }
+
+  private const val TICK_MS = 250L
 }

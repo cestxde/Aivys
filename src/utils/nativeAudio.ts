@@ -4,6 +4,8 @@
  * files and stops in the background, so tracks play in the app's ExoPlayer.
  */
 interface AndroidPlayer {
+    /** JSON `PlayingState`: what plays already (the app reopened while its music went on). */
+    state(): string;
     load(path: string, startAt: number): void;
     play(): void;
     pause(): void;
@@ -23,6 +25,14 @@ type PlayerEvent =
     | { type: "time" | "seeked"; position: number }
     | { type: "error"; message: string };
 
+/** What the native player has loaded, and where it is. */
+interface PlayingState {
+    path: string | null;
+    position: number;
+    duration: number | null;
+    playing: boolean;
+}
+
 /** What the system's media controls show for the loaded track. */
 export interface NowPlaying {
     title: string;
@@ -41,6 +51,10 @@ const pathOf = (url: string): string => decodeURIComponent(new URL(url).pathname
  * `pause`, `load`, `removeAttribute("src")` and the media events), so the
  * rest of the app plays the same on Android as on the desktop. Also fires
  * `nexttrack` / `previoustrack` for those buttons of the system's controls.
+ *
+ * The music outlives the page (the app swiped away from the recent apps): a
+ * new page's first load of the track that still plays takes it over where it
+ * is, rather than loading it again.
  */
 export class NativeAudio extends EventTarget {
     private readonly player: AndroidPlayer;
@@ -52,10 +66,20 @@ export class NativeAudio extends EventTarget {
     // Settles the promise of play(): on playing, or on an error of the load.
     private starting: { resolve: () => void; reject: (e: Error) => void } | null = null;
     error: { code: number; message: string } | null = null;
+    // What played before this page; its first load of that track takes it over.
+    private playingBefore: PlayingState | null;
+    // Taking it over: the app's seeks to where it saved the position are not made.
+    private adopting = false;
 
     constructor(player: AndroidPlayer) {
         super();
         this.player = player;
+        try {
+            const state = JSON.parse(player.state()) as PlayingState;
+            this.playingBefore = state.path ? state : null;
+        } catch {
+            this.playingBefore = null;
+        }
         window.addEventListener("aivys-player", (e) => this.receive((e as CustomEvent<PlayerEvent>).detail));
     }
 
@@ -72,6 +96,7 @@ export class NativeAudio extends EventTarget {
     }
 
     set currentTime(seconds: number) {
+        if (this.adopting) return;
         this.time = seconds;
         if (this.url) this.player.seek(seconds);
     }
@@ -111,7 +136,31 @@ export class NativeAudio extends EventTarget {
             return;
         }
         this.fire("loadstart");
-        this.player.load(pathOf(this.url), 0);
+        const path = pathOf(this.url);
+        const before = this.playingBefore;
+        this.playingBefore = null;
+        if (before?.path === path) {
+            this.takeOver(before);
+            return;
+        }
+        this.player.load(path, 0);
+    }
+
+    /** The track that still plays from before this page: as it is, where it is. */
+    private takeOver(state: PlayingState) {
+        this.time = state.position;
+        this.adopting = true;
+        // After the caller's own steps (it sets the position, waits for the metadata).
+        setTimeout(() => {
+            if (state.duration !== null) {
+                this.length = state.duration;
+                this.fire("durationchange");
+                this.fire("loadedmetadata");
+            }
+            this.adopting = false;
+            this.fire("timeupdate");
+            if (state.playing) this.setPaused(false);
+        });
     }
 
     play(): Promise<void> {

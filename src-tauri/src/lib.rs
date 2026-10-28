@@ -125,8 +125,17 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|_app, _event| {
+            // Android: the app swiped away from the recent apps closes its
+            // window, but the music plays on in its service (PlaybackService.kt),
+            // in this process; it reopens with a new window.
+            #[cfg(target_os = "android")]
+            if let tauri::RunEvent::ExitRequested { api, .. } = _event {
+                api.prevent_exit();
+            }
+        });
 }
 
 #[cfg(test)]
