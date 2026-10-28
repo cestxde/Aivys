@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import {
-	ArrowDown, ArrowUp, Check, FolderPlus, GitMerge, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder,
+	ArrowDown, ArrowUp, Check, FolderPlus, GitMerge, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder, ImagePlus, ImageOff,
 } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
@@ -35,6 +35,8 @@ import { useShortcutActions } from "./hooks/useShortcutActions";
 import { usePlaylists } from "./hooks/usePlaylists";
 import { useTags, type TagChange } from "./hooks/useTags";
 import { usePins, type PinKind } from "./hooks/usePins";
+import { useGroupCovers, type CoverKind } from "./hooks/useGroupCovers";
+import { pickImage } from "./utils/image";
 import { useViewRows } from "./hooks/useViewRows";
 import { useSmartPlaylistPaths } from "./hooks/useSmartPlaylistPaths";
 import { PlaylistHeader } from "./components/PlaylistHeader/PlaylistHeader";
@@ -282,11 +284,13 @@ function App() {
 	const playlists = usePlaylists(files);
 	const tags = useTags(files);
 	const pins = usePins(files);
+	const groupCoverStore = useGroupCovers(files);
+	const { withCovers } = groupCoverStore;
 
 	// eslint-disable-next-line react-hooks/exhaustive-deps -- names are translated
-	const artists = useMemo(() => groupArtists(files), [files, language]);
+	const artists = useMemo(() => withCovers("artist", groupArtists(files)), [files, language, withCovers]);
 	// eslint-disable-next-line react-hooks/exhaustive-deps -- names are translated
-	const albums = useMemo(() => groupAlbums(files), [files, language]);
+	const albums = useMemo(() => withCovers("album", groupAlbums(files)), [files, language, withCovers]);
 	const artistsByKey = useMemo(() => new Map(artists.map(g => [g.key, g])), [artists]);
 	// Rarely met artists have pages (opened from their tracks) but no card.
 	const listedArtists = useMemo(() => artists.filter(group => group.listed), [artists]);
@@ -1141,13 +1145,38 @@ function App() {
 	];
 
 	/** Menu of an artist or album card. */
+	/** Choose an image as the album's or artist's cover. */
+	const chooseGroupCover = (kind: CoverKind, group: TrackGroup) => {
+		pickImage()
+			.then(data => groupCoverStore.setCover(kind, group.key, data))
+			.catch(e => notifyError(t("error.setCover"), e));
+	};
+
+	/** An album's or artist's own cover: set, change, or back to the tracks' art. */
+	const coverEntries = (kind: CoverKind, group: TrackGroup): MenuEntry[] => [
+		{
+			kind: "item",
+			label: group.cover ? t("group.changeCover") : t("group.setCover"),
+			icon: <ImagePlus size={16} />,
+			onSelect: () => chooseGroupCover(kind, group),
+		},
+		...(group.cover ? [{
+			kind: "item" as const,
+			label: t("group.resetCover"),
+			icon: <ImageOff size={16} />,
+			onSelect: () => groupCoverStore.setCover(kind, group.key, null),
+		}] : []),
+	];
+
 	const groupMenu = (group: TrackGroup, open: View): MenuEntry[] => [
 		{ kind: "item", label: t("common.open"), icon: <FolderOpen size={16} />, onSelect: () => showView(open) },
 		{ kind: "item", label: t("common.play"), icon: <Play size={16} />, onSelect: () => playTracks(group.tracks, open) },
 		{ kind: "separator" },
 		{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo(group.tracks) },
 		{ kind: "item", label: t("common.tags"), icon: <Tag size={16} />, onSelect: () => setTagPicker(group.tracks) },
-		...(open.kind === "artist" || open.kind === "album" ? [pinEntry(open.kind, group.key)] : []),
+		...(open.kind === "artist" || open.kind === "album"
+			? [pinEntry(open.kind, group.key), { kind: "separator" as const }, ...coverEntries(open.kind, group)]
+			: []),
 	];
 
 	/** The folder path as breadcrumbs, from the library root. */
@@ -1469,6 +1498,7 @@ function App() {
 									rows={viewRows}
 									backTitle={t("group.allArtists")}
 									onBack={goBack}
+									coverActions={coverEntries("artist", currentGroup)}
 								/>
 							)}
 							{currentGroup && listView.kind === "album" && (
@@ -1482,6 +1512,7 @@ function App() {
 									rows={viewRows}
 									backTitle={t("group.allAlbums")}
 									onBack={goBack}
+									coverActions={coverEntries("album", currentGroup)}
 								/>
 							)}
 							{currentGroup && listView.kind === "folder" && (

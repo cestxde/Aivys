@@ -77,6 +77,8 @@ pub fn run() {
             reorder_tag_categories,
             list_pins,
             set_pinned,
+            list_group_covers,
+            set_group_cover,
             list_playlists,
             create_manual_playlist,
             create_smart_playlist,

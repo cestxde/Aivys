@@ -4,6 +4,7 @@
 //! Commands are `async` so the file work runs off the UI thread.
 
 use super::conflicts::ConflictReport;
+use super::covers::{self, GroupCover};
 use super::events::{self, EventKind, TrackStats};
 use super::playlists::{self, PlaylistView, SmartRules, SortSpec};
 use super::settings::{self, LibrarySettings};
@@ -372,6 +373,26 @@ pub(crate) async fn list_pins(state: State<'_, StoreState>) -> Result<Vec<PinDef
 #[tauri::command]
 pub(crate) async fn set_pinned(state: State<'_, StoreState>, kind: String, key: String, pinned: bool) -> Result<Vec<PinDef>, StoreError> {
     with_store(&state, |store| pins::set(store, &kind, &key, pinned))
+}
+
+// ---- Album and artist covers ----
+
+/// The covers chosen for albums and artists.
+#[tauri::command]
+pub(crate) async fn list_group_covers(state: State<'_, StoreState>) -> Result<Vec<GroupCover>, StoreError> {
+    with_store(&state, |store| covers::list(store))
+}
+
+/// Give an album or artist (`kind`, by its key) an image (base64) as its
+/// cover, or with `null` its tracks' cover again; returns the covers then.
+#[tauri::command]
+pub(crate) async fn set_group_cover(
+    state: State<'_, StoreState>,
+    kind: String,
+    key: String,
+    data: Option<String>,
+) -> Result<Vec<GroupCover>, StoreError> {
+    with_store(&state, |store| covers::set(store, &kind, &key, data.as_deref()))
 }
 
 // ---- Playlists ----

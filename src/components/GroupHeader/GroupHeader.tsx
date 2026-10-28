@@ -6,6 +6,7 @@ import type { TrackGroup } from "../../utils/groups";
 import { CoverMosaic } from "../PlaylistCover/PlaylistCover";
 import { CardPlayButton, PlayingMark } from "../CardPlayButton/CardPlayButton";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
+import type { MenuEntry } from "../ContextMenu/ContextMenu";
 import { t } from "../../i18n";
 import "../PlaylistHeader/PlaylistHeader.css";
 import "./GroupHeader.css";
@@ -31,6 +32,8 @@ interface GroupHeaderProps {
     onBack?: () => void;
     /** Path to the current item (folders), shown above the title. */
     crumbs?: Crumb[];
+    /** Albums and artists: buttons for their own cover (set, change, back to the tracks'). */
+    coverActions?: MenuEntry[];
 }
 
 const COVER_SIZE = 120;
@@ -48,6 +51,7 @@ export const GroupHeader = ({
     backTitle,
     onBack,
     crumbs,
+    coverActions = [],
 }: GroupHeaderProps) => {
     const [viewing, setViewing] = useState(false);
     // One cover (an album's, an artist's) opens large; a mosaic does not.
@@ -93,6 +97,16 @@ export const GroupHeader = ({
                 )}
                 <h1 className="playlist-name" title={title}>{title}</h1>
                 <span className="playlist-summary">{summary}</span>
+
+                {coverActions.length > 0 && (
+                    <div className="playlist-actions">
+                        {coverActions.map((action, index) => action.kind === "item" && (
+                            <button key={index} className="playlist-action" onClick={action.onSelect}>
+                                {action.icon} {action.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {viewing && <CoverViewer path={covers[0]} onClose={() => setViewing(false)} />}

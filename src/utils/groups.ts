@@ -15,6 +15,8 @@ export interface TrackGroup {
     listed: boolean;
     /** Albums: how many tracks the album has by its tags, if they say. */
     total?: number | null;
+    /** Albums and artists: the cover the user chose, over the tracks' art. */
+    cover?: string;
 }
 
 /** An album's track count by its tags: per disc the largest total, summed. */
@@ -31,9 +33,9 @@ const UNKNOWN_ARTIST_KEY = "\u0000unknown";
 
 const byName = (a: TrackGroup, b: TrackGroup) => compareText(a.name, b.name);
 
-/** Covers of the group's tracks, distinct, in track order (for mosaics). */
+/** The cover chosen for the group, or its tracks' covers, distinct, in track order (for mosaics). */
 export const groupCovers = (group: TrackGroup, max = 4): string[] =>
-    [...new Set(group.tracks.flatMap(t => t.coverPath ?? []))].slice(0, max);
+    group.cover ? [group.cover] : [...new Set(group.tracks.flatMap(t => t.coverPath ?? []))].slice(0, max);
 
 /** "/"-separated parent folder of a library-relative path ("" for the root). */
 export const folderOf = (relPath: string): string => {

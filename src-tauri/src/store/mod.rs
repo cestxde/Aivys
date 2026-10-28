@@ -5,6 +5,7 @@
 
 pub(crate) mod commands;
 pub(crate) mod conflicts;
+pub(crate) mod covers;
 pub(crate) mod device;
 pub(crate) mod events;
 pub(crate) mod fsio;

@@ -5,6 +5,7 @@ import { CoverArt } from "../CoverArt";
 import { t, type MessageKey } from "../../i18n";
 import "./MetadataEditor.css";
 import { useBackLayer } from "../../hooks/useBackLayer";
+import { readBase64 } from "../../utils/image";
 
 const TEXT_FIELDS = ["title", "artist", "album", "albumArtist", "genre"] as const;
 const NUMBER_FIELDS = ["year", "trackNumber", "trackTotal", "discNumber"] as const;
@@ -45,14 +46,6 @@ const valueOf = (track: Track, field: Field): string => {
 };
 
 type Cover = { kind: "keep" } | { kind: "set"; data: string; url: string } | { kind: "remove" };
-
-const readBase64 = (file: File) => new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    // "data:image/png;base64,...": the part after the comma.
-    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-});
 
 interface MetadataEditorProps {
     tracks: Track[];

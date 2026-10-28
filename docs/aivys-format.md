@@ -76,6 +76,9 @@ conform to this spec. Changes to a shipped field are a `schemaVersion` bump.
       <deviceId>.json           # optional per-device descriptor (§7)
     tags.json                   # user-defined colored tag definitions (§8.3)
     pins.json                   # playlists, albums, artists, tags pinned to the top (§8.7)
+    covers.json                 # covers chosen for albums and artists (§8.8)
+    covers/
+      <uuid>.<ext>              # their images (§8.8)
     playlists/
       <uuid>.json               # one file per manual or smart playlist (§8.4)
       covers/
@@ -634,6 +637,36 @@ pinned.
 - **Merge strategy:** union by `kind` + `key`; for a pin on both sides the
   entry with the greater `updatedAt` wins as a whole (including `deletedAt`).
 
+### 8.8 `covers.json` — album and artist covers
+
+Covers the user chose for albums and artists, shown instead of the art of
+their tracks. Shared by all devices of the library; a missing file means none
+was chosen.
+
+```json
+{
+  "schemaVersion": 1,
+  "covers": [
+    { "kind": "album", "key": "radioheadok computer", "file": "5b1c...uuid.jpg", "updatedAt": 1730000000, "deletedAt": null },
+    { "kind": "artist", "key": "radiohead", "file": null, "updatedAt": 1730000200, "deletedAt": 1730000200 }
+  ],
+  "updatedAt": 1730000200
+}
+```
+
+- `kind` ∈ `{ "album", "artist" }`; one entry per `kind` + `key`, the keys
+  as in `pins.json` (§8.7): a renamed album or artist loses its cover.
+- `file`: the image's name in `.aivys/covers/` (a `jpg`, `png` or `webp`;
+  the type is taken from the image's bytes). Each new image gets a new
+  `<uuid>` name, so a cover shown before is never taken from a cache; the
+  image it replaces is deleted.
+- Going back to the tracks' art sets `deletedAt` (tombstone), `updatedAt`
+  and `file: null`, and deletes the image.
+- **Merge strategy:** union by `kind` + `key`; for a cover on both sides the
+  entry with the greater `updatedAt` wins as a whole. The losing side's image
+  is left in `covers/` (an image may sync before the entry referring to it,
+  so images no entry names are not swept).
+
 ---
 
 ## 9. Covers
@@ -646,6 +679,9 @@ pinned.
 - **Playlist covers** have no track tag to live in, so they are stored as real
   files in `.aivys/playlists/covers/<playlist-id>.<ext>` and referenced by the
   playlist's `cover` field (§8.4.4). These **are** synced with the library.
+- **Album and artist covers** the user chose are stored the same way, in
+  `.aivys/covers/`, and listed in `covers.json` (§8.8); without one, an album
+  or artist shows the art of its tracks.
 - A generated fallback cover for playlists (e.g. a mosaic of embedded art) is
   computed at view time and not persisted.
 
