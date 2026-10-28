@@ -249,7 +249,7 @@ function App() {
 		activePath, playTrack,
 		isPlaying, togglePlay, volume, setVolume,
 		seek, stop,
-		onNext, onPrev, resume,
+		onNext, onPrev, previousTrack, resume,
 		playNext, addToQueue, forgetTracks,
 		queue, playAt, removeFromQueue, setUpcoming, releaseWhile,
 		toggleShuffle, isShuffle,
@@ -895,9 +895,13 @@ function App() {
 		if (key && albumsByKey.has(key)) showView({ kind: "album", id: key }, listView);
 	};
 
-	/** "Go to" entries of a track: its artists, album and folder, except the page open now. */
-	const goToEntries = (track: Track): MenuEntry[] => {
-		const here = (kind: View["kind"], id: string) => listView.kind === kind && "id" in listView && listView.id === id;
+	/**
+	 * "Go to" entries of a track: its artists, album and folder, except the
+	 * page open now (unless `everywhere`: from the phone's player).
+	 */
+	const goToEntries = (track: Track, everywhere = false): MenuEntry[] => {
+		const here = (kind: View["kind"], id: string) =>
+			!everywhere && listView.kind === kind && "id" in listView && listView.id === id;
 		const entries: MenuEntry[] = [];
 		for (const name of track.artists) {
 			const key = artistKey(name);
@@ -918,7 +922,11 @@ function App() {
 				onSelect: () => showView({ kind: "folder", id: folder }, listView),
 			});
 		}
-		entries.push({ kind: "item", label: revealLabel(), icon: <FolderSearch size={16} />, onSelect: () => revealFile(track.path) });
+		// Android has no file manager to show the file in.
+		if (!androidStorage) {
+			entries.push({ kind: "item", label: revealLabel(), icon: <FolderSearch size={16} />, onSelect: () => revealFile(track.path) });
+		}
+		if (entries.length === 0) return [];
 		return [{ kind: "label", label: t("menu.goTo") }, ...entries, { kind: "separator" }];
 	};
 
@@ -1681,6 +1689,22 @@ function App() {
 								showView({ kind: "tag", id: target.id }, listView);
 							}}
 							onRemoveTag={(track, target) => trackStats.setTrackTag([track], target.id, false)}
+							onSwipePrevious={previousTrack}
+							canGoTo={goToEntries(currentTrack, true).length > 0}
+							onOpenGoTo={(track, x, y) => setMenu({
+								x,
+								y,
+								// Off the player to the page.
+								entries: goToEntries(track, true)
+									.filter(entry => entry.kind !== "separator")
+									.map(entry => entry.kind === "item" ? {
+										...entry,
+										onSelect: () => {
+											leavePlayer();
+											entry.onSelect();
+										},
+									} : entry),
+							})}
 							onOpenQueue={() => setPhonePanel("queue")}
 							onOpenDetails={() => setPhonePanel("track")}
 							canOpenArtist={canOpenArtist}

@@ -299,3 +299,20 @@
     padding: 0 1rem 1rem;
     overflow-y: auto;
 }
+
+/* The cover and the name, swiped sideways to change the track; the page
+   still scrolls up and down under a finger here. */
+.now-playing-swipe {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 1.25rem;
+    width: 100%;
+    touch-action: pan-y;
+}
+
+.now-playing-icon:disabled {
+    opacity: 0.35;
+    cursor: default;
+}

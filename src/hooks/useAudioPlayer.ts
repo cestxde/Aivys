@@ -51,6 +51,9 @@ export const useAudioPlayer = (
         goTo(q.move(-1, true));
     };
 
+    /** The previous track, however far into this one (a swipe on the phone's player). */
+    const previousTrack = () => goTo(q.move(-1, true));
+
     // At the end of a track: repeat it, go on, or (at the end of the queue
     // without repeat) stop on the first track.
     const onEnded = () => {
@@ -211,7 +214,7 @@ export const useAudioPlayer = (
 
     return {
         activePath,
-        playTrack, onNext, onPrev, resume,
+        playTrack, onNext, onPrev, previousTrack, resume,
         playNext, addToQueue, forgetTracks,
         queue: { order: q.order, index: q.index },
         playAt, removeFromQueue: q.removeAt, setUpcoming, releaseWhile,
