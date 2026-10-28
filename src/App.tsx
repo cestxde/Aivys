@@ -42,7 +42,7 @@ import { useSmartPlaylistPaths } from "./hooks/useSmartPlaylistPaths";
 import { PlaylistHeader } from "./components/PlaylistHeader/PlaylistHeader";
 import { ContextMenu, type MenuEntry } from "./components/ContextMenu/ContextMenu";
 import { SmartPlaylistEditor } from "./components/SmartPlaylistEditor/SmartPlaylistEditor";
-import { PlaylistsPage, type PinnedPlaylist } from "./components/PlaylistsPage/PlaylistsPage";
+import { PlaylistsPage, type PinnedPlaylist, type PlaylistsLayout } from "./components/PlaylistsPage/PlaylistsPage";
 import { CollectionPage, type CollectionSection, type CollectionSort } from "./components/CollectionPage/CollectionPage";
 import { AlbumStrip } from "./components/AlbumStrip/AlbumStrip";
 import { SelectionBar } from "./components/SelectionBar/SelectionBar";
@@ -92,6 +92,20 @@ const SYSTEM_TITLES: Record<SystemView, MessageKey> = {
 	favorites: "nav.favorites",
 	recentlyPlayed: "nav.recentlyPlayed",
 	mostPlayed: "nav.mostPlayed",
+};
+/** The phone's top bar: the section a view belongs to. */
+const SECTION_TITLES: Record<SystemView | Exclude<View["kind"], "system">, MessageKey> = {
+	...SYSTEM_TITLES,
+	playlists: "nav.playlists",
+	playlist: "nav.playlists",
+	tags: "nav.tags",
+	tag: "nav.tags",
+	artists: "nav.artists",
+	artist: "nav.artists",
+	albums: "nav.albums",
+	album: "nav.albums",
+	folder: "nav.folders",
+	settings: "nav.settings",
 };
 const PLAYLISTS_VIEW: View = { kind: "playlists" };
 const TAGS_VIEW: View = { kind: "tags" };
@@ -1337,6 +1351,19 @@ function App() {
 		);
 	}
 
+	// A built-in list's size, under its title (on phones in the top bar).
+	const viewSummary = [
+		countTracks(viewRows.length),
+		viewRows.length > 0 ? formatTotalDuration(viewRows.reduce((sum, row) => sum + row.track.duration, 0)) : null,
+	].filter(Boolean).join(" · ");
+	// Pages of tracks (with the toolbar's search) and pages of cards (grid or list).
+	const cardPage = listView.kind === "playlists" || listView.kind === "tags"
+		|| listView.kind === "artists" || listView.kind === "albums" ? listView.kind : null;
+	const hasTrackList = !cardPage && listView.kind !== "settings";
+	const cardLayout = cardPage
+		? { value: layouts[cardPage], onChange: (layout: PlaylistsLayout) => setLayout(cardPage, layout) }
+		: null;
+
 	// Phones close their player screens when one of these opens another view.
 	const leavePlayer = () => {
 		setPhonePanel(null);
@@ -1383,7 +1410,14 @@ function App() {
 
 	return (
 		<>
-			<MobileHeader onOpenDrawer={() => setDrawerOpen(true)} />
+			<MobileHeader
+				onOpenDrawer={() => setDrawerOpen(true)}
+				title={t(SECTION_TITLES[listView.kind === "system" ? listView.id : listView.kind])}
+				summary={listView.kind === "system" ? viewSummary : null}
+				// Phones only: open, it takes Back (the desktop's bar is hidden).
+				search={isPhone && hasTrackList ? { query: searchQuery, placeholder: t("toolbar.search"), onChange: setSearchQuery } : null}
+				layout={cardLayout}
+			/>
 			<div className="app-layout">
 				<Sidebar
 					libraryPath={settings.lastPath}
@@ -1567,14 +1601,7 @@ function App() {
 							{listView.kind === "system" && (
 								<div className="view-heading">
 									<h1 className="view-heading-title">{t(SYSTEM_TITLES[listView.id])}</h1>
-									<span className="view-heading-summary">
-										{[
-											countTracks(viewRows.length),
-											viewRows.length > 0
-												? formatTotalDuration(viewRows.reduce((sum, row) => sum + row.track.duration, 0))
-												: null,
-										].filter(Boolean).join(" · ")}
-									</span>
+									<span className="view-heading-summary">{viewSummary}</span>
 								</div>
 							)}
 

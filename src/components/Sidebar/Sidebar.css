@@ -135,8 +135,46 @@
         cursor: pointer;
     }
 
-    .mobile-header-logo {
-        height: 20px;
+    .mobile-header-text {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-width: 0;
+        line-height: 1.2;
+    }
+
+    .mobile-header-title {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: var(--text-h);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mobile-header-summary {
+        font-size: 0.75rem;
+        color: var(--text);
+        opacity: 0.75;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mobile-header-search {
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* What the bar shows is not repeated on the page: the section's title,
+       the size of a built-in list, the track search, grid or list. */
+    .view-heading,
+    .playlists-title,
+    .tags-title,
+    .playlists-toolbar .playlists-layout,
+    .tags-toolbar .playlists-layout,
+    .toolbar-section.center {
+        display: none;
     }
 
     .sidebar {

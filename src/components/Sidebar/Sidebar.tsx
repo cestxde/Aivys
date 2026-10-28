@@ -1,10 +1,13 @@
-import { Fragment, useRef, type ReactNode } from "react";
-import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Settings } from "lucide-react";
+import { Fragment, useRef, useState, type ReactNode } from "react";
+import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Search, Settings, X } from "lucide-react";
 import { ThemedLogo } from "../ThemedLogo";
 import { PlayingMark } from "../CardPlayButton/CardPlayButton";
 import type { View } from "../../types";
 import { t, type MessageKey } from "../../i18n";
 import { useDrawerSwipe } from "../../hooks/useDrawerSwipe";
+import { useBackLayer } from "../../hooks/useBackLayer";
+import { SearchInput } from "../SearchInput/SearchInput";
+import { LayoutToggle, type PlaylistsLayout } from "../PlaylistsPage/PlaylistsPage";
 import "./Sidebar.css";
 
 interface SidebarItem {
@@ -163,12 +166,70 @@ export const Sidebar = ({
     );
 };
 
-/** Narrow screens only: a bar above the content with the button that opens the sidebar. */
-export const MobileHeader = ({ onOpenDrawer }: { onOpenDrawer: () => void }) => (
-    <header className="mobile-header">
-        <button className="mobile-header-menu" title={t("nav.menu")} aria-label={t("nav.menu")} onClick={onOpenDrawer}>
-            <Menu size={22} />
-        </button>
-        <ThemedLogo className="mobile-header-logo" />
-    </header>
-);
+interface MobileHeaderProps {
+    onOpenDrawer: () => void;
+    /** The section on screen ("Library", "Artists", ...). */
+    title: string;
+    /** Under it: the list's size ("120 tracks · 7 h"), where the page has no heading of its own. */
+    summary: string | null;
+    /** Pages of tracks: their search, opened from the bar. */
+    search: { query: string; placeholder: string; onChange: (query: string) => void } | null;
+    /** Pages of cards: grid or list. */
+    layout: { value: PlaylistsLayout; onChange: (layout: PlaylistsLayout) => void } | null;
+}
+
+/**
+ * Narrow screens only: a bar above the content with the button that opens
+ * the sidebar, the section on screen, and what the page has to do with it
+ * (its search, its grid or list).
+ */
+export const MobileHeader = ({ onOpenDrawer, title, summary, search, layout }: MobileHeaderProps) => {
+    const [searchOpen, setSearchOpen] = useState(false);
+    // Open while asked to, or while there is something searched for.
+    const searching = search !== null && (searchOpen || search.query !== "");
+    const closeSearch = () => {
+        setSearchOpen(false);
+        search?.onChange("");
+    };
+    useBackLayer(searching, closeSearch);
+
+    return (
+        <header className="mobile-header">
+            <button className="mobile-header-menu" title={t("nav.menu")} aria-label={t("nav.menu")} onClick={onOpenDrawer}>
+                <Menu size={22} />
+            </button>
+            {searching ? (
+                <>
+                    <SearchInput
+                        className="mobile-header-search"
+                        value={search.query}
+                        placeholder={search.placeholder}
+                        autoFocus
+                        onChange={search.onChange}
+                    />
+                    <button className="mobile-header-menu" title={t("common.close")} aria-label={t("common.close")} onClick={closeSearch}>
+                        <X size={20} />
+                    </button>
+                </>
+            ) : (
+                <>
+                    <div className="mobile-header-text">
+                        <span className="mobile-header-title">{title}</span>
+                        {summary && <span className="mobile-header-summary">{summary}</span>}
+                    </div>
+                    {search && (
+                        <button
+                            className="mobile-header-menu"
+                            title={search.placeholder}
+                            aria-label={search.placeholder}
+                            onClick={() => setSearchOpen(true)}
+                        >
+                            <Search size={20} />
+                        </button>
+                    )}
+                    {layout && <LayoutToggle layout={layout.value} onChange={layout.onChange} />}
+                </>
+            )}
+        </header>
+    );
+};
