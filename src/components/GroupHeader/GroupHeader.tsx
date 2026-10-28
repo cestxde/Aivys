@@ -1,10 +1,11 @@
-import { Fragment, type ComponentType } from "react";
+import { Fragment, useState, type ComponentType } from "react";
 import { ArrowLeft, ChevronRight, Folder, MoreVertical } from "lucide-react";
 import type { ListRow } from "../../types";
 import { formatTotalDuration } from "../../utils/format";
 import type { TrackGroup } from "../../utils/groups";
 import { CoverMosaic } from "../PlaylistCover/PlaylistCover";
 import { CardPlayButton, PlayingMark } from "../CardPlayButton/CardPlayButton";
+import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { t } from "../../i18n";
 import "../PlaylistHeader/PlaylistHeader.css";
 import "./GroupHeader.css";
@@ -48,6 +49,9 @@ export const GroupHeader = ({
     onBack,
     crumbs,
 }: GroupHeaderProps) => {
+    const [viewing, setViewing] = useState(false);
+    // One cover (an album's, an artist's) opens large; a mosaic does not.
+    const single = covers.length > 0 && new Set(covers).size < 4;
     const totalSeconds = rows.reduce((sum, row) => sum + row.track.duration, 0);
     const summary = [
         ...details,
@@ -64,7 +68,13 @@ export const GroupHeader = ({
                     <ArrowLeft size={18} />
                 </button>
             )}
-            <CoverMosaic covers={covers} size={COVER_SIZE} icon={Icon} className="playlist-header-cover" />
+            <CoverMosaic
+                covers={covers}
+                size={COVER_SIZE}
+                icon={Icon}
+                className="playlist-header-cover"
+                onClick={single ? () => setViewing(true) : undefined}
+            />
 
             <div className="playlist-info">
                 {crumbs && crumbs.length > 0 ? (
@@ -84,6 +94,8 @@ export const GroupHeader = ({
                 <h1 className="playlist-name" title={title}>{title}</h1>
                 <span className="playlist-summary">{summary}</span>
             </div>
+
+            {viewing && <CoverViewer path={covers[0]} onClose={() => setViewing(false)} />}
         </div>
     );
 };

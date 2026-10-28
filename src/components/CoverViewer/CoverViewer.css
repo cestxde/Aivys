@@ -33,6 +33,18 @@
     justify-content: center;
     color: var(--text);
     box-shadow: var(--shadow-dialog);
+    /* Pinches and drags are the viewer's, not the page's. */
+    touch-action: none;
+    cursor: zoom-in;
+}
+
+/* Zoomed, the cover goes past its frame, over the whole screen. */
+.cover-viewer-image.zoomed {
+    overflow: visible;
+    background: none;
+    border-color: transparent;
+    box-shadow: none;
+    cursor: grab;
 }
 
 .cover-viewer-image img {
@@ -40,6 +52,8 @@
     height: 100%;
     object-fit: contain;
     display: block;
+    transition: transform 0.15s ease-out;
+    user-select: none;
 }
 
 .cover-viewer-close {
