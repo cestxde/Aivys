@@ -1,6 +1,6 @@
-import { useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import {
-    ChevronDown, Disc3, Heart, Info, ListMusic, ListPlus, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Tag,
+    ChevronDown, ChevronUp, Disc3, Heart, Info, ListMusic, ListPlus, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Tag,
 } from "lucide-react";
 import type { Track, TrackStats, UserTag } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
@@ -11,10 +11,14 @@ import { ArtistLinks } from "../ArtistLinks/ArtistLinks";
 import { TagChip } from "../TagChip/TagChip";
 import { TrackSlider } from "../PlayerBar/TrackSlider";
 import { t } from "../../i18n";
+import { useBackLayer } from "../../hooks/useBackLayer";
 import "./MobilePlayer.css";
 
 interface NowPlayingProps {
     track: Track;
+    /** The tracks a swipe goes to (shown beside this one); null at an end. */
+    previous: Track | null;
+    next: Track | null;
     stats: TrackStats | null;
     tagsById: Map<string, UserTag>;
     /** The audio element, for the seek bar. */
@@ -51,30 +55,31 @@ interface NowPlayingProps {
 /** How far, in a fraction of its width, the track is swiped to change it. */
 const SWIPE_FRACTION = 0.22;
 
-/** How long the swiped track takes to slide out, or the new one in (ms). */
-const SLIDE_MS = 180;
+/** A quicker flick changes it too (px per ms). */
+const FLICK_SPEED = 0.5;
+
+/** How long the strip takes to settle after the finger lets go (ms). */
+const SLIDE_MS = 200;
 
 /**
- * The track's cover and name follow a finger swiping sideways: let go far
- * enough, they slide out and the next (to the left) or previous (to the
- * right) track slides in from the other side; otherwise they slide back.
+ * The previous, current and next tracks side by side, the current one on
+ * screen: the strip follows a finger swiping sideways. Let go far (or fast)
+ * enough, it slides on to the neighbour, which then becomes the current
+ * track; otherwise, or with no neighbour there, it slides back.
  */
-const useSwipe = (onNext: () => void, onPrevious: () => void) => {
+const useSwipe = (onNext: (() => void) | null, onPrevious: (() => void) | null) => {
     const [offset, setOffset] = useState(0);
     const [animated, setAnimated] = useState(false);
     const start = useRef<{ x: number; y: number; id: number; horizontal: boolean | null } | null>(null);
+    const last = useRef({ x: 0, time: 0, speed: 0 });
+    const settling = useRef(false);
     // A swipe is no tap: the click that ends it opens nothing.
     const swiped = useRef(false);
 
-    const slide = (to: number, then?: () => void) => {
-        setAnimated(true);
-        setOffset(to);
-        setTimeout(() => then?.(), SLIDE_MS);
-    };
-
     const onPointerDown = (e: PointerEvent<HTMLElement>) => {
-        if (e.button !== 0 || animated) return;
+        if (e.button !== 0 || settling.current) return;
         start.current = { x: e.clientX, y: e.clientY, id: e.pointerId, horizontal: null };
+        last.current = { x: e.clientX, time: e.timeStamp, speed: 0 };
         swiped.current = false;
     };
 
@@ -94,7 +99,27 @@ const useSwipe = (onNext: () => void, onPrevious: () => void) => {
             swiped.current = true;
             setAnimated(false);
         }
-        setOffset(dx);
+        const elapsed = e.timeStamp - last.current.time;
+        if (elapsed > 0) {
+            last.current = { x: e.clientX, time: e.timeStamp, speed: (e.clientX - last.current.x) / elapsed };
+        }
+        // Toward no neighbour, it gives only a little.
+        const blocked = dx < 0 ? !onNext : !onPrevious;
+        setOffset(blocked ? dx * 0.25 : dx);
+    };
+
+    const settle = (to: number, then?: () => void) => {
+        settling.current = true;
+        setAnimated(true);
+        setOffset(to);
+        setTimeout(() => {
+            // The neighbour becomes the current track and the strip is back
+            // in place under it, in one render.
+            then?.();
+            setAnimated(false);
+            setOffset(0);
+            settling.current = false;
+        }, SLIDE_MS);
     };
 
     const onPointerUp = (e: PointerEvent<HTMLElement>) => {
@@ -103,28 +128,25 @@ const useSwipe = (onNext: () => void, onPrevious: () => void) => {
         if (!from?.horizontal) return;
         const width = e.currentTarget.offsetWidth;
         const dx = e.clientX - from.x;
-        if (Math.abs(dx) < width * SWIPE_FRACTION) {
-            slide(0);
+        const go = dx < 0 ? onNext : onPrevious;
+        const far = Math.abs(dx) >= width * SWIPE_FRACTION || Math.abs(last.current.speed) >= FLICK_SPEED;
+        // A finger turned back before letting go stays.
+        const backward = last.current.speed !== 0 && Math.sign(last.current.speed) !== Math.sign(dx);
+        if (!go || !far || backward) {
+            settle(0);
             return;
         }
-        const out = dx < 0 ? -width : width;
-        slide(out, () => {
-            (dx < 0 ? onNext : onPrevious)();
-            // The new track from the other side, then into place.
-            setAnimated(false);
-            setOffset(-out);
-            requestAnimationFrame(() => requestAnimationFrame(() => slide(0, () => setAnimated(false))));
-        });
+        settle(dx < 0 ? -width : width, go);
     };
 
     const onPointerCancel = () => {
-        if (start.current?.horizontal) slide(0);
+        if (start.current?.horizontal) settle(0);
         start.current = null;
     };
 
     return {
         style: {
-            transform: offset ? `translateX(${offset}px)` : undefined,
+            transform: `translateX(calc(-100% + ${offset}px))`,
             transition: animated ? `transform ${SLIDE_MS}ms ease-out` : undefined,
         },
         handlers: {
@@ -142,6 +164,23 @@ const useSwipe = (onNext: () => void, onPrevious: () => void) => {
     };
 };
 
+/** A track beside the current one in the strip: its cover and name, nothing to press. */
+const Neighbour = ({ track }: { track: Track | null }) => (
+    <div className="now-playing-panel" aria-hidden>
+        {track && (
+            <>
+                <div className="now-playing-cover-wrap">
+                    <CoverArt path={track.coverPath} size={320} className="now-playing-cover" />
+                </div>
+                <div className="now-playing-heading">
+                    <h2 className="now-playing-title">{displayTitle(track)}</h2>
+                    <span className="now-playing-artist">{displayArtists(track)}</span>
+                </div>
+            </>
+        )}
+    </div>
+);
+
 /**
  * Phones: the full-screen player, from the mini player. The track with its
  * tags, the ways to the queue and to the track's details, and the controls.
@@ -152,10 +191,27 @@ export const NowPlaying = (props: NowPlayingProps) => {
     const artist = displayArtists(track);
     const tags = tagsOf(stats?.tags, props.tagsById);
     const favorite = stats?.favorite ?? false;
-    const swipe = useSwipe(props.onNext, props.onSwipePrevious);
+    const swipe = useSwipe(props.next ? props.onNext : null, props.previous ? props.onSwipePrevious : null);
+
+    // Tags that do not fit open over the buttons and the seek bar; a new
+    // track shows them closed again.
+    const [tagsOpenFor, setTagsOpenFor] = useState<string | null>(null);
+    const tagsOpen = tagsOpenFor === track.path;
+    useBackLayer(tagsOpen, () => setTagsOpenFor(null));
+    const tagsBox = useRef<HTMLDivElement>(null);
+    const [tagsOverflow, setTagsOverflow] = useState(false);
+    useLayoutEffect(() => {
+        const box = tagsBox.current;
+        if (!box) return;
+        const check = () => setTagsOverflow(box.scrollHeight > box.clientHeight + 1);
+        check();
+        const observer = new ResizeObserver(check);
+        observer.observe(box);
+        return () => observer.disconnect();
+    }, [tags.length, tagsOpen]);
 
     return (
-        <div className="now-playing" role="dialog" aria-label={t("player.nowPlaying")}>
+        <div className={`now-playing ${tagsOpen ? "tags-open" : ""}`} role="dialog" aria-label={t("player.nowPlaying")}>
             <div className="now-playing-header">
                 <button className="now-playing-icon" title={t("common.close")} onClick={props.onClose}>
                     <ChevronDown size={28} />
@@ -163,27 +219,33 @@ export const NowPlaying = (props: NowPlayingProps) => {
             </div>
 
             <div className="now-playing-body">
-                <div className="now-playing-swipe" style={swipe.style} {...swipe.handlers}>
-                    <div className="now-playing-cover-wrap">
-                        <CoverArt
-                            path={track.coverPath}
-                            size={320}
-                            className="now-playing-cover"
-                            onClick={track.coverPath ? () => setShowCover(true) : undefined}
-                        />
-                    </div>
+                <div className="now-playing-swipe" {...swipe.handlers}>
+                    <div className="now-playing-strip" style={swipe.style}>
+                        <Neighbour track={props.previous} />
+                        <div className="now-playing-panel">
+                            <div className="now-playing-cover-wrap">
+                                <CoverArt
+                                    path={track.coverPath}
+                                    size={320}
+                                    className="now-playing-cover"
+                                    onClick={track.coverPath ? () => setShowCover(true) : undefined}
+                                />
+                            </div>
 
-                    <div className="now-playing-heading">
-                        <h2 className="now-playing-title">{displayTitle(track)}</h2>
-                        {artist && (
-                            <span className="now-playing-artist">
-                                <ArtistLinks line={artist} artists={track.artists} canOpen={props.canOpenArtist} onOpen={props.onOpenArtist} />
-                            </span>
-                        )}
+                            <div className="now-playing-heading">
+                                <h2 className="now-playing-title">{displayTitle(track)}</h2>
+                                {artist && (
+                                    <span className="now-playing-artist">
+                                        <ArtistLinks line={artist} artists={track.artists} canOpen={props.canOpenArtist} onOpen={props.onOpenArtist} />
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        <Neighbour track={props.next} />
                     </div>
                 </div>
 
-                <div className="now-playing-tags">
+                <div className="now-playing-tags" ref={tagsBox}>
                     {tags.map(tag => (
                         <TagChip
                             key={tag.id}
@@ -196,6 +258,13 @@ export const NowPlaying = (props: NowPlayingProps) => {
                         <Tag size={13} /> {tags.length > 0 ? t("detail.editTags") : t("detail.addTags")}
                     </button>
                 </div>
+                {(tagsOverflow || tagsOpen) && (
+                    <button className="now-playing-tags-toggle" onClick={() => setTagsOpenFor(tagsOpen ? null : track.path)}>
+                        {tagsOpen
+                            ? <><ChevronDown size={14} /> {t("player.lessTags")}</>
+                            : <><ChevronUp size={14} /> {t("player.allTags", { count: tags.length })}</>}
+                    </button>
+                )}
             </div>
 
             <div className="now-playing-actions">

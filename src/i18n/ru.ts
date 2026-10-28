@@ -87,6 +87,8 @@ export const ru: Record<MessageKey, Message> = {
     "list.dragToReorder": "Перетащите, чтобы изменить порядок",
     "player.noTrack": "Нет трека",
     "player.nowPlaying": "Сейчас играет",
+    "player.allTags": "Все теги ({count})",
+    "player.lessTags": "Свернуть теги",
     "player.queue": "Очередь",
     "panel.track": "Трек",
     "queue.nowPlaying": "Сейчас играет",

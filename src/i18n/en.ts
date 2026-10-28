@@ -86,6 +86,8 @@ export const en = {
     "list.dragToReorder": "Drag to reorder",
     "player.noTrack": "No track",
     "player.nowPlaying": "Now playing",
+    "player.allTags": "All tags ({count})",
+    "player.lessTags": "Fewer tags",
     "player.queue": "Queue",
     "panel.track": "Track",
     "queue.nowPlaying": "Now playing",

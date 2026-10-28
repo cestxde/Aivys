@@ -1700,6 +1700,8 @@ function App() {
 					{currentTrack && nowPlayingOpen && (
 						<NowPlaying
 							track={currentTrack}
+							previous={queue.order.length > 1 ? queue.order[(queue.index - 1 + queue.order.length) % queue.order.length] : null}
+							next={queue.order.length > 1 ? queue.order[(queue.index + 1) % queue.order.length] : null}
 							stats={trackStats.stats[currentTrack.relPath] ?? null}
 							tagsById={tags.byId}
 							element={element}

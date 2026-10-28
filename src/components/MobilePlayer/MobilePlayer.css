@@ -156,7 +156,8 @@
     justify-content: center;
     gap: 6px;
     min-height: 0;
-    overflow-y: auto;
+    /* Closed, what does not fit is cut off (and opens with the toggle). */
+    overflow: hidden;
     overscroll-behavior: contain;
 }
 
@@ -300,16 +301,59 @@
     overflow-y: auto;
 }
 
-/* The cover and the name, swiped sideways to change the track; the page
-   still scrolls up and down under a finger here. */
+/* The cover and the name, swiped sideways to change the track: a strip of
+   the previous, current and next tracks, the current one in view (so the
+   neighbours' covers are loaded before they show). */
+/* Edge to edge, over the body's padding: the neighbours stay off screen. */
 .now-playing-swipe {
-    display: flex;
-    flex-direction: column;
     flex-shrink: 0;
+    width: calc(100% + 3rem);
+    margin: 0 -1.5rem;
+    touch-action: pan-y;
+}
+
+.now-playing-strip {
+    display: flex;
+}
+
+.now-playing-panel {
+    display: flex;
+    flex: 0 0 100%;
+    flex-direction: column;
     align-items: center;
     gap: 1.25rem;
-    width: 100%;
-    touch-action: pan-y;
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 0 1.5rem;
+}
+
+/* Tags that do not fit: a way to open them all, over the buttons and the
+   seek bar, where they scroll. */
+.now-playing-tags-toggle {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 4px;
+    margin-top: -0.75rem;
+    padding: 4px 10px;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.now-playing.tags-open .now-playing-actions,
+.now-playing.tags-open .now-playing-seek {
+    display: none;
+}
+
+.now-playing.tags-open .now-playing-tags {
+    flex: 1;
+    align-content: flex-start;
+    overflow-y: auto;
 }
 
 .now-playing-icon:disabled {
