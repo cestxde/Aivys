@@ -77,6 +77,8 @@ pub(crate) struct Store {
     dir: PathBuf,
     app_data: PathBuf,
     device_id: String,
+    /// What the conflict pass on opening did, until the app asks for it.
+    opening_conflicts: Option<conflicts::ConflictReport>,
 }
 
 impl Store {
@@ -93,11 +95,16 @@ impl Store {
             dir,
             app_data: app_data.to_path_buf(),
             device_id,
+            opening_conflicts: None,
         };
 
-        // Merge conflict copies before anything reads the documents.
+        // Merge conflict copies before anything reads the documents; the app
+        // tells the user what was done (`take_opening_conflicts`).
         match conflicts::resolve(&mut store) {
-            Ok(report) if !report.is_empty() => log::info!("sync conflicts: {report:?}"),
+            Ok(report) if !report.is_empty() => {
+                log::info!("sync conflicts: {report:?}");
+                store.opening_conflicts = Some(report);
+            }
             Ok(_) => {}
             Err(err) => log::warn!("conflict resolution failed: {err}"),
         }
@@ -128,6 +135,11 @@ impl Store {
 
     pub(crate) fn device_id(&self) -> &str {
         &self.device_id
+    }
+
+    /// What the conflict pass on opening did, once (then None).
+    pub(crate) fn take_opening_conflicts(&mut self) -> Option<conflicts::ConflictReport> {
+        self.opening_conflicts.take()
     }
 
     pub(crate) fn app_data(&self) -> &Path {

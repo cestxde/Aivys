@@ -59,6 +59,7 @@ pub fn run() {
             set_artist_rules,
             default_artist_rules,
             resolve_conflicts,
+            take_opening_conflicts,
             record_play,
             record_complete,
             set_rating,

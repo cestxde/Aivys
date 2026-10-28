@@ -398,19 +398,31 @@ function App() {
 			notifyError(t("sync.checkFailed"), e);
 			return;
 		}
-		if (report.skipped.length > 0) {
-			notifyError(t("sync.skipped", { count: report.skipped.length, list: report.skipped.join("; ") }));
-		}
-		if (report.deviceIdRegenerated) notifyInfo(t("sync.deviceIdRegenerated"));
+		tellConflicts(report);
 		if (report.merged.length === 0 && report.skipped.length === 0) {
 			notifyInfo(t("sync.none"));
 			return;
 		}
-		if (report.merged.length > 0) {
-			notifyInfo(t("sync.merged", { count: report.merged.length }));
-			await rescan();
-		}
+		if (report.merged.length > 0) await rescan();
 	};
+
+	/** What a pass over the sync-conflict copies did, as notices. */
+	const tellConflicts = (report: ConflictReport) => {
+		if (report.skipped.length > 0) {
+			notifyError(t("sync.skipped", { count: report.skipped.length, list: report.skipped.join("; ") }));
+		}
+		if (report.deviceIdRegenerated) notifyInfo(t("sync.deviceIdRegenerated"));
+		if (report.merged.length > 0) notifyInfo(t("sync.merged", { count: report.merged.length }));
+	};
+
+	// Opening the library (every scan) merges conflict copies before reading
+	// anything; what it did is told after.
+	useEffect(() => {
+		if (files.length === 0) return;
+		invoke<ConflictReport | null>("take_opening_conflicts")
+			.then(report => report && tellConflicts(report))
+			.catch(console.error);
+	}, [files]);
 
 	const handleRemoveRecent = (path: string) => {
 		const recentPaths = removeRecentPath(settings.recentPaths, path);

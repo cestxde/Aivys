@@ -85,7 +85,6 @@ conform to this spec. Changes to a shipped field are a `schemaVersion` bump.
         <uuid>.<ext>            # optional playlist cover image (§8.4.4)
     index/
       added-at.json             # existing: relative path -> first-seen unix ts
-    .conflicts/                 # archived sync-conflict copies (§11)
 ```
 
 Notes:
@@ -732,9 +731,12 @@ The app handles them **at startup and whenever it notices a change in
      conflict copy of **another** device's journal is merged by that device;
      until then readers simply read both files (de-dup makes this safe).
 3. **Write the merged result** to the canonical filename (atomic rename).
-4. **Archive** the conflict file (move to `.aivys/.conflicts/` with a
-   timestamp) rather than deleting, so nothing is lost silently.
-5. **Notify** the user that conflicts were found and merged (UI: Iteration ≥ 1).
+4. **Archive** the conflict file rather than deleting it, so nothing is lost
+   silently: moved, with a timestamp, to `conflicts/<library hash>/` in the
+   OS app-data directory of the device that merged it. Not in `.aivys/`, so
+   the archive does not sync to every device. (Versions before 0.8 archived
+   to `.aivys/.conflicts/`; the app moves those copies out on opening.)
+5. **Notify** the user that conflicts were found and merged, or could not be.
 
 If a conflict cannot be safely merged (e.g. `schemaVersion` from a newer
 version), leave the file untouched, keep both copies, and surface a clear

@@ -8,6 +8,7 @@ use walkdir::WalkDir;
 /// Infix of Syncthing conflict copies:
 /// `<name>.sync-conflict-<YYYYMMDD>-<HHMMSS>-<deviceShortId>.<ext>`.
 const MARKER: &str = ".sync-conflict-";
+/// Where versions before 0.8 archived handled copies, in `.aivys/`.
 const ARCHIVE_DIR: &str = ".conflicts";
 
 /// What a conflict pass did (§11), for logging and a future UI notice.
@@ -59,6 +60,7 @@ fn rel_of(store: &Store, path: &Path) -> String {
 
 /// Find conflict copies in `.aivys/` and merge each into its canonical file.
 pub(crate) fn resolve(store: &mut Store) -> Result<ConflictReport, StoreError> {
+    move_old_archive(store);
     let mut found: Vec<PathBuf> = WalkDir::new(store.dir())
         .into_iter()
         .filter_entry(|entry| entry.file_name() != ARCHIVE_DIR)
@@ -181,13 +183,51 @@ fn merge_docs<T: DeserializeOwned + Serialize>(
     Ok(Outcome::Merged)
 }
 
-/// Move a handled conflict copy to `.aivys/.conflicts/` instead of deleting it.
+/// Where this library's handled conflict copies are kept: in the app's data
+/// on this device (§11), not in `.aivys/`, which would sync them everywhere.
+pub(crate) fn archive_dir(store: &Store) -> PathBuf {
+    let root = std::fs::canonicalize(store.root()).unwrap_or_else(|_| store.root().to_path_buf());
+    let hash = blake3::hash(root.to_string_lossy().as_bytes()).to_hex();
+    store.app_data().join("conflicts").join(&hash[..16])
+}
+
+/// Move `from` to `to`, also across drives (the library and the app's data
+/// may be on different ones).
+fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
+    if std::fs::rename(from, to).is_ok() {
+        return Ok(());
+    }
+    std::fs::copy(from, to)?;
+    std::fs::remove_file(from)
+}
+
+/// Move a handled conflict copy to the archive instead of deleting it.
 fn archive(store: &Store, conflict: &Path, rel: &str) -> Result<(), StoreError> {
-    let dir = store.dir().join(ARCHIVE_DIR);
+    let dir = archive_dir(store);
     std::fs::create_dir_all(&dir)?;
     let name = format!("{}_{}", now_unix(), rel.replace('/', "__"));
-    std::fs::rename(conflict, dir.join(name))?;
+    move_file(conflict, &dir.join(name))?;
     Ok(())
+}
+
+/// Copies archived by earlier versions in `.aivys/.conflicts/`: moved to the
+/// archive in the app's data, and the folder removed.
+fn move_old_archive(store: &Store) {
+    let old = store.dir().join(ARCHIVE_DIR);
+    let Ok(entries) = std::fs::read_dir(&old) else {
+        return;
+    };
+    let dir = archive_dir(store);
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    for entry in entries.flatten() {
+        if let Err(err) = move_file(&entry.path(), &dir.join(entry.file_name())) {
+            log::warn!("cannot move an archived conflict copy: {err}");
+            return;
+        }
+    }
+    let _ = std::fs::remove_dir(&old);
 }
 
 #[cfg(test)]
@@ -230,7 +270,8 @@ mod tests {
         assert_eq!(report.merged.len(), 1);
         assert!(!copy.exists());
         assert_eq!(tags::list(&store).unwrap().len(), 2);
-        assert_eq!(fs::read_dir(store.dir().join(ARCHIVE_DIR)).unwrap().count(), 1);
+        assert_eq!(fs::read_dir(archive_dir(&store)).unwrap().count(), 1);
+        assert!(!store.dir().join(ARCHIVE_DIR).exists(), "the copy is archived outside .aivys");
     }
 
     #[test]

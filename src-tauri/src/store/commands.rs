@@ -126,6 +126,13 @@ pub(crate) fn artist_rules(app: &tauri::AppHandle) -> ArtistRules {
     })
 }
 
+/// What the conflict pass on opening the library did, once; null if it
+/// found nothing (or was asked already).
+#[tauri::command]
+pub(crate) async fn take_opening_conflicts(state: State<'_, StoreState>) -> Result<Option<ConflictReport>, StoreError> {
+    with_store(&state, |store| Ok(store.take_opening_conflicts()))
+}
+
 #[tauri::command]
 pub(crate) async fn resolve_conflicts(state: State<'_, StoreState>) -> Result<ConflictReport, StoreError> {
     with_store(&state, conflicts::resolve)
