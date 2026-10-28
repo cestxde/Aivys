@@ -240,7 +240,6 @@ export const en = {
     "group.resetCover": "Cover from the tracks",
     "playlist.removeCover": "Remove cover",
     "playlist.missing": "{count} missing",
-    "playlist.images": "Images",
 
     // Add to…
     "addTo.queue": "Queue",

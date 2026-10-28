@@ -3,7 +3,7 @@ use super::{new_uuid, validate_uuid, Store, StoreError};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 const PLAYLISTS_DIR: &str = "playlists";
 const COVERS_DIR: &str = "playlists/covers";
@@ -367,22 +367,18 @@ pub(crate) fn delete(store: &Store, id: &str) -> Result<(), StoreError> {
 }
 
 /// Copy an image into `playlists/covers/<id>.<ext>` and reference it.
-pub(crate) fn set_cover(store: &Store, id: &str, source: &Path) -> Result<PlaylistView, StoreError> {
+/// Give the playlist the image `bytes` as its cover; its type is taken from
+/// the bytes (a picked file's name may have no extension, as on Android).
+pub(crate) fn set_cover(store: &Store, id: &str, bytes: &[u8]) -> Result<PlaylistView, StoreError> {
     if load_live(store, id)?.1 {
         return Err(StoreError::NewerSchema(file_path(store, id)));
     }
 
-    let ext = source
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .map(str::to_ascii_lowercase)
-        .map(|ext| if ext == "jpeg" { "jpg".to_owned() } else { ext })
-        .filter(|ext| COVER_EXTENSIONS.contains(&ext.as_str()))
+    let ext = super::covers::image_extension(bytes)
         .ok_or_else(|| StoreError::Invalid("cover must be a jpg, png or webp image".to_owned()))?;
 
     let file_name = format!("{id}.{ext}");
-    let bytes = std::fs::read(source)?;
-    atomic_write(&store.path(&format!("{COVERS_DIR}/{file_name}")), &bytes)?;
+    atomic_write(&store.path(&format!("{COVERS_DIR}/{file_name}")), bytes)?;
 
     let view = modify(store, id, |playlist, _| {
         playlist.cover = Some(format!("covers/{file_name}"));

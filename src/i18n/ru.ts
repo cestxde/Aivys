@@ -252,7 +252,6 @@ export const ru: Record<MessageKey, Message> = {
     "group.resetCover": "Обложка из треков",
     "playlist.removeCover": "Убрать обложку",
     "playlist.missing": "{count} отсутствует",
-    "playlist.images": "Изображения",
 
     // Add to…
     "addTo.queue": "Очередь",

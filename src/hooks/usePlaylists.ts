@@ -73,8 +73,9 @@ export const usePlaylists = (files: Track[]) => {
     const removeItems = useCallback((id: string, itemIds: string[]) =>
         change("remove_from_playlist", { id, itemIds }, "error.removeFromPlaylist"), [change]);
 
-    const setCover = useCallback((id: string, sourcePath: string) =>
-        change("set_playlist_cover", { id, sourcePath }, "error.setCover"), [change]);
+    /** `data`: the image's bytes, base64. */
+    const setCover = useCallback((id: string, data: string) =>
+        change("set_playlist_cover", { id, data }, "error.setCover"), [change]);
 
     const clearCover = useCallback((id: string) =>
         change("clear_playlist_cover", { id }, "error.removeCover"), [change]);

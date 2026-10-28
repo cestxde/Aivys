@@ -473,14 +473,18 @@ pub(crate) async fn delete_playlist(state: State<'_, StoreState>, id: String) ->
     with_store(&state, |store| playlists::delete(store, &id))
 }
 
-/// Copy the image at `source_path` in as the playlist's cover.
-#[tauri::command(rename_all = "camelCase")]
+/// Give the playlist an image (its bytes, base64) as its cover.
+#[tauri::command]
 pub(crate) async fn set_playlist_cover(
     state: State<'_, StoreState>,
     id: String,
-    source_path: String,
+    data: String,
 ) -> Result<PlaylistView, StoreError> {
-    with_store(&state, |store| playlists::set_cover(store, &id, Path::new(&source_path)))
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(data)
+        .map_err(|err| StoreError::Invalid(format!("cover is not base64: {err}")))?;
+    with_store(&state, |store| playlists::set_cover(store, &id, &bytes))
 }
 
 #[tauri::command]

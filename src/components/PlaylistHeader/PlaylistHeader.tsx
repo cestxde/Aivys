@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
 import { ArrowLeft, ImagePlus, ListMusic, Pencil, Sparkles, Trash2, SlidersHorizontal } from "lucide-react";
 import type { ListRow, Playlist } from "../../types";
 import { formatTotalDuration } from "../../utils/format";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
 import { t } from "../../i18n";
+import { pickImage } from "../../utils/image";
+import { notifyError } from "../../utils/notify";
 import "./PlaylistHeader.css";
 
 interface PlaylistHeaderProps {
@@ -18,7 +19,8 @@ interface PlaylistHeaderProps {
     /** Asks for confirmation itself. */
     onDelete: () => void;
     onEditRules: () => void;
-    onSetCover: (sourcePath: string) => void;
+    /** The picked image's bytes, base64. */
+    onSetCover: (data: string) => void;
     onClearCover: () => void;
 }
 
@@ -46,12 +48,8 @@ export const PlaylistHeader = ({
         if (name && name !== playlist.name) onRename(name);
     };
 
-    const chooseCover = async () => {
-        const path = await open({
-            multiple: false,
-            filters: [{ name: t("playlist.images"), extensions: ["jpg", "jpeg", "png", "webp"] }],
-        });
-        if (typeof path === "string") onSetCover(path);
+    const chooseCover = () => {
+        pickImage().then(onSetCover, e => notifyError(t("error.setCover"), e));
     };
 
     const totalSeconds = rows.reduce((sum, row) => sum + row.track.duration, 0);

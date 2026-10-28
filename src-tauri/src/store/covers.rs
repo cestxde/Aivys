@@ -95,7 +95,7 @@ pub(crate) fn list(store: &Store) -> Result<Vec<GroupCover>, StoreError> {
 }
 
 /// The image type of `bytes`, by their first bytes: its file extension.
-fn image_extension(bytes: &[u8]) -> Option<&'static str> {
+pub(crate) fn image_extension(bytes: &[u8]) -> Option<&'static str> {
     if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
         Some("jpg")
     } else if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {

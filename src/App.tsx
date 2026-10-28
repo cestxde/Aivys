@@ -1544,7 +1544,7 @@ function App() {
 									}}
 									onDelete={() => deletePlaylist(playlist)}
 									onEditRules={() => openEditor(playlist)}
-									onSetCover={(path) => playlists.setCover(playlist.id, path)}
+									onSetCover={(data) => playlists.setCover(playlist.id, data)}
 									onClearCover={() => playlists.clearCover(playlist.id)}
 								/>
 							)}
