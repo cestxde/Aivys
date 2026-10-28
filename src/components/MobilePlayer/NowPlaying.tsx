@@ -146,7 +146,7 @@ const useSwipe = (onNext: (() => void) | null, onPrevious: (() => void) | null) 
 
     return {
         style: {
-            transform: `translateX(calc(-100% + ${offset}px))`,
+            transform: offset ? `translateX(${offset}px)` : undefined,
             transition: animated ? `transform ${SLIDE_MS}ms ease-out` : undefined,
         },
         handlers: {
@@ -165,8 +165,8 @@ const useSwipe = (onNext: (() => void) | null, onPrevious: (() => void) | null) 
 };
 
 /** A track beside the current one in the strip: its cover and name, nothing to press. */
-const Neighbour = ({ track }: { track: Track | null }) => (
-    <div className="now-playing-panel" aria-hidden>
+const Neighbour = ({ track, side }: { track: Track | null; side: "previous" | "next" }) => (
+    <div className={`now-playing-panel neighbour ${side}`} aria-hidden>
         {track && (
             <>
                 <div className="now-playing-cover-wrap">
@@ -231,7 +231,7 @@ export const NowPlaying = (props: NowPlayingProps) => {
             <div className="now-playing-body">
                 <div className="now-playing-swipe" {...swipe.handlers}>
                     <div className="now-playing-strip" style={swipe.style}>
-                        <Neighbour track={props.previous} />
+                        <Neighbour track={props.previous} side="previous" />
                         <div className="now-playing-panel">
                             <div className="now-playing-cover-wrap">
                                 <CoverArt
@@ -251,7 +251,7 @@ export const NowPlaying = (props: NowPlayingProps) => {
                                 )}
                             </div>
                         </div>
-                        <Neighbour track={props.next} />
+                        <Neighbour track={props.next} side="next" />
                     </div>
                 </div>
 

@@ -329,8 +329,10 @@
     touch-action: pan-y;
 }
 
+/* The current track sets the strip's height; its neighbours lie beside it,
+   out of the flow, so a longer name of theirs moves nothing. */
 .now-playing-strip {
-    display: flex;
+    position: relative;
 }
 
 .now-playing-panel {
@@ -342,6 +344,20 @@
     box-sizing: border-box;
     min-width: 0;
     padding: 0 1.5rem;
+}
+
+.now-playing-panel.neighbour {
+    position: absolute;
+    top: 0;
+    width: 100%;
+}
+
+.now-playing-panel.previous {
+    right: 100%;
+}
+
+.now-playing-panel.next {
+    left: 100%;
 }
 
 /* Open tags, over the buttons and the seek bar, where they scroll; and the
