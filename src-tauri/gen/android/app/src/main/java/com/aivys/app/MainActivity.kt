@@ -1,5 +1,6 @@
 package com.aivys.app
 
+import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
@@ -11,6 +12,8 @@ class MainActivity : TauriActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
+    // The navigation buttons over the page as they are, without a dimmed strip under them.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) window.isNavigationBarContrastEnforced = false
     super.onCreate(savedInstanceState)
   }
 

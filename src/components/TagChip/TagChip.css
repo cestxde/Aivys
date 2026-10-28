@@ -12,7 +12,7 @@
     align-items: center;
     gap: 6px;
     max-width: 100%;
-    padding: 2px 9px 2px 7px;
+    padding: 2px 9px;
     border: 1px solid color-mix(in srgb, var(--tag-color) 45%, transparent);
     border-radius: 999px;
     background: color-mix(in srgb, var(--tag-color) 16%, transparent);
@@ -47,7 +47,7 @@ button.tag-chip:hover {
     align-items: center;
     gap: 6px;
     min-width: 0;
-    padding: 2px 2px 2px 7px;
+    padding: 2px 2px 2px 9px;
     border: none;
     border-radius: 999px;
     background: none;

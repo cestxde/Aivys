@@ -12,15 +12,10 @@ interface TagChipProps {
     onContextMenu?: (e: MouseEvent) => void;
 }
 
-/** A tag as a small tinted pill with its color dot. */
+/** A tag as a small pill tinted with its color. */
 export const TagChip = ({ tag, onClick, onRemove, onContextMenu }: TagChipProps) => {
     const style = { "--tag-color": tag.color } as CSSProperties;
-    const content = (
-        <>
-            <span className="tag-dot" />
-            <span className="tag-chip-name">{tag.name}</span>
-        </>
-    );
+    const content = <span className="tag-chip-name">{tag.name}</span>;
     if (onRemove) {
         return (
             <span className="tag-chip removable" style={style} title={tag.name} onContextMenu={onContextMenu}>
