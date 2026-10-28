@@ -874,10 +874,11 @@ function App() {
 
 	// Back and forward only within the open library (not on the picker).
 	const inLibrary = view === "library";
-	// Android: Back from any view but the library goes to the library (and from
-	// there the app to the background, MainActivity.kt).
+	// Android: Back from any view but the library goes up a level, as on the
+	// desktop (an artist to the artists, ...), and from the library the app to
+	// the background (MainActivity.kt).
 	const awayFromLibrary = inLibrary && !(listView.kind === "system" && listView.id === "library");
-	useBackLayer(androidStorage !== null && awayFromLibrary, () => showView(LIBRARY_VIEW));
+	useBackLayer(androidStorage !== null && awayFromLibrary, () => goBack());
 	useShortcutActions({
 		back: () => inLibrary && goBack(),
 		forward: () => inLibrary && goForward(),

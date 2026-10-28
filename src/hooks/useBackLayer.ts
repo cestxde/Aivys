@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Layers Back closes, the topmost first: dialogs, menus, the cover viewer,
@@ -21,21 +21,29 @@ export const closeTopLayer = (): boolean => {
 // Android's Back asks the page first (MainActivity.kt).
 (window as unknown as { aivysBack?: () => boolean }).aivysBack = closeTopLayer;
 
-/** While `open`, Back calls `onClose` (when this is the topmost layer). */
+/**
+ * While `open`, Back calls `onClose` (when this is the topmost layer). A
+ * layer still open after that (Back went up a level, not out) is put back.
+ */
 export const useBackLayer = (open: boolean, onClose: () => void) => {
     const latest = useRef(onClose);
     useEffect(() => {
         latest.current = onClose;
     });
+    // Bumped by each Back on this layer, to push it again if it stays open.
+    const [closes, setCloses] = useState(0);
 
     useEffect(() => {
         if (!open) return;
-        const close = () => latest.current();
+        const close = () => {
+            latest.current();
+            setCloses(n => n + 1);
+        };
         layers.push(close);
         return () => {
             // Closed otherwise (or already taken off by Back): off the stack.
             const index = layers.lastIndexOf(close);
             if (index >= 0) layers.splice(index, 1);
         };
-    }, [open]);
+    }, [open, closes]);
 };
