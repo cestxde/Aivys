@@ -460,6 +460,8 @@ function App() {
 	// playlist's own in its file.
 	const viewSorts = useViewSorts();
 	const sortScope = sortScopeOf(listView, playlist?.type ?? null);
+	// Each view groups into sections or not on its own.
+	const listDisplay = viewSorts.displayOf(sortScope ?? "playlist");
 	const defaultLabel = defaultSortLabel(listView, playlist);
 	const remembered = sortScope ? viewSorts.sorts[sortScope] : viewSortOf(playlist?.sort);
 	// A view without an order of its own never shows it.
@@ -1586,8 +1588,8 @@ function App() {
 								sort={viewSort}
 								defaultLabel={defaultLabel}
 								onSortChange={handleSortChange}
-								display={viewSorts.display}
-								onDisplayChange={viewSorts.setDisplay}
+								display={listDisplay}
+								onDisplayChange={(display) => viewSorts.setDisplay(sortScope ?? "playlist", display)}
 								canGroup={rowSection !== null}
 								sortDisabled={isSearching || sortLocked}
 								onShuffleAll={handleShuffleView}
@@ -1623,12 +1625,12 @@ function App() {
 									/>
 								)}
 								<TrackList
-									key={`${viewKey}:${viewSort.field}:${viewSort.dir}:${viewSorts.display}`}
+									key={`${viewKey}:${viewSort.field}:${viewSort.dir}:${listDisplay}`}
 									rows={displayRows}
 									activePath={activePath}
 									looseFromIndex={looseFromIndex}
-									sectionOf={!isSearching && viewSorts.display === "sections" ? rowSection : null}
-									hintOf={!isSearching && viewSorts.display === "inline" ? rowHint : null}
+									sectionOf={!isSearching && listDisplay === "sections" ? rowSection : null}
+									hintOf={!isSearching && listDisplay === "inline" ? rowHint : null}
 									numberOf={!isSearching && viewSort.field === "default" ? albumNumber : null}
 									emptyText={emptyText}
 									onPlay={(track) => {

@@ -39,7 +39,9 @@ const DEFAULTS: Record<SortScope, ViewSort> = {
 
 // Device-local view preferences; a failing storage just means no memory.
 const SORTS_KEY = "aivys.sorts";
-const DISPLAY_KEY = "aivys.listDisplay";
+const DISPLAY_KEY = "aivys.listDisplays";
+// Before each view had its own: one for all, now what a view starts with.
+const OLD_DISPLAY_KEY = "aivys.listDisplay";
 
 const FIELDS: SortField[] = ['default', 'addedAt', 'title', 'artist', 'album', 'duration', 'year'];
 
@@ -61,11 +63,23 @@ const loadSorts = (): Record<SortScope, ViewSort> => {
     return sorts;
 };
 
-const loadDisplay = (): ListDisplay => {
+/**
+ * Where a view keeps its display: its sort scope, or "playlist" for manual
+ * playlists (which keep their sort in their own files).
+ */
+export type DisplayScope = SortScope | 'playlist';
+
+const loadDisplays = (): { all: Partial<Record<DisplayScope, ListDisplay>>; fallback: ListDisplay } => {
     try {
-        return localStorage.getItem(DISPLAY_KEY) === "sections" ? "sections" : "inline";
+        const fallback = localStorage.getItem(OLD_DISPLAY_KEY) === "sections" ? "sections" : "inline";
+        const stored = JSON.parse(localStorage.getItem(DISPLAY_KEY) ?? "{}") as Record<string, unknown>;
+        const all: Partial<Record<DisplayScope, ListDisplay>> = {};
+        for (const [scope, display] of Object.entries(stored)) {
+            if (display === "sections" || display === "inline") all[scope as DisplayScope] = display;
+        }
+        return { all, fallback };
     } catch {
-        return "inline";
+        return { all: {}, fallback: "inline" };
     }
 };
 
@@ -77,10 +91,10 @@ const save = (key: string, value: string) => {
     }
 };
 
-/** The remembered sort of every scope, and how sorted lists are displayed. */
+/** The remembered sort of every scope, and how each view displays its sorted list. */
 export const useViewSorts = () => {
     const [sorts, setSorts] = useState(loadSorts);
-    const [display, setDisplayState] = useState<ListDisplay>(loadDisplay);
+    const [displays, setDisplays] = useState(loadDisplays);
 
     const setSort = useCallback((scope: SortScope, sort: ViewSort) => {
         setSorts(prev => {
@@ -90,10 +104,18 @@ export const useViewSorts = () => {
         });
     }, []);
 
-    const setDisplay = useCallback((next: ListDisplay) => {
-        setDisplayState(next);
-        save(DISPLAY_KEY, next);
+    const displayOf = useCallback(
+        (scope: DisplayScope): ListDisplay => displays.all[scope] ?? displays.fallback,
+        [displays],
+    );
+
+    const setDisplay = useCallback((scope: DisplayScope, next: ListDisplay) => {
+        setDisplays(prev => {
+            const all = { ...prev.all, [scope]: next };
+            save(DISPLAY_KEY, JSON.stringify(all));
+            return { ...prev, all };
+        });
     }, []);
 
-    return { sorts, setSort, display, setDisplay };
+    return { sorts, setSort, displayOf, setDisplay };
 };
