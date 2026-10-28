@@ -2,16 +2,12 @@ package com.aivys.app
 
 import android.app.Activity
 import android.content.Intent
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import org.json.JSONObject
-import java.io.File
 
 /**
  * The page's player on Android (`window.AivysPlayer`): the WebView cannot
@@ -50,7 +46,7 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
     PlayerHub.loaded(path, startAt)
     // The page sends the new track's metadata right after; until then, its file name.
     PlayerHub.metadata = JSONObject()
-    player.setMediaItem(item(path), (startAt * 1000).toLong())
+    player.setMediaItem(PlayerHub.item(path), (startAt * 1000).toLong())
     player.playWhenReady = false
     player.prepare()
   }
@@ -69,7 +65,10 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
   fun seek(seconds: Double) = main.post { player.seekTo((seconds * 1000).toLong()) }
 
   @JavascriptInterface
-  fun setVolume(volume: Double) = main.post { player.volume = volume.toFloat() }
+  fun setVolume(volume: Double) = main.post {
+    PlayerHub.volume = volume.toFloat()
+    player.volume = PlayerHub.volume
+  }
 
   /** Let the file go: nothing loaded. */
   @JavascriptInterface
@@ -87,21 +86,7 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
   fun setMetadata(json: String) = main.post {
     PlayerHub.metadata = JSONObject(json)
     val current = PlayerHub.path ?: return@post
-    if (player.mediaItemCount > 0) player.replaceMediaItem(0, item(current))
-  }
-
-  private fun item(path: String): MediaItem {
-    val metadata = PlayerHub.metadata
-    val info = MediaMetadata.Builder()
-      .setTitle(metadata.optString("title").ifEmpty { File(path).nameWithoutExtension })
-      .setArtist(metadata.optString("artist").ifEmpty { null })
-      .setAlbumTitle(metadata.optString("album").ifEmpty { null })
-    metadata.optString("cover").ifEmpty { null }?.let { info.setArtworkUri(Uri.fromFile(File(it))) }
-    return MediaItem.Builder()
-      .setMediaId(path)
-      .setUri(Uri.fromFile(File(path)))
-      .setMediaMetadata(info.build())
-      .build()
+    if (player.mediaItemCount > 0) player.replaceMediaItem(0, PlayerHub.item(current))
   }
 
   // The service keeps the process (and the music) going in the background;

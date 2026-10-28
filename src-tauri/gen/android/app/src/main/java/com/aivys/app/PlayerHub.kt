@@ -1,17 +1,21 @@
 package com.aivys.app
 
 import android.content.Context
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import org.json.JSONObject
+import java.io.File
 
 /**
  * The app's one player, shared by the page's bridge (`NativePlayer`) and the
@@ -21,6 +25,11 @@ import org.json.JSONObject
  * which loads the next track when one ends. Only touched on the main thread.
  *
  * Its events go to the current page through `sink` (see `NativePlayer`).
+ *
+ * The system stops the service a while after the music is paused in the
+ * background, and the player with it (`release`); the track stays loaded for
+ * the page all the same: the next use of the player loads it again, where it
+ * was paused.
  */
 object PlayerHub {
   private val main = Handler(Looper.getMainLooper())
@@ -35,6 +44,9 @@ object PlayerHub {
 
   /** What the system's media controls show for it (`NativePlayer.setMetadata`). */
   var metadata = JSONObject()
+
+  /** The page's volume, 0 to 1, kept for a player made anew. */
+  var volume = 1f
 
   // A copy of the player's state for `state`, read off the main thread
   // (the player itself is only touched on it).
@@ -72,7 +84,28 @@ object PlayerHub {
       .also {
         exo = it
         it.addListener(events)
+        it.volume = volume
+        // Released while the page kept its track (paused): loaded again, paused where it was.
+        path?.let { current ->
+          it.setMediaItem(item(current), (position * 1000).toLong())
+          it.playWhenReady = false
+          it.prepare()
+        }
       }
+
+  /** The file at `path` as the player plays it, with what the system's media controls show. */
+  fun item(path: String): MediaItem {
+    val info = MediaMetadata.Builder()
+      .setTitle(metadata.optString("title").ifEmpty { File(path).nameWithoutExtension })
+      .setArtist(metadata.optString("artist").ifEmpty { null })
+      .setAlbumTitle(metadata.optString("album").ifEmpty { null })
+    metadata.optString("cover").ifEmpty { null }?.let { info.setArtworkUri(Uri.fromFile(File(it))) }
+    return MediaItem.Builder()
+      .setMediaId(path)
+      .setUri(Uri.fromFile(File(path)))
+      .setMediaMetadata(info.build())
+      .build()
+  }
 
   /**
    * The player as the media session shows it: with "previous" and "next",
@@ -107,13 +140,17 @@ object PlayerHub {
     .put("duration", duration ?: JSONObject.NULL)
     .put("playing", playing)
 
+  /** The player gone with the service; what it had loaded (`path`, `position`) is kept. */
   fun release() {
     main.removeCallbacks(ticker)
+    exo?.let { position = it.currentPosition / 1000.0 }
     exo?.release()
     exo = null
     forwarding = null
-    path = null
-    playing = false
+    if (playing) {
+      playing = false
+      emit(JSONObject().put("type", "pause"))
+    }
   }
 
   private fun skip(next: Boolean) = emit(JSONObject().put("type", if (next) "next" else "previous"))
