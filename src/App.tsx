@@ -588,6 +588,13 @@ function App() {
 		setSelection({ scope: selectionScope, keys, anchor });
 	};
 
+	/** A finger's span (TrackList): what was selected before, and the rows from `from` to `to`. */
+	const selectSpan = (base: Set<string>, from: number, to: number) => {
+		const keys = new Set(base);
+		for (let i = Math.min(from, to); i <= Math.max(from, to); i++) keys.add(displayRows[i].key);
+		setSelection({ scope: selectionScope, keys, anchor: displayRows[from]?.key ?? null });
+	};
+
 	const editablePlaylist = playlist && !playlist.readOnly ? playlist : null;
 	const manualPlaylist = editablePlaylist?.type === "manual" ? editablePlaylist : null;
 
@@ -1683,6 +1690,7 @@ function App() {
 									}}
 									selected={selectedKeys}
 									onSelect={selectRow}
+									onSelectSpan={selectSpan}
 									onOpenMenu={(row, x, y) => {
 										// A selected row's menu acts on the whole selection; any other row's, on that row.
 										if (selectedKeys.has(row.key) && selectedRows.length > 1) {

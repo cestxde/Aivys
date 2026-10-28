@@ -1,5 +1,5 @@
 import "./TrackList.css";
-import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Check, ChevronRight, GripVertical, MoreVertical } from "lucide-react";
 import type { ListRow, Track } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
@@ -34,6 +34,11 @@ interface TrackListProps {
      * starts selecting and taps go on.
      */
     onSelect?: (row: ListRow, index: number, how: { range: boolean; additive: boolean }) => void;
+    /**
+     * By touch, a long press held and moved up or down: `base` (what was
+     * selected before) and the rows from `from` to `to` are the selection.
+     */
+    onSelectSpan?: (base: Set<string>, from: number, to: number) => void;
 }
 
 /** What a row press does when nothing is selected yet. */
@@ -55,6 +60,10 @@ const moveItem = (ids: string[], moved: string, target: string, after: boolean):
 
 /** Distance from the scroll container's edge that scrolls while dragging. */
 const AUTOSCROLL_EDGE = 48;
+
+/** Selecting with a finger: how near the list's edge it scrolls, and how fast at most (px a frame). */
+const SPAN_EDGE = 72;
+const SPAN_SPEED = 18;
 
 /** What the list shows, top to bottom. */
 type Entry =
@@ -98,6 +107,7 @@ export const TrackList = ({
     onReorder,
     selected = NO_SELECTION,
     onSelect,
+    onSelectSpan,
 }: TrackListProps) => {
     // Touch and mouse differ: a long press (contextmenu by touch) selects.
     const lastPointer = useRef<string>("mouse");
@@ -196,6 +206,86 @@ export const TrackList = ({
     // rendered; spacers keep the full height. A long library would otherwise
     // build thousands of rows on every view change.
     const rootRef = useRef<HTMLDivElement>(null);
+
+    // Selecting with a finger: a long press selects its row, and while the
+    // finger stays down, moving it up or down selects every row from there to
+    // the one under it; near the list's top or bottom the list scrolls.
+    const span = useRef<{ base: Set<string>; from: number; to: number; x: number; y: number } | null>(null);
+    // Starts following the finger: on the element it touched first, which
+    // gets its touch events even after the list drops it (scrolled far away)
+    // and they no longer reach the window.
+    const followTouch = useRef<(target: EventTarget) => void>(() => {});
+    // What the last touch began on (touch events stay with it).
+    const touchTarget = useRef<EventTarget | null>(null);
+    const latestSpan = useRef({ rows, onSelectSpan });
+    useEffect(() => {
+        latestSpan.current = { rows, onSelectSpan };
+    });
+    useEffect(() => {
+        let frame = 0;
+        const scroller = () => rootRef.current?.closest<HTMLElement>(".track-list-wrapper") ?? null;
+
+        // The row under the finger joins the span.
+        const follow = () => {
+            const current = span.current;
+            if (!current) return;
+            const key = document.elementFromPoint(current.x, current.y)?.closest<HTMLElement>("[data-row-key]")?.dataset.rowKey;
+            const { rows, onSelectSpan } = latestSpan.current;
+            const index = key ? rows.findIndex(row => row.key === key) : -1;
+            if (index < 0 || index === current.to) return;
+            current.to = index;
+            onSelectSpan?.(current.base, current.from, index);
+        };
+
+        // Near an edge (the bottom above the mini player), the list scrolls,
+        // faster nearer the edge.
+        const scroll = () => {
+            frame = 0;
+            const current = span.current;
+            const element = scroller();
+            if (!current || !element) return;
+            const box = element.getBoundingClientRect();
+            const bottom = box.bottom - (parseFloat(getComputedStyle(element).paddingBottom) || 0);
+            const step = current.y < box.top + SPAN_EDGE ? -(box.top + SPAN_EDGE - current.y)
+                : current.y > bottom - SPAN_EDGE ? current.y - (bottom - SPAN_EDGE) : 0;
+            if (step === 0) return;
+            element.scrollBy(0, Math.sign(step) * Math.min(SPAN_SPEED, Math.abs(step) / 3 + 2));
+            follow();
+            frame = requestAnimationFrame(scroll);
+        };
+
+        const onMove = (e: TouchEvent) => {
+            const current = span.current;
+            if (!current) return;
+            // The finger selects; the list does not scroll under it.
+            e.preventDefault();
+            current.x = e.touches[0].clientX;
+            current.y = e.touches[0].clientY;
+            follow();
+            if (!frame) frame = requestAnimationFrame(scroll);
+        };
+        let touched: EventTarget | null = null;
+        const unlisten = () => {
+            touched?.removeEventListener("touchmove", onMove as EventListener);
+            touched?.removeEventListener("touchend", onEnd);
+            touched?.removeEventListener("touchcancel", onEnd);
+            touched = null;
+        };
+        function onEnd() {
+            span.current = null;
+            cancelAnimationFrame(frame);
+            frame = 0;
+            unlisten();
+        }
+        followTouch.current = (target) => {
+            unlisten();
+            touched = target;
+            target.addEventListener("touchmove", onMove as EventListener, { passive: false });
+            target.addEventListener("touchend", onEnd);
+            target.addEventListener("touchcancel", onEnd);
+        };
+        return onEnd;
+    }, []);
     const [heights, setHeights] = useState<Heights>(measured);
     const [visible, setVisible] = useState({ top: 0, height: 1000 });
 
@@ -295,6 +385,9 @@ export const TrackList = ({
                 onPointerDown={(e) => {
                     lastPointer.current = e.pointerType;
                 }}
+                onTouchStart={(e) => {
+                    touchTarget.current = e.target;
+                }}
                 // Shift+click would also select text.
                 onMouseDown={(e) => e.shiftKey && e.preventDefault()}
                 onClick={(e) => {
@@ -309,6 +402,8 @@ export const TrackList = ({
                 onContextMenu={(e) => {
                     e.preventDefault();
                     if (onSelect && lastPointer.current === "touch") {
+                        span.current = { base: new Set(selected), from: index, to: index, x: e.clientX, y: e.clientY };
+                        followTouch.current(touchTarget.current ?? e.target);
                         onSelect(row, index, { range: false, additive: true });
                         return;
                     }
