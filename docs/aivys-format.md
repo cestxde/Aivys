@@ -734,7 +734,7 @@ The app handles them **at startup and whenever it notices a change in
 4. **Archive** the conflict file rather than deleting it, so nothing is lost
    silently: moved, with a timestamp, to `conflicts/<library hash>/` in the
    OS app-data directory of the device that merged it. Not in `.aivys/`, so
-   the archive does not sync to every device. (Versions before 0.8 archived
+   the archive does not sync to every device. (Versions before 0.9 archived
    to `.aivys/.conflicts/`; the app moves those copies out on opening.)
 5. **Notify** the user that conflicts were found and merged, or could not be.
 

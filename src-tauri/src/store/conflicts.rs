@@ -8,7 +8,7 @@ use walkdir::WalkDir;
 /// Infix of Syncthing conflict copies:
 /// `<name>.sync-conflict-<YYYYMMDD>-<HHMMSS>-<deviceShortId>.<ext>`.
 const MARKER: &str = ".sync-conflict-";
-/// Where versions before 0.8 archived handled copies, in `.aivys/`.
+/// Where versions before 0.9 archived handled copies, in `.aivys/`.
 const ARCHIVE_DIR: &str = ".conflicts";
 
 /// What a conflict pass did (§11), for logging and a future UI notice.
