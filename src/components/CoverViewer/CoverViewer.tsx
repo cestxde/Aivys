@@ -19,7 +19,10 @@ const MAX_ZOOM = 6;
 const DOUBLE_ZOOM = 2.5;
 
 /** Two taps within this long (ms) are a double tap. */
-const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_MS = 350;
+
+/** A finger that moves less than this (px) still taps: it never rests quite still. */
+const TAP_SLOP = 10;
 
 interface View {
     scale: number;
@@ -61,6 +64,7 @@ export const CoverViewer = ({ path, onClose }: CoverViewerProps) => {
     const pointers = useRef(new Map<number, { x: number; y: number }>());
     // A drag or a pinch is no click: the click after it does not close.
     const moved = useRef(false);
+    const downAt = useRef({ x: 0, y: 0 });
     const lastTap = useRef(0);
 
     /** The point (`clientX`, `clientY`) relative to the cover's center, unzoomed. */
@@ -85,7 +89,12 @@ export const CoverViewer = ({ path, onClose }: CoverViewerProps) => {
         if (!path) return;
         e.currentTarget.setPointerCapture(e.pointerId);
         pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        if (pointers.current.size === 1) moved.current = false;
+        if (pointers.current.size === 1) {
+            moved.current = false;
+            downAt.current = { x: e.clientX, y: e.clientY };
+        } else {
+            moved.current = true;
+        }
         setGesture(true);
     };
 
@@ -94,7 +103,7 @@ export const CoverViewer = ({ path, onClose }: CoverViewerProps) => {
         if (!before) return;
         const others = [...pointers.current].filter(([id]) => id !== e.pointerId).map(([, at]) => at);
         pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        if (Math.abs(e.clientX - before.x) + Math.abs(e.clientY - before.y) > 0) moved.current = true;
+        if (Math.hypot(e.clientX - downAt.current.x, e.clientY - downAt.current.y) > TAP_SLOP) moved.current = true;
 
         if (others.length === 1) {
             // A pinch: the zoom follows the fingers' distance, around their middle.
