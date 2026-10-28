@@ -12,6 +12,7 @@ import { CategorySidebar, PINNED, type CategoryFilter } from "../CategorySidebar
 import { t } from "../../i18n";
 import "./TagPicker.css";
 import { useBackLayer } from "../../hooks/useBackLayer";
+import { SearchInput } from "../SearchInput/SearchInput";
 
 interface TagPickerProps {
     tracks: Track[];
@@ -198,12 +199,11 @@ export const TagPicker = ({ tracks, tags, categories, counts, isPinned, stats, o
 
                     <div className="tag-picker-main">
                         <div className="tag-picker-search">
-                            <input
-                                className="search-input"
+                            <SearchInput
                                 placeholder={tags.length > 0 ? t("tagPicker.find") : t("tagPicker.nameNew")}
                                 value={filter}
                                 autoFocus
-                                onChange={(e) => setFilter(e.target.value)}
+                                onChange={setFilter}
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter") apply();
                                     else if (e.key === "ArrowDown") move(1);

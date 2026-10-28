@@ -9,6 +9,7 @@ import { LayoutToggle, type PlaylistsLayout } from "../PlaylistsPage/PlaylistsPa
 import { t } from "../../i18n";
 import { useRememberedScroll, useRememberedState, useStoredState } from "../../hooks/useRemembered";
 import { ContextMenu, type MenuEntry } from "../ContextMenu/ContextMenu";
+import { SearchInput } from "../SearchInput/SearchInput";
 import "../PlaylistsPage/PlaylistsPage.css";
 import "./CollectionPage.css";
 
@@ -212,12 +213,12 @@ export const CollectionPage = ({
         <div className="playlists-page" ref={scrollRef} onScroll={onPageScroll}>
             <div className="playlists-toolbar">
                 <h1 className="playlists-title">{title}</h1>
-                <input
-                    className="search-input playlists-filter"
+                <SearchInput
+                    className="playlists-filter"
                     placeholder={filterPlaceholder}
                     value={filter}
-                    onChange={(e) => {
-                        setFilter(e.target.value);
+                    onChange={(value) => {
+                        setFilter(value);
                         setLimits({});
                     }}
                 />

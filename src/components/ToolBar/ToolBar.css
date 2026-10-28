@@ -23,22 +23,6 @@
     flex-shrink: 0;
 }
 
-.search-input {
-    box-sizing: border-box;
-    width: 100%;
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text-h);
-    outline: none;
-    transition: border-color 0.2s;
-}
-
-.search-input:focus {
-    border-color: var(--accent);
-}
-
 .sort-button {
     display: flex;
     align-items: center;
@@ -103,4 +87,21 @@
 
 .toolbar-button:hover {
     opacity: 0.8;
+}
+
+/* Phones: the search on a row of its own under the sort and play buttons. */
+@media (max-width: 720px) {
+    .toolbar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .toolbar-section.left {
+        flex: 1;
+    }
+
+    .toolbar-section.center {
+        order: 1;
+        flex-basis: 100%;
+    }
 }

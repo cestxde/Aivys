@@ -105,6 +105,7 @@ export const en = {
     "player.repeatOne": "Repeat: this track",
 
     // Toolbar and sorting
+    "search.clear": "Clear",
     "toolbar.search": "Search tracks...",
     "toolbar.shuffleAll": "Shuffle all",
     "toolbar.sortBy": "Sort by",

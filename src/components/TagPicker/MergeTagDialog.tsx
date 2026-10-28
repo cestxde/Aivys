@@ -6,6 +6,7 @@ import { TagDot } from "../TagChip/TagChip";
 import { t } from "../../i18n";
 import "./TagPicker.css";
 import { useBackLayer } from "../../hooks/useBackLayer";
+import { SearchInput } from "../SearchInput/SearchInput";
 
 interface MergeTagDialogProps {
     /** The tag merged away (deleted afterwards). */
@@ -51,12 +52,11 @@ export const MergeTagDialog = ({ tag, tags, counts, onPick, onClose }: MergeTagD
                     </button>
                 </div>
 
-                <input
-                    className="search-input"
+                <SearchInput
                     placeholder={t("tagPicker.find")}
                     value={filter}
                     autoFocus
-                    onChange={(e) => setFilter(e.target.value)}
+                    onChange={setFilter}
                     onKeyDown={(e) => e.key === "Enter" && shown.length === 1 && onPick(shown[0])}
                 />
 

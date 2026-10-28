@@ -223,3 +223,36 @@
     color: var(--text);
     opacity: 0.75;
 }
+
+/* Phones: the filter on a row of its own under the title and buttons; the
+   cards narrower, their names on up to two lines rather than cut short (two
+   lines kept for every card, so the rows stay even). */
+@media (max-width: 720px) {
+    .playlists-filter {
+        order: 1;
+        flex-basis: 100%;
+    }
+
+    .playlists-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 0.75rem 0.5rem;
+    }
+
+    .playlist-card {
+        padding: 6px;
+    }
+
+    .playlist-card-footer {
+        align-items: flex-start;
+    }
+
+    .playlist-card-name {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        min-height: 2.6em;
+        line-height: 1.3;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+}

@@ -106,6 +106,7 @@ export const ru: Record<MessageKey, Message> = {
     "player.repeatOne": "Повтор: этот трек",
 
     // Toolbar and sorting
+    "search.clear": "Очистить",
     "toolbar.search": "Поиск треков...",
     "toolbar.shuffleAll": "Перемешать всё",
     "toolbar.sortBy": "Сортировка",

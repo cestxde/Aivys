@@ -8,6 +8,7 @@ import {
     SORT_FIELDS, directionLabel, sortBy, sortLabel, type ListDisplay, type SortField, type ViewSort,
 } from "../../utils/sort";
 import { t } from "../../i18n";
+import { SearchInput } from "../SearchInput/SearchInput";
 
 interface ToolbarProps {
     searchQuery: string;
@@ -116,12 +117,11 @@ export const Toolbar = ({
             </div>
 
             <div className="toolbar-section center">
-                <input
-                    type="text"
+                <SearchInput
                     placeholder={t("toolbar.search")}
-                    className="search-input track-search"
+                    className="track-search"
                     value={searchQuery}
-                    onChange={(e) => onSearchChange(e.target.value)}
+                    onChange={onSearchChange}
                     onKeyDown={(e) => {
                         // Esc clears the search; in an empty box it goes back (App).
                         if (e.key === "Escape" && searchQuery) {

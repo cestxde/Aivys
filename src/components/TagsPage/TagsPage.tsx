@@ -11,6 +11,7 @@ import { CardPlayButton, PinnedMark, PlayingMark } from "../CardPlayButton/CardP
 import { pinnedFirst } from "../../hooks/usePins";
 import { t } from "../../i18n";
 import { useRememberedScroll, useRememberedState, useStoredState } from "../../hooks/useRemembered";
+import { SearchInput } from "../SearchInput/SearchInput";
 import "./TagsPage.css";
 
 interface TagsPageProps {
@@ -241,11 +242,11 @@ export const TagsPage = ({
             <div className="tags-main" ref={scrollRef} onScroll={onPageScroll}>
                 <div className="tags-toolbar">
                     <h1 className="tags-title">{t("nav.tags")}</h1>
-                    <input
-                        className="search-input tags-filter"
+                    <SearchInput
+                        className="tags-filter"
                         placeholder={t("tags.filter")}
                         value={filter}
-                        onChange={(e) => setFilter(e.target.value)}
+                        onChange={setFilter}
                     />
                     <TagSortButton sort={sort} onChange={setSort} />
                     <LayoutToggle layout={layout} onChange={onLayoutChange} />

@@ -636,7 +636,7 @@ function App() {
 			if (e.key !== "Escape" || e.defaultPrevented || selectedRows.length > 0) return;
 			if (document.querySelector(".dialog-backdrop, .context-menu, .cover-viewer-backdrop")) return;
 			const target = e.target as HTMLElement | null;
-			if (target?.matches("input, textarea, select, [contenteditable]") && !target.matches(".track-search")) return;
+			if (target?.matches("input, textarea, select, [contenteditable]") && !target.matches(".track-search input")) return;
 			goBack();
 		};
 		window.addEventListener("keydown", onKey);

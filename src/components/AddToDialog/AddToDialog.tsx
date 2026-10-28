@@ -6,6 +6,7 @@ import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
 import { t } from "../../i18n";
 import "./AddToDialog.css";
 import { useBackLayer } from "../../hooks/useBackLayer";
+import { SearchInput } from "../SearchInput/SearchInput";
 
 interface AddToDialogProps {
     tracks: Track[];
@@ -92,12 +93,11 @@ export const AddToDialog = ({
                 </div>
 
                 <div className="add-to-section-label">{t("addTo.playlist")}</div>
-                <input
-                    className="search-input"
+                <SearchInput
                     placeholder={t("addTo.find")}
                     value={filter}
                     autoFocus
-                    onChange={(e) => setFilter(e.target.value)}
+                    onChange={setFilter}
                 />
 
                 <div className="add-to-list">

@@ -6,6 +6,7 @@ import { CardPlayButton, PinnedMark, PlayingMark } from "../CardPlayButton/CardP
 import { pinnedFirst } from "../../hooks/usePins";
 import { t } from "../../i18n";
 import { useRememberedScroll, useRememberedState } from "../../hooks/useRemembered";
+import { SearchInput } from "../SearchInput/SearchInput";
 import "./PlaylistsPage.css";
 
 export type PlaylistsLayout = "grid" | "list";
@@ -207,11 +208,11 @@ export const PlaylistsPage = ({
         <div className="playlists-page" ref={scrollRef} onScroll={onPageScroll}>
             <div className="playlists-toolbar">
                 <h1 className="playlists-title">{t("nav.playlists")}</h1>
-                <input
-                    className="search-input playlists-filter"
+                <SearchInput
+                    className="playlists-filter"
                     placeholder={t("playlists.filter")}
                     value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
+                    onChange={setFilter}
                 />
                 <LayoutToggle layout={layout} onChange={onLayoutChange} />
                 <button className="toolbar-button shuffle-button playlists-create" onClick={onCreateSmart}>
