@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -54,6 +55,21 @@ object PlayerHub {
   @Volatile private var duration: Double? = null
   @Volatile private var playing = false
 
+  // Whether the page is on screen: hidden, it hears where the track is
+  // rarely (enough to save it), not several times a second.
+  private var pageVisible = true
+  private var timeSentAt = 0L
+
+  /** The app's screen shown or hidden (`MainActivity`). */
+  fun setPageVisible(visible: Boolean) {
+    pageVisible = visible
+    // Shown again: where the track is now, at once.
+    if (visible && exo?.isPlaying == true) {
+      main.removeCallbacks(ticker)
+      main.post(ticker)
+    }
+  }
+
   /** A new file loaded at `startAt` seconds. */
   fun loaded(path: String, startAt: Double) {
     this.path = path
@@ -65,8 +81,12 @@ object PlayerHub {
     override fun run() {
       val player = exo ?: return
       position = player.currentPosition / 1000.0
-      emit(JSONObject().put("type", "time").put("position", position))
-      if (player.isPlaying) main.postDelayed(this, TICK_MS)
+      val now = SystemClock.uptimeMillis()
+      if (pageVisible || now - timeSentAt >= HIDDEN_TICK_MS) {
+        timeSentAt = now
+        emit(JSONObject().put("type", "time").put("position", position))
+      }
+      if (player.isPlaying) main.postDelayed(this, if (pageVisible) TICK_MS else HIDDEN_TICK_MS)
     }
   }
 
@@ -199,4 +219,5 @@ object PlayerHub {
   }
 
   private const val TICK_MS = 250L
+  private const val HIDDEN_TICK_MS = 5000L
 }

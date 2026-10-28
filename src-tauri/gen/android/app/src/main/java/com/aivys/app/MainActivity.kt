@@ -17,6 +17,16 @@ class MainActivity : TauriActivity() {
     super.onCreate(savedInstanceState)
   }
 
+  override fun onResume() {
+    super.onResume()
+    PlayerHub.setPageVisible(true)
+  }
+
+  override fun onPause() {
+    PlayerHub.setPageVisible(false)
+    super.onPause()
+  }
+
   // The page asks for, and checks, access to the music folders, keeps its
   // content out of the system bars and plays through the app's player,
   // through these.
