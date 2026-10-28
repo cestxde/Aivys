@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import {
-    ChevronDown, ChevronUp, Disc3, Heart, Info, ListMusic, ListPlus, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Tag,
+    ChevronDown, Disc3, Heart, Info, ListMusic, ListPlus, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Tag,
 } from "lucide-react";
 import type { Track, TrackStats, UserTag } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
@@ -193,22 +193,32 @@ export const NowPlaying = (props: NowPlayingProps) => {
     const favorite = stats?.favorite ?? false;
     const swipe = useSwipe(props.next ? props.onNext : null, props.previous ? props.onSwipePrevious : null);
 
-    // Tags that do not fit open over the buttons and the seek bar; a new
-    // track shows them closed again.
+    // Closed, the tags take one line: as many as fit whole, then "+N" that
+    // opens them all over the buttons and the seek bar. A new track shows
+    // them closed again.
     const [tagsOpenFor, setTagsOpenFor] = useState<string | null>(null);
     const tagsOpen = tagsOpenFor === track.path;
     useBackLayer(tagsOpen, () => setTagsOpenFor(null));
     const tagsBox = useRef<HTMLDivElement>(null);
-    const [tagsOverflow, setTagsOverflow] = useState(false);
+    const tagsKey = `${track.path}${tags.map(tag => tag.id).join(",")}`;
+    // How many fit on the line, as measured for these tags at this width.
+    const [fit, setFit] = useState({ key: "", count: 0 });
+    const shownTags = tagsOpen || fit.key !== tagsKey ? tags.length : fit.count;
+    // From all of them, one fewer while the line wraps (before paint, so
+    // the steps never show).
     useLayoutEffect(() => {
-        const box = tagsBox.current;
-        if (!box) return;
-        const check = () => setTagsOverflow(box.scrollHeight > box.clientHeight + 1);
-        check();
-        const observer = new ResizeObserver(check);
-        observer.observe(box);
-        return () => observer.disconnect();
-    }, [tags.length, tagsOpen]);
+        if (tagsOpen) return;
+        const items = [...(tagsBox.current?.children ?? [])] as HTMLElement[];
+        const wraps = items.some(item => item.offsetTop !== items[0].offsetTop);
+        const count = wraps ? Math.max(0, shownTags - 1) : shownTags;
+        if (count !== shownTags || fit.key !== tagsKey) setFit({ key: tagsKey, count });
+    }, [tagsKey, shownTags, tagsOpen, fit.key]);
+    // Another width (the phone turned): measured again.
+    useEffect(() => {
+        const reset = () => setFit({ key: "", count: 0 });
+        window.addEventListener("resize", reset);
+        return () => window.removeEventListener("resize", reset);
+    }, []);
 
     return (
         <div className={`now-playing ${tagsOpen ? "tags-open" : ""}`} role="dialog" aria-label={t("player.nowPlaying")}>
@@ -246,7 +256,7 @@ export const NowPlaying = (props: NowPlayingProps) => {
                 </div>
 
                 <div className="now-playing-tags" ref={tagsBox}>
-                    {tags.map(tag => (
+                    {tags.slice(0, shownTags).map(tag => (
                         <TagChip
                             key={tag.id}
                             tag={tag}
@@ -254,15 +264,22 @@ export const NowPlaying = (props: NowPlayingProps) => {
                             onRemove={() => props.onRemoveTag(track, tag)}
                         />
                     ))}
+                    {shownTags < tags.length && (
+                        <button
+                            className="now-playing-tags-more"
+                            title={t("player.allTags", { count: tags.length })}
+                            onClick={() => setTagsOpenFor(track.path)}
+                        >
+                            +{tags.length - shownTags}
+                        </button>
+                    )}
                     <button className="detail-tags-edit" onClick={() => props.onEditTags(track)}>
                         <Tag size={13} /> {tags.length > 0 ? t("detail.editTags") : t("detail.addTags")}
                     </button>
                 </div>
-                {(tagsOverflow || tagsOpen) && (
-                    <button className="now-playing-tags-toggle" onClick={() => setTagsOpenFor(tagsOpen ? null : track.path)}>
-                        {tagsOpen
-                            ? <><ChevronDown size={14} /> {t("player.lessTags")}</>
-                            : <><ChevronUp size={14} /> {t("player.allTags", { count: tags.length })}</>}
+                {tagsOpen && (
+                    <button className="now-playing-tags-toggle" onClick={() => setTagsOpenFor(null)}>
+                        <ChevronDown size={14} /> {t("player.lessTags")}
                     </button>
                 )}
             </div>

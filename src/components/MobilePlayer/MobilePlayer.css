@@ -155,10 +155,27 @@
     flex-wrap: wrap;
     justify-content: center;
     gap: 6px;
+    flex-shrink: 0;
     min-height: 0;
-    /* Closed, what does not fit is cut off (and opens with the toggle). */
-    overflow: hidden;
     overscroll-behavior: contain;
+}
+
+/* "+N": the tags that did not fit on the line, opened by it. */
+.now-playing-tags-more {
+    padding: 2px 9px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text-h);
+    font: inherit;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+/* Over the player's gradient, a scroll bar without the page's dark track. */
+.now-playing ::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .now-playing-actions,
@@ -327,15 +344,15 @@
     padding: 0 1.5rem;
 }
 
-/* Tags that do not fit: a way to open them all, over the buttons and the
-   seek bar, where they scroll. */
+/* Open tags, over the buttons and the seek bar, where they scroll; and the
+   way to close them again. */
 .now-playing-tags-toggle {
     display: flex;
     flex-shrink: 0;
     align-items: center;
     gap: 4px;
     margin-top: -0.75rem;
-    padding: 4px 10px;
+    padding: 4px 10px 8px;
     border: none;
     border-radius: 999px;
     background: none;
@@ -351,7 +368,7 @@
 }
 
 .now-playing.tags-open .now-playing-tags {
-    flex: 1;
+    flex: 1 1 0;
     align-content: flex-start;
     overflow-y: auto;
 }
