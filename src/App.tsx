@@ -1380,7 +1380,9 @@ function App() {
 					showFolders={showFolders}
 					playingKey={playingKey}
 					drawerOpen={drawerOpen}
+					onOpenDrawer={() => setDrawerOpen(true)}
 					onCloseDrawer={() => setDrawerOpen(false)}
+					swipeDrawer={isPhone}
 				/>
 
 				<main className="container">

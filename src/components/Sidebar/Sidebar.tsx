@@ -1,9 +1,10 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useRef, type ReactNode } from "react";
 import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Settings } from "lucide-react";
 import { ThemedLogo } from "../ThemedLogo";
 import { PlayingMark } from "../CardPlayButton/CardPlayButton";
 import type { View } from "../../types";
 import { t, type MessageKey } from "../../i18n";
+import { useDrawerSwipe } from "../../hooks/useDrawerSwipe";
 import "./Sidebar.css";
 
 interface SidebarItem {
@@ -48,7 +49,10 @@ interface SidebarProps {
     playingKey: string | null;
     /** Narrow screens: the rail is a drawer, shown while this is true. */
     drawerOpen: boolean;
+    onOpenDrawer: () => void;
     onCloseDrawer: () => void;
+    /** Phones: a swipe right opens the drawer, a swipe left closes it. */
+    swipeDrawer: boolean;
 }
 
 /** Whether playback started from `item`'s view or something under it. */
@@ -89,11 +93,16 @@ const folderName = (path: string): string => {
  * Left navigation rail: brand, the current library folder + a "change folder"
  * action, and the views in groups: the library, its collections, history.
  * On narrow screens (phones) a drawer over the content, opened from the
- * `MobileHeader` and closed by picking something or tapping beside it.
+ * `MobileHeader` or a swipe right, and closed by picking something, tapping
+ * beside it or a swipe left.
  */
 export const Sidebar = ({
-    libraryPath, onChangeLibrary, view, onViewChange, showFolders, playingKey, drawerOpen, onCloseDrawer,
+    libraryPath, onChangeLibrary, view, onViewChange, showFolders, playingKey, drawerOpen, onOpenDrawer, onCloseDrawer, swipeDrawer,
 }: SidebarProps) => {
+    const drawer = useRef<HTMLElement>(null);
+    const backdrop = useRef<HTMLDivElement>(null);
+    useDrawerSwipe(swipeDrawer, drawerOpen, drawer, backdrop, onOpenDrawer, onCloseDrawer);
+
     const go = (next: View) => {
         onViewChange(next);
         onCloseDrawer();
@@ -115,8 +124,8 @@ export const Sidebar = ({
 
     return (
         <>
-        <div className={`sidebar-backdrop ${drawerOpen ? "open" : ""}`} onClick={onCloseDrawer} />
-        <nav className={`sidebar ${drawerOpen ? "open" : ""}`}>
+        <div ref={backdrop} className={`sidebar-backdrop ${drawerOpen ? "open" : ""}`} onClick={onCloseDrawer} />
+        <nav ref={drawer} className={`sidebar ${drawerOpen ? "open" : ""}`}>
             <div className="sidebar-brand">
                 <ThemedLogo className="sidebar-logo" />
             </div>
