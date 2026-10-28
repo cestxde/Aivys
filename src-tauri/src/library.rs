@@ -58,6 +58,11 @@ fn mtime_ns(meta: &std::fs::Metadata) -> i64 {
         .unwrap_or(0)
 }
 
+/// A folder whose name starts with a dot.
+fn is_hidden_dir(entry: &walkdir::DirEntry) -> bool {
+    entry.file_type().is_dir() && entry.file_name().to_str().is_some_and(|name| name.starts_with('.'))
+}
+
 /// Walk the library and resolve each file's stable "date added", updating the
 /// "added-at" store.
 fn find_files(base: &Path) -> Vec<FoundFile> {
@@ -75,7 +80,12 @@ fn find_files(base: &Path) -> Vec<FoundFile> {
 
     let mut files = Vec::new();
 
-    for entry in WalkDir::new(base).into_iter().filter_map(|e| e.ok()) {
+    // Hidden folders are not the library's: `.aivys`, and a sync tool's own
+    // (Syncthing keeps old versions of changed files in `.stversions`).
+    let walk = WalkDir::new(base)
+        .into_iter()
+        .filter_entry(|entry| entry.depth() == 0 || !is_hidden_dir(entry));
+    for entry in walk.filter_map(|e| e.ok()) {
         let path = entry.path();
 
         if !path.is_file() || !is_audio_file(path) {
@@ -308,6 +318,8 @@ mod tests {
         let covers = app_data.join("covers");
         write_wav(&root.join("Artist").join("one.wav"), 8000);
         write_wav(&root.join("two.wav"), 8000);
+        // A sync tool's old version, in a hidden folder: not a track.
+        write_wav(&root.join(".stversions").join("two~20261028-120000.wav"), 8000);
         let root_str = root.to_string_lossy().into_owned();
 
         let tracks = do_scan(&root_str, &covers, Some(&app_data), &ArtistRules::default());
