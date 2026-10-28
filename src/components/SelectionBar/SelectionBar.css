@@ -67,6 +67,12 @@
     color: var(--danger);
 }
 
+/* Icons with names, but only some of the names: the icon-only ones keep their
+   name for phones (below). */
+.selection-action.icon span {
+    display: none;
+}
+
 /* Narrow windows: only the icons. */
 @media (max-width: 760px) {
     .selection-action span {
@@ -77,5 +83,72 @@
         width: 36px;
         padding: 0;
         justify-content: center;
+    }
+}
+
+/* Phones: the actions at the bottom, in the mini player's place and within
+   the thumb's reach, each an icon over its name; how many are selected, and
+   taking them all or none, are in the top bar. */
+@media (max-width: 720px) {
+    .selection-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 950;
+        min-height: 0;
+        padding: 6px calc(4px + var(--safe-right, 0px)) calc(6px + var(--safe-bottom, 0px)) calc(4px + var(--safe-left, 0px));
+        border-radius: 20px 20px 0 0;
+        background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.18);
+    }
+
+    .selection-clear,
+    .selection-count,
+    .selection-action.select-all {
+        display: none;
+    }
+
+    .selection-actions {
+        flex: 1;
+        flex-wrap: nowrap;
+        justify-content: space-around;
+        gap: 0;
+    }
+
+    .selection-action,
+    .selection-action.icon {
+        flex: 1;
+        flex-direction: column;
+        gap: 3px;
+        width: auto;
+        height: auto;
+        min-width: 0;
+        padding: 6px 2px;
+        border: none;
+        border-radius: 12px;
+        background: none;
+        font-size: 0.7rem;
+    }
+
+    .selection-action span,
+    .selection-action.icon span {
+        display: block;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .selection-action svg {
+        width: 22px;
+        height: 22px;
+    }
+
+    .selection-action:hover {
+        background: none;
+    }
+
+    .selection-action:active {
+        background: color-mix(in srgb, var(--text-h) 12%, transparent);
     }
 }

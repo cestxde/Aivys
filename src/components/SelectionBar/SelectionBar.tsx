@@ -52,7 +52,7 @@ export const SelectionBar = ({
                 <Tag size={15} /> <span>{t("common.tags")}</span>
             </button>
             <button className="selection-action icon" title={t("edit.menu")} onClick={onEdit}>
-                <PencilLine size={15} />
+                <PencilLine size={15} /> <span>{t("selection.edit")}</span>
             </button>
             <button
                 className="selection-action icon"
@@ -60,18 +60,18 @@ export const SelectionBar = ({
                 aria-pressed={allFavorite}
                 onClick={onToggleFavorite}
             >
-                <Heart size={15} fill={allFavorite ? "currentColor" : "none"} />
+                <Heart size={15} fill={allFavorite ? "currentColor" : "none"} /> <span>{t("selection.favorite")}</span>
             </button>
             {onRemoveFromPlaylist && (
                 <button className="selection-action icon" title={t("menu.removeFromPlaylist")} onClick={onRemoveFromPlaylist}>
-                    <ListX size={15} />
+                    <ListX size={15} /> <span>{t("selection.removeFromPlaylist")}</span>
                 </button>
             )}
             <button className="selection-action icon danger" title={t("menu.deleteFromDisk")} onClick={onDelete}>
-                <Trash2 size={15} />
+                <Trash2 size={15} /> <span>{t("common.delete")}</span>
             </button>
             {canSelectMore && (
-                <button className="selection-action icon" title={t("selection.selectAll")} onClick={onSelectAll}>
+                <button className="selection-action icon select-all" title={t("selection.selectAll")} onClick={onSelectAll}>
                     <CheckCheck size={15} />
                 </button>
             )}

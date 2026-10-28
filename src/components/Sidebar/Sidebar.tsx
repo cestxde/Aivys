@@ -1,5 +1,5 @@
 import { Fragment, useRef, useState, type ReactNode } from "react";
-import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Search, Settings, X } from "lucide-react";
+import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Search, Settings, X, CheckCheck } from "lucide-react";
 import { ThemedLogo } from "../ThemedLogo";
 import { PlayingMark } from "../CardPlayButton/CardPlayButton";
 import type { View } from "../../types";
@@ -176,6 +176,8 @@ interface MobileHeaderProps {
     search: { query: string; placeholder: string; onChange: (query: string) => void } | null;
     /** Pages of cards: grid or list. */
     layout: { value: PlaylistsLayout; onChange: (layout: PlaylistsLayout) => void } | null;
+    /** Tracks selected: the bar says how many, with ways to let them go or take them all. */
+    selection: { count: number; onClear: () => void; onSelectAll: (() => void) | null } | null;
 }
 
 /**
@@ -183,7 +185,7 @@ interface MobileHeaderProps {
  * the sidebar, the section on screen, and what the page has to do with it
  * (its search, its grid or list).
  */
-export const MobileHeader = ({ onOpenDrawer, title, summary, search, layout }: MobileHeaderProps) => {
+export const MobileHeader = ({ onOpenDrawer, title, summary, search, layout, selection }: MobileHeaderProps) => {
     const [searchOpen, setSearchOpen] = useState(false);
     // Open while asked to, or while there is something searched for.
     const searching = search !== null && (searchOpen || search.query !== "");
@@ -192,6 +194,29 @@ export const MobileHeader = ({ onOpenDrawer, title, summary, search, layout }: M
         search?.onChange("");
     };
     useBackLayer(searching, closeSearch);
+
+    if (selection) {
+        return (
+            <header className="mobile-header">
+                <button className="mobile-header-menu" title={t("selection.clear")} aria-label={t("selection.clear")} onClick={selection.onClear}>
+                    <X size={22} />
+                </button>
+                <div className="mobile-header-text">
+                    <span className="mobile-header-title">{t("selection.count", { count: selection.count })}</span>
+                </div>
+                {selection.onSelectAll && (
+                    <button
+                        className="mobile-header-menu"
+                        title={t("selection.selectAll")}
+                        aria-label={t("selection.selectAll")}
+                        onClick={selection.onSelectAll}
+                    >
+                        <CheckCheck size={20} />
+                    </button>
+                )}
+            </header>
+        );
+    }
 
     return (
         <header className="mobile-header">

@@ -276,11 +276,6 @@ function App() {
 	const files = library.files;
 	const currentTrack = files.find(f => f.path === activePath);
 
-	// Phones: the pages keep room at their end for the mini player over them (App.css).
-	const miniPlayer = isPhone && !!currentTrack;
-	useEffect(() => {
-		document.getElementById("root")?.classList.toggle("has-mini-player", miniPlayer);
-	}, [miniPlayer]);
 
 	const tracksByPath = useMemo(() => new Map(files.map(f => [f.relPath, f])), [files]);
 
@@ -569,6 +564,15 @@ function App() {
 	const clearSelection = () => setSelection(NO_SELECTION);
 	// Back (the phone's, the mouse's back button, Alt+Left) first lets the selection go.
 	useBackLayer(selectedRows.length > 0, clearSelection);
+
+	// Phones: while tracks are selected, what to do with them takes the mini
+	// player's place at the bottom, and the top bar says how many there are.
+	const phoneSelecting = isPhone && selectedRows.length > 0;
+	// The pages keep room at their end for the bar over them (App.css).
+	const bottomBar = isPhone && (!!currentTrack || phoneSelecting);
+	useEffect(() => {
+		document.getElementById("root")?.classList.toggle("has-mini-player", bottomBar);
+	}, [bottomBar]);
 	const selectAll = () =>
 		setSelection({ scope: selectionScope, keys: new Set(displayRows.map(row => row.key)), anchor: null });
 
@@ -1426,6 +1430,11 @@ function App() {
 				// Phones only: open, it takes Back (the desktop's bar is hidden).
 				search={isPhone && hasTrackList ? { query: searchQuery, placeholder: t("toolbar.search"), onChange: setSearchQuery } : null}
 				layout={cardLayout}
+				selection={phoneSelecting ? {
+					count: selectedRows.length,
+					onClear: clearSelection,
+					onSelectAll: selectedRows.length < displayRows.length ? selectAll : null,
+				} : null}
 			/>
 			<div className="app-layout">
 				<Sidebar
@@ -1739,7 +1748,7 @@ function App() {
 
 			{isPhone ? (
 				<>
-					{currentTrack && (
+					{currentTrack && !phoneSelecting && (
 						<MiniPlayer
 							track={currentTrack}
 							isPlaying={isPlaying}
