@@ -567,6 +567,8 @@ function App() {
 	const selectedRows = useMemo(() => displayRows.filter(row => selectedKeys.has(row.key)), [displayRows, selectedKeys]);
 	const selectedTracks = useMemo(() => selectedRows.map(row => row.track), [selectedRows]);
 	const clearSelection = () => setSelection(NO_SELECTION);
+	// Back (the phone's, the mouse's back button, Alt+Left) first lets the selection go.
+	useBackLayer(selectedRows.length > 0, clearSelection);
 	const selectAll = () =>
 		setSelection({ scope: selectionScope, keys: new Set(displayRows.map(row => row.key)), anchor: null });
 
