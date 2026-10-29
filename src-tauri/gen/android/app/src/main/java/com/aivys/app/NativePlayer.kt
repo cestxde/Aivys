@@ -19,7 +19,7 @@ import org.json.JSONObject
  * Events go back as `aivys-player` events with a JSON `detail`:
  * `{type: "loaded", duration}`, `play`, `pause`, `{type: "time", position}`,
  * `{type: "seeked", position}`, `ended`, `{type: "error", message}`, `next`,
- * `previous` (seconds throughout).
+ * `previous`, `slept` (the sleep timer paused it) (seconds throughout).
  */
 class NativePlayer(private val activity: Activity, private val webView: WebView) {
   private val main = Handler(Looper.getMainLooper())
@@ -63,6 +63,13 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
 
   @JavascriptInterface
   fun seek(seconds: Double) = main.post { player.seekTo((seconds * 1000).toLong()) }
+
+  /** The sleep timer: fade out and pause in `seconds`. */
+  @JavascriptInterface
+  fun sleepAfter(seconds: Double) = main.post { PlayerHub.sleepAfter((seconds * 1000).toLong()) }
+
+  @JavascriptInterface
+  fun cancelSleep() = main.post { PlayerHub.cancelSleep() }
 
   @JavascriptInterface
   fun setVolume(volume: Double) = main.post {

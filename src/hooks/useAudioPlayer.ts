@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { markRewritten, trackUrl, useAudioController } from "./useAudioController";
 import { useAudioQueue } from "./useAudioQueue";
 import type { Track, PlayerSettings } from "../types";
@@ -51,12 +51,27 @@ export const useAudioPlayer = (
         goTo(q.move(-1, true));
     };
 
+    // The sleep timer's "end of the track": then the next track is loaded,
+    // paused, instead of played; this is called.
+    const stopAfterTrack = useRef<(() => void) | null>(null);
+    const setStopAfterTrack = useCallback((done: (() => void) | null) => {
+        stopAfterTrack.current = done;
+    }, []);
+
     /** The previous track, however far into this one (a swipe on the phone's player). */
     const previousTrack = () => goTo(q.move(-1, true));
 
     // At the end of a track: repeat it, go on, or (at the end of the queue
     // without repeat) stop on the first track.
     const onEnded = () => {
+        const stop = stopAfterTrack.current;
+        if (stop) {
+            stopAfterTrack.current = null;
+            const next = q.move(1, true);
+            if (next) audio.loadFilePaused(next.path);
+            stop();
+            return;
+        }
         if (repeatMode === "one") {
             audio.seek(0);
             audio.element.play().catch(console.error);
@@ -214,7 +229,7 @@ export const useAudioPlayer = (
 
     return {
         activePath,
-        playTrack, onNext, onPrev, previousTrack, resume,
+        playTrack, onNext, onPrev, previousTrack, resume, setStopAfterTrack,
         playNext, addToQueue, forgetTracks,
         queue: { order: q.order, index: q.index },
         playAt, removeFromQueue: q.removeAt, setUpcoming, releaseWhile,

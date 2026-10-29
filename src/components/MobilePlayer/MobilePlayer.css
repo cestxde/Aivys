@@ -389,6 +389,11 @@
     overflow-y: auto;
 }
 
+/* The sleep timer, at the header's other end. */
+.now-playing-sleep {
+    margin-left: auto;
+}
+
 .now-playing-icon:disabled {
     opacity: 0.35;
     cursor: default;

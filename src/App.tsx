@@ -36,6 +36,7 @@ import { usePlaylists } from "./hooks/usePlaylists";
 import { useTags, type TagChange } from "./hooks/useTags";
 import { usePins, type PinKind } from "./hooks/usePins";
 import { useGroupCovers, type CoverKind } from "./hooks/useGroupCovers";
+import { useSleepTimer } from "./hooks/useSleepTimer";
 import { clipboardImage, pastedImage, pickImage } from "./utils/image";
 import { useViewRows } from "./hooks/useViewRows";
 import { useSmartPlaylistPaths } from "./hooks/useSmartPlaylistPaths";
@@ -267,7 +268,7 @@ function App() {
 		activePath, playTrack,
 		isPlaying, togglePlay, volume, setVolume,
 		seek, stop,
-		onNext, onPrev, previousTrack, resume,
+		onNext, onPrev, previousTrack, resume, setStopAfterTrack,
 		playNext, addToQueue, forgetTracks,
 		queue, playAt, removeFromQueue, setUpcoming, releaseWhile,
 		toggleShuffle, isShuffle,
@@ -276,6 +277,7 @@ function App() {
 	} = useAudioPlayer(library.files, settings, updateSettings);
 
 	const files = library.files;
+	const sleep = useSleepTimer(element, volume, setStopAfterTrack);
 	const currentTrack = files.find(f => f.path === activePath);
 
 
@@ -1849,6 +1851,8 @@ function App() {
 							}}
 							onRemoveTag={(track, target) => trackStats.setTrackTag([track], target.id, false)}
 							onSwipePrevious={previousTrack}
+							sleepTimer={sleep.timer}
+							onSleepTimerChange={sleep.setTimer}
 							canGoTo={goToEntries(currentTrack, true).length > 0}
 							onOpenGoTo={(track, x, y) => setMenu({
 								x,
@@ -1899,6 +1903,8 @@ function App() {
 					repeatMode={repeatMode}
 					onToggleShuffle={toggleShuffle}
 					queueOpen={panelTab === "queue"}
+					sleepTimer={sleep.timer}
+					onSleepTimerChange={sleep.setTimer}
 					onToggleQueue={() => setPanelTab(panelTab === "queue" ? "track" : "queue")}
 					onToggleRepeat={toggleRepeatMode}
 				/>

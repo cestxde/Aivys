@@ -14,6 +14,9 @@ interface AndroidPlayer {
     unload(): void;
     /** JSON `{title, artist, album, cover}` for the system's media controls. */
     setMetadata(json: string): void;
+    /** The sleep timer: fade out and pause in `seconds`; it fires `slept` then. */
+    sleepAfter(seconds: number): void;
+    cancelSleep(): void;
 }
 
 const bridge = (window as unknown as { AivysPlayer?: AndroidPlayer }).AivysPlayer ?? null;
@@ -21,7 +24,7 @@ const bridge = (window as unknown as { AivysPlayer?: AndroidPlayer }).AivysPlaye
 /** What the native player tells the page (seconds throughout). */
 type PlayerEvent =
     | { type: "loaded"; duration: number }
-    | { type: "play" | "pause" | "ended" | "next" | "previous" }
+    | { type: "play" | "pause" | "ended" | "next" | "previous" | "slept" }
     | { type: "time" | "seeked"; position: number }
     | { type: "error"; message: string };
 
@@ -182,6 +185,15 @@ export class NativeAudio extends EventTarget {
         this.player.setMetadata(JSON.stringify(info));
     }
 
+    /** The sleep timer, kept by the app's player: fade out and pause in `seconds`, then fire `slept`. */
+    sleepAfter(seconds: number) {
+        this.player.sleepAfter(seconds);
+    }
+
+    cancelSleep() {
+        this.player.cancelSleep();
+    }
+
     private receive(event: PlayerEvent) {
         switch (event.type) {
             case "loaded":
@@ -228,6 +240,9 @@ export class NativeAudio extends EventTarget {
                 break;
             case "previous":
                 this.fire("previoustrack");
+                break;
+            case "slept":
+                this.fire("slept");
                 break;
         }
     }

@@ -12,6 +12,8 @@ import type { Track } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { CoverArt } from "../CoverArt";
 import { ArtistLinks } from "../ArtistLinks/ArtistLinks";
+import { SleepTimerButton } from "../SleepTimer/SleepTimerButton";
+import type { SleepTimer } from "../../hooks/useSleepTimer";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { TrackSlider } from "./TrackSlider";
 import { VolumeControl } from "./VolumeControl";
@@ -37,6 +39,8 @@ interface PlayerBarProps {
     onToggleShuffle: () => void;
     /** The queue is shown (in the right panel). */
     queueOpen: boolean;
+    sleepTimer: SleepTimer;
+    onSleepTimerChange: (timer: SleepTimer) => void;
     onToggleQueue: () => void;
     onToggleRepeat: () => void;
 }
@@ -112,6 +116,12 @@ export const PlayerBar = (props: PlayerBarProps) => {
                 </div>
 
                 <div className="player-side">
+                    <SleepTimerButton
+                        timer={props.sleepTimer}
+                        onChange={props.onSleepTimerChange}
+                        className="control-btn secondary"
+                        size={20}
+                    />
                     <button
                         className={`control-btn secondary queue-toggle ${props.queueOpen ? "active" : ""}`}
                         title={t("player.queue")}

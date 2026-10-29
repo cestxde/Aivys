@@ -12,6 +12,8 @@ import { TagChip } from "../TagChip/TagChip";
 import { TrackSlider } from "../PlayerBar/TrackSlider";
 import { t } from "../../i18n";
 import { useBackLayer } from "../../hooks/useBackLayer";
+import { SleepTimerButton } from "../SleepTimer/SleepTimerButton";
+import type { SleepTimer } from "../../hooks/useSleepTimer";
 import "./MobilePlayer.css";
 
 interface NowPlayingProps {
@@ -34,6 +36,8 @@ interface NowPlayingProps {
     onNext: () => void;
     /** The previous track, however far into this one (a swipe). */
     onSwipePrevious: () => void;
+    sleepTimer: SleepTimer;
+    onSleepTimerChange: (timer: SleepTimer) => void;
     onSeek: (time: number) => void;
     onToggleShuffle: () => void;
     onToggleRepeat: () => void;
@@ -238,6 +242,12 @@ export const NowPlaying = (props: NowPlayingProps) => {
                 <button className="now-playing-icon" title={t("common.close")} onClick={props.onClose}>
                     <ChevronDown size={28} />
                 </button>
+                <SleepTimerButton
+                    timer={props.sleepTimer}
+                    onChange={props.onSleepTimerChange}
+                    className="now-playing-icon now-playing-sleep"
+                    size={22}
+                />
             </div>
 
             <div className="now-playing-body">

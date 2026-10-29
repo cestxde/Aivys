@@ -1,0 +1,24 @@
+.sleep-timer-button {
+    position: relative;
+}
+
+.sleep-timer-button.active {
+    color: var(--accent);
+    opacity: 1;
+}
+
+/* The minutes left, small at the moon's corner. */
+.sleep-timer-left {
+    position: absolute;
+    right: 0;
+    bottom: 2px;
+    min-width: 14px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 14px;
+    text-align: center;
+}

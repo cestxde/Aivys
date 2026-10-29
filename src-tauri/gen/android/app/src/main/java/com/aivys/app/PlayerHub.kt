@@ -160,9 +160,48 @@ object PlayerHub {
     .put("duration", duration ?: JSONObject.NULL)
     .put("playing", playing)
 
+  // The sleep timer: at `sleepAt` (elapsed real time, ms) the music has faded
+  // out over SLEEP_FADE_MS and pauses. Here rather than in the page, which
+  // may sleep itself (the screen off) or be gone (the app swiped away).
+  private var sleepAt = 0L
+  private val sleeper = object : Runnable {
+    override fun run() {
+      val player = exo ?: return
+      val left = sleepAt - SystemClock.elapsedRealtime()
+      if (left <= 0) {
+        sleepAt = 0L
+        player.playWhenReady = false
+        player.volume = volume
+        emit(JSONObject().put("type", "slept"))
+        return
+      }
+      val fading = left < SLEEP_FADE_MS
+      player.volume = if (fading) volume * left / SLEEP_FADE_MS else volume
+      main.postDelayed(this, if (fading) SLEEP_FADE_STEP_MS else minOf(left - SLEEP_FADE_MS, 60_000L).coerceAtLeast(SLEEP_FADE_STEP_MS))
+    }
+  }
+
+  /** Fade out and pause in `ms`, instead of any timer set before. */
+  fun sleepAfter(ms: Long) {
+    main.removeCallbacks(sleeper)
+    sleepAt = SystemClock.elapsedRealtime() + ms
+    main.post(sleeper)
+  }
+
+  /** No sleep timer (the volume back, if it was fading). */
+  fun cancelSleep() {
+    main.removeCallbacks(sleeper)
+    if (sleepAt != 0L) {
+      sleepAt = 0L
+      exo?.volume = volume
+    }
+  }
+
   /** The player gone with the service; what it had loaded (`path`, `position`) is kept. */
   fun release() {
     main.removeCallbacks(ticker)
+    main.removeCallbacks(sleeper)
+    sleepAt = 0L
     exo?.let { position = it.currentPosition / 1000.0 }
     exo?.release()
     exo = null
@@ -220,4 +259,6 @@ object PlayerHub {
 
   private const val TICK_MS = 250L
   private const val HIDDEN_TICK_MS = 5000L
+  private const val SLEEP_FADE_MS = 15_000L
+  private const val SLEEP_FADE_STEP_MS = 100L
 }
