@@ -58,6 +58,13 @@ fn mtime_ns(meta: &std::fs::Metadata) -> i64 {
         .unwrap_or(0)
 }
 
+/// A sync-conflict copy (`song.sync-conflict-<date>-<device>.mp3`).
+fn is_conflict_copy(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| crate::store::conflicts::canonical_name(name).is_some())
+}
+
 /// A folder whose name starts with a dot.
 fn is_hidden_dir(entry: &walkdir::DirEntry) -> bool {
     entry.file_type().is_dir() && entry.file_name().to_str().is_some_and(|name| name.starts_with('.'))
@@ -88,7 +95,8 @@ fn find_files(base: &Path) -> Vec<FoundFile> {
     for entry in walk.filter_map(|e| e.ok()) {
         let path = entry.path();
 
-        if !path.is_file() || !is_audio_file(path) {
+        // A sync tool's conflict copy of a track is not a track of its own.
+        if !path.is_file() || !is_audio_file(path) || is_conflict_copy(path) {
             continue;
         }
         let Ok(meta) = entry.metadata() else {
@@ -320,6 +328,8 @@ mod tests {
         write_wav(&root.join("two.wav"), 8000);
         // A sync tool's old version, in a hidden folder: not a track.
         write_wav(&root.join(".stversions").join("two~20261028-120000.wav"), 8000);
+        // Its conflict copy: not a track either.
+        write_wav(&root.join("two.sync-conflict-20261028-120000-ABC1234.wav"), 8000);
         let root_str = root.to_string_lossy().into_owned();
 
         let tracks = do_scan(&root_str, &covers, Some(&app_data), &ArtistRules::default());
