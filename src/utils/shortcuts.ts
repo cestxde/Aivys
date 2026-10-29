@@ -63,6 +63,10 @@ const save = (next: Shortcuts) => {
 
 export const useShortcuts = (): Shortcuts => useSyncExternalStore(subscribe, () => shortcuts);
 
+/** Whether a shortcut action has `binding` (then it is the app's, not the browser's). */
+export const isBound = (binding: string | null): boolean =>
+    !!binding && SHORTCUT_ACTIONS.some(action => shortcuts[action].includes(binding));
+
 /** Bind `binding` to `action`, taking it from any other action that had it. */
 export const addShortcut = (action: ShortcutAction, binding: string) => {
     const next = { ...shortcuts };

@@ -4,9 +4,12 @@ import { invoke } from '@tauri-apps/api/core'
 import './index.css'
 import App from './App.tsx'
 import { trackSafeArea } from './utils/safeArea'
+import { behaveAsApp } from './utils/appLike'
 
 // Before the first paint: on Android the content keeps out of the system bars.
 trackSafeArea()
+// No browser menu, reload, zoom and the like.
+behaveAsApp()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
