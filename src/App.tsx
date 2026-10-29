@@ -37,6 +37,7 @@ import { useTags, type TagChange } from "./hooks/useTags";
 import { usePins, type PinKind } from "./hooks/usePins";
 import { useGroupCovers, type CoverKind } from "./hooks/useGroupCovers";
 import { useSleepTimer } from "./hooks/useSleepTimer";
+import { useTray } from "./hooks/useTray";
 import { clipboardImage, pastedImage, pickImage } from "./utils/image";
 import { useViewRows } from "./hooks/useViewRows";
 import { useSmartPlaylistPaths } from "./hooks/useSmartPlaylistPaths";
@@ -286,6 +287,7 @@ function App() {
 	const trackStats = useTrackStats(files);
 	usePlayTracking(element, currentTrack ?? null, trackStats.recordPlay, trackStats.recordComplete);
 	useTaskbar(isPlaying, !!activePath, language, { previous: onPrev, toggle: togglePlay, next: onNext });
+	useTray(androidStorage === null, language);
 	useMediaControls(element, currentTrack ?? null, isPlaying, {
 		play: () => !isPlaying && togglePlay(),
 		pause: () => isPlaying && togglePlay(),

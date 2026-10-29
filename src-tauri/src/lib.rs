@@ -8,11 +8,13 @@ mod store;
 mod taskbar;
 mod text;
 mod track;
+mod tray;
 
 use library::{list_folders, scan_directory, validate_directory};
 use store::commands::*;
 use media_controls::set_media_state;
 use taskbar::set_taskbar_state;
+use tray::set_tray_labels;
 use tauri::Manager;
 
 /// Show the main window. It starts hidden (see tauri.conf.json) so the user
@@ -55,6 +57,7 @@ pub fn run() {
             show_main_window,
             set_taskbar_state,
             set_media_state,
+            set_tray_labels,
             get_library_settings,
             set_artist_rules,
             default_artist_rules,
@@ -110,6 +113,7 @@ pub fn run() {
 
             taskbar::install(app);
             media_controls::install(app);
+            tray::install(app);
             if let Ok(app_data) = app.path().app_data_dir() {
                 metadata::clear_undo(&app_data);
             }

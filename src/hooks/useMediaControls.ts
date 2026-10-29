@@ -6,7 +6,8 @@ import { displayArtists, displayTitle } from "../utils/track";
 import { asNativeAudio } from "../utils/nativeAudio";
 
 interface MediaControl {
-    action: "play" | "pause" | "stop" | "next" | "previous" | "seek";
+    // "toggle": the tray menu's play / pause (tray.rs).
+    action: "play" | "pause" | "toggle" | "stop" | "next" | "previous" | "seek";
     /** Seconds, for "seek". */
     position?: number;
 }
@@ -34,8 +35,10 @@ export const useMediaControls = (
 ) => {
     // The listener reads the latest handlers without re-subscribing.
     const latest = useRef(actions);
+    const latestPlaying = useRef(playing);
     useEffect(() => {
         latest.current = actions;
+        latestPlaying.current = playing;
     });
 
     useEffect(() => {
@@ -45,6 +48,9 @@ export const useMediaControls = (
                 if (payload.position !== undefined) handlers.seek(payload.position);
             } else if (payload.action === "stop") {
                 handlers.pause();
+            } else if (payload.action === "toggle") {
+                if (latestPlaying.current) handlers.pause();
+                else handlers.play();
             } else {
                 handlers[payload.action]();
             }

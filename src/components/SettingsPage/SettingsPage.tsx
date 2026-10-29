@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { getVersion } from "@tauri-apps/api/app";
-import { Download, FolderOpen, Info, Keyboard, MicVocal, Palette, RefreshCw, Library, Share2 } from "lucide-react";
+import { AppWindow, Download, FolderOpen, Info, Keyboard, MicVocal, Palette, RefreshCw, Library, Share2 } from "lucide-react";
 import { ArtistRulesEditor } from "./ArtistRules";
 import { ShortcutSettings } from "./ShortcutSettings";
 import {
@@ -11,6 +11,8 @@ import {
     getLanguagePreference, getLogoPreference, setLanguagePreference, setLogoPreference, t,
     type LanguagePreference, type LogoPreference,
 } from "../../i18n";
+import { setCloseToTray, useCloseToTray } from "../../hooks/useTray";
+import { androidStorage } from "../../utils/androidStorage";
 import "./SettingsPage.css";
 
 interface SettingsPageProps {
@@ -86,6 +88,7 @@ export const SettingsPage = ({
     const [checking, setChecking] = useState(false);
     const updates = useUpdateStatus();
     const prompt = useUpdatePrompt();
+    const closeToTray = useCloseToTray();
 
     useEffect(() => {
         getVersion().then(setVersion).catch(() => setVersion(null));
@@ -143,6 +146,20 @@ export const SettingsPage = ({
                     />
                 </Row>
             </Section>
+
+            {!androidStorage && (
+                <Section icon={<AppWindow size={16} />} title={t("settings.window")}>
+                    <Row title={t("settings.closeToTray")} description={t("settings.closeToTrayHint")}>
+                        <input
+                            type="checkbox"
+                            className="settings-checkbox"
+                            aria-label={t("settings.closeToTray")}
+                            checked={closeToTray}
+                            onChange={(e) => setCloseToTray(e.target.checked)}
+                        />
+                    </Row>
+                </Section>
+            )}
 
             <Section icon={<Library size={16} />} title={t("settings.library")}>
                 <Row title={t("settings.folder")} description={<span className="settings-path">{libraryPath}</span>}>
