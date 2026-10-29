@@ -480,6 +480,8 @@ export const en = {
     "shortcuts.playPause": "Play / pause",
     "shortcuts.previous": "Previous track",
     "shortcuts.next": "Next track",
+    "shortcuts.seekBackward": "Back 5 seconds",
+    "shortcuts.seekForward": "Forward 5 seconds",
     "shortcuts.volumeUp": "Volume up",
     "shortcuts.volumeDown": "Volume down",
     "shortcuts.none": "Not set",

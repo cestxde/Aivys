@@ -7,7 +7,9 @@ import { t } from "../i18n";
  * `code` (the physical key, so it works in any layout) or a mouse button,
  * e.g. "Ctrl+ArrowRight", "Space", "Mouse4" (the side "back" button).
  */
-export const SHORTCUT_ACTIONS = ["back", "forward", "playPause", "previous", "next", "volumeUp", "volumeDown", "undoEdit"] as const;
+export const SHORTCUT_ACTIONS = [
+    "back", "forward", "playPause", "previous", "next", "seekBackward", "seekForward", "volumeUp", "volumeDown", "undoEdit",
+] as const;
 export type ShortcutAction = typeof SHORTCUT_ACTIONS[number];
 export type Shortcuts = Record<ShortcutAction, string[]>;
 
@@ -17,6 +19,8 @@ export const DEFAULT_SHORTCUTS: Shortcuts = {
     playPause: ["Space"],
     previous: ["Ctrl+ArrowLeft"],
     next: ["Ctrl+ArrowRight"],
+    seekBackward: ["ArrowLeft"],
+    seekForward: ["ArrowRight"],
     volumeUp: ["Ctrl+ArrowUp"],
     volumeDown: ["Ctrl+ArrowDown"],
     undoEdit: ["Ctrl+KeyZ"],

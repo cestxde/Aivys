@@ -194,6 +194,8 @@ interface EditResult {
 
 /** How much the volume shortcuts change the volume (of 1). */
 const VOLUME_STEP = 0.05;
+/** How far the seek shortcuts jump, in seconds. */
+const SEEK_STEP = 5;
 
 /** Pages that show cards rather than a track list. */
 const CARD_PAGES: View["kind"][] = ["playlists", "tags", "settings", "artists", "albums"];
@@ -926,6 +928,11 @@ function App() {
 		next: () => activePath && onNext(),
 		volumeUp: () => setVolume(Math.min(1, volume + VOLUME_STEP)),
 		volumeDown: () => setVolume(Math.max(0, volume - VOLUME_STEP)),
+		seekBackward: () => activePath && seek(Math.max(0, element.currentTime - SEEK_STEP)),
+		seekForward: () => {
+			const length = element.duration;
+			if (activePath && Number.isFinite(length)) seek(Math.min(length, element.currentTime + SEEK_STEP));
+		},
 		undoEdit: () => {
 			if (undoablePaths) undoEdit(undoablePaths);
 		},

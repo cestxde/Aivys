@@ -511,6 +511,8 @@ export const ru: Record<MessageKey, Message> = {
     "shortcuts.playPause": "Воспроизведение / пауза",
     "shortcuts.previous": "Предыдущий трек",
     "shortcuts.next": "Следующий трек",
+    "shortcuts.seekBackward": "Назад на 5 секунд",
+    "shortcuts.seekForward": "Вперёд на 5 секунд",
     "shortcuts.volumeUp": "Громче",
     "shortcuts.volumeDown": "Тише",
     "shortcuts.none": "Не назначено",

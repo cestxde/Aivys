@@ -12,6 +12,8 @@ const LABELS: Record<ShortcutAction, MessageKey> = {
     playPause: "shortcuts.playPause",
     previous: "shortcuts.previous",
     next: "shortcuts.next",
+    seekBackward: "shortcuts.seekBackward",
+    seekForward: "shortcuts.seekForward",
     volumeUp: "shortcuts.volumeUp",
     volumeDown: "shortcuts.volumeDown",
     undoEdit: "shortcuts.undoEdit",

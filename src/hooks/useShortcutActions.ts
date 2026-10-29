@@ -6,7 +6,7 @@ import {
 import { closeTopLayer } from "./useBackLayer";
 
 /** Held down, these repeat; the others act once per press. */
-const REPEATING: ShortcutAction[] = ["volumeUp", "volumeDown"];
+const REPEATING: ShortcutAction[] = ["volumeUp", "volumeDown", "seekBackward", "seekForward"];
 
 const actionOf = (shortcuts: Shortcuts, binding: string | null): ShortcutAction | null =>
     binding ? SHORTCUT_ACTIONS.find(action => shortcuts[action].includes(binding)) ?? null : null;
