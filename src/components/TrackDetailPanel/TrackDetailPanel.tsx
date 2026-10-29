@@ -51,14 +51,19 @@ const RatingStars = ({ rating, onChange }: { rating: number; onChange: (rating: 
     const [hover, setHover] = useState(0);
     const shown = hover || rating;
     return (
-        <div className="detail-rating" onMouseLeave={() => setHover(0)}>
+        <div className="detail-rating" onPointerLeave={() => setHover(0)}>
             {[1, 2, 3, 4, 5].map((value) => (
                 <button
                     key={value}
                     className={`rating-star ${value <= shown ? "is-on" : ""}`}
                     title={value === rating ? t("detail.clearRating") : t("detail.rate", { value })}
-                    onMouseEnter={() => setHover(value)}
-                    onClick={() => onChange(value === rating ? 0 : value)}
+                    // Previewed under a mouse only: a tap "hovers" too, and nothing
+                    // would take that back, so a cleared rating would still look set.
+                    onPointerEnter={(e) => e.pointerType === "mouse" && setHover(value)}
+                    onClick={() => {
+                        setHover(0);
+                        onChange(value === rating ? 0 : value);
+                    }}
                 >
                     <Star size={18} fill={value <= shown ? "currentColor" : "none"} />
                 </button>
