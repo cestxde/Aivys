@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import {
-	ArrowDown, ArrowUp, Check, FolderPlus, GitMerge, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder, ImagePlus, ImageOff,
+	ArrowDown, ArrowUp, Check, FolderPlus, GitMerge, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder, ImagePlus, ImageOff, ClipboardPaste,
 } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
@@ -36,7 +36,7 @@ import { usePlaylists } from "./hooks/usePlaylists";
 import { useTags, type TagChange } from "./hooks/useTags";
 import { usePins, type PinKind } from "./hooks/usePins";
 import { useGroupCovers, type CoverKind } from "./hooks/useGroupCovers";
-import { pickImage } from "./utils/image";
+import { clipboardImage, pastedImage, pickImage } from "./utils/image";
 import { useViewRows } from "./hooks/useViewRows";
 import { useSmartPlaylistPaths } from "./hooks/useSmartPlaylistPaths";
 import { PlaylistHeader } from "./components/PlaylistHeader/PlaylistHeader";
@@ -688,6 +688,30 @@ function App() {
 		setNowPlayingOpen(true);
 	});
 
+	// Ctrl+V of an image on an album's, artist's or (own) playlist's page: its
+	// cover. Not over a dialog (it takes its own pastes) or in a text field.
+	const pasteTarget = listView.kind === "album" || listView.kind === "artist" ? currentGroup
+		: playlist && !playlist.readOnly ? playlist : null;
+	const pasteInto = useRef<((data: string) => void) | null>(null);
+	useEffect(() => {
+		pasteInto.current = !pasteTarget ? null
+			: "type" in pasteTarget ? (data) => playlists.setCover(pasteTarget.id, data)
+			: (data) => groupCoverStore.setCover(listView.kind === "album" ? "album" : "artist", pasteTarget.key, data);
+	});
+	useEffect(() => {
+		const onPaste = (e: ClipboardEvent) => {
+			const use = pasteInto.current;
+			if (!use || document.querySelector(".dialog-backdrop")) return;
+			if (e.target instanceof Element && e.target.closest("input, textarea, [contenteditable]")) return;
+			const image = pastedImage(e);
+			if (!image) return;
+			e.preventDefault();
+			image.then(({ data }) => use(data), error => notifyError(t("cover.pasteFailed"), error));
+		};
+		window.addEventListener("paste", onPaste);
+		return () => window.removeEventListener("paste", onPaste);
+	}, []);
+
 	// Esc goes back, unless something else uses it: an open menu, dialog or
 	// cover viewer closes itself, and a text field keeps its own Esc (except
 	// the empty track search, see the toolbar).
@@ -1209,6 +1233,14 @@ function App() {
 	];
 
 	/** Menu of an artist or album card. */
+	/** The clipboard's image, if it holds one, given to `use` (base64). */
+	const pasteCover = (use: (data: string) => void) => {
+		clipboardImage().then(
+			image => (image ? use(image.data) : notifyInfo(t("cover.noImageInClipboard"))),
+			e => notifyError(t("cover.pasteFailed"), e),
+		);
+	};
+
 	/** Choose an image as the album's or artist's cover. */
 	const chooseGroupCover = (kind: CoverKind, group: TrackGroup) => {
 		pickImage()
@@ -1224,6 +1256,13 @@ function App() {
 			icon: <ImagePlus size={16} />,
 			onSelect: () => chooseGroupCover(kind, group),
 		},
+		// The desktop's clipboard (Android's does not give images to the page).
+		...(androidStorage ? [] : [{
+			kind: "item" as const,
+			label: t("cover.pasteCover"),
+			icon: <ClipboardPaste size={16} />,
+			onSelect: () => pasteCover(data => groupCoverStore.setCover(kind, group.key, data)),
+		}]),
 		...(group.cover ? [{
 			kind: "item" as const,
 			label: t("group.resetCover"),
@@ -1636,6 +1675,7 @@ function App() {
 									onEditRules={() => openEditor(playlist)}
 									onSetCover={(data) => playlists.setCover(playlist.id, data)}
 									onClearCover={() => playlists.clearCover(playlist.id)}
+									onPasteCover={androidStorage ? undefined : () => pasteCover(data => playlists.setCover(playlist.id, data))}
 								/>
 							)}
 

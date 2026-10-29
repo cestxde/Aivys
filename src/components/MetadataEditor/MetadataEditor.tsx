@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Copy, ImagePlus, Trash2, X } from "lucide-react";
+import { ClipboardPaste, Copy, ImagePlus, Trash2, X } from "lucide-react";
 import type { Track } from "../../types";
 import { CoverArt } from "../CoverArt";
 import { t, type MessageKey } from "../../i18n";
 import "./MetadataEditor.css";
 import { useBackLayer } from "../../hooks/useBackLayer";
-import { readBase64 } from "../../utils/image";
+import { clipboardImage, pastedImage, readBase64 } from "../../utils/image";
+import { notifyError, notifyInfo } from "../../utils/notify";
 
 const TEXT_FIELDS = ["title", "artist", "album", "albumArtist", "genre"] as const;
 const NUMBER_FIELDS = ["year", "trackNumber", "trackTotal", "discNumber"] as const;
@@ -107,6 +108,36 @@ export const MetadataEditor = ({ tracks, onSave, onClose }: MetadataEditorProps)
         setCover({ kind: "set", data, url: URL.createObjectURL(file) });
     };
 
+    /** The clipboard's image as the cover (the button). */
+    const pasteCover = async () => {
+        try {
+            const image = await clipboardImage();
+            if (!image) {
+                notifyInfo(t("cover.noImageInClipboard"));
+                return;
+            }
+            setCover({ kind: "set", data: image.data, url: URL.createObjectURL(image.blob) });
+        } catch (e) {
+            notifyError(t("cover.pasteFailed"), e);
+        }
+    };
+
+    // Ctrl+V of an image anywhere in the editor: the cover (text still goes
+    // into the fields).
+    useEffect(() => {
+        const onPaste = (e: ClipboardEvent) => {
+            const image = pastedImage(e);
+            if (!image) return;
+            e.preventDefault();
+            image.then(
+                ({ data, blob }) => setCover({ kind: "set", data, url: URL.createObjectURL(blob) }),
+                error => notifyError(t("cover.pasteFailed"), error),
+            );
+        };
+        window.addEventListener("paste", onPaste);
+        return () => window.removeEventListener("paste", onPaste);
+    }, []);
+
     const edit = (): MetadataEdit => {
         const result: MetadataEdit = {};
         for (const field of changed) {
@@ -190,6 +221,9 @@ export const MetadataEditor = ({ tracks, onSave, onClose }: MetadataEditorProps)
                         <div className="metadata-cover-actions">
                             <button className="editor-button" disabled={saving} onClick={() => fileInput.current?.click()}>
                                 <ImagePlus size={14} /> {t("edit.coverReplace")}
+                            </button>
+                            <button className="editor-button" disabled={saving} title={t("cover.pasteHint")} onClick={pasteCover}>
+                                <ClipboardPaste size={14} /> {t("cover.paste")}
                             </button>
                             <button
                                 className="editor-button"

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, ImagePlus, ListMusic, Pencil, Sparkles, Trash2, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ClipboardPaste, ImagePlus, ListMusic, Pencil, Sparkles, Trash2, SlidersHorizontal } from "lucide-react";
 import type { ListRow, Playlist } from "../../types";
 import { formatTotalDuration } from "../../utils/format";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
@@ -22,6 +22,8 @@ interface PlaylistHeaderProps {
     /** The picked image's bytes, base64. */
     onSetCover: (data: string) => void;
     onClearCover: () => void;
+    /** The clipboard's image as the cover (the desktop only). */
+    onPasteCover?: () => void;
 }
 
 const COVER_SIZE = 120;
@@ -37,6 +39,7 @@ export const PlaylistHeader = ({
     onEditRules,
     onSetCover,
     onClearCover,
+    onPasteCover,
 }: PlaylistHeaderProps) => {
     const [draft, setDraft] = useState<string | null>(startRenaming ? playlist.name : null);
     const editable = !playlist.readOnly;
@@ -117,6 +120,11 @@ export const PlaylistHeader = ({
                         <button className="playlist-action" onClick={chooseCover}>
                             <ImagePlus size={14} /> {playlist.coverPath ? t("playlist.changeCover") : t("playlist.setCover")}
                         </button>
+                        {onPasteCover && (
+                            <button className="playlist-action" title={t("cover.pasteHint")} onClick={onPasteCover}>
+                                <ClipboardPaste size={14} /> {t("cover.pasteCover")}
+                            </button>
+                        )}
                         {playlist.coverPath && (
                             <button className="playlist-action" onClick={onClearCover}>
                                 {t("playlist.removeCover")}
