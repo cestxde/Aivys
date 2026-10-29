@@ -215,7 +215,13 @@ export const TagPicker = ({ tracks, tags, categories, counts, isPinned, stats, o
                             {tags.length > 1 && <TagSortButton sort={sort} onChange={setSort} />}
                         </div>
 
-                        <div className="add-to-list tag-picker-list" ref={list}>
+                        <div
+                            className="add-to-list tag-picker-list"
+                            ref={list}
+                            // Pressing a tag leaves the focus in the search: the
+                            // phone's keyboard stays up while ticking several.
+                            onMouseDown={(e) => e.preventDefault()}
+                        >
                             {canCreate && (
                                 <button
                                     className={`add-to-row tag-picker-row ${highlighted === 0 ? "highlighted" : ""}`}
