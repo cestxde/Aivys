@@ -673,6 +673,21 @@ function App() {
 		setBackTo(entry.backTo);
 	};
 
+	// A view opened from the phone's player (an artist, an album, a tag): Back
+	// there goes back to the view before and reopens the player. `to` is the
+	// view it opened, known once it is on screen; any other view forgets it.
+	const [playerReturn, setPlayerReturn] = useState<{ from: string; to: string | null } | null>(null);
+	if (playerReturn && playerReturn.to === null && viewKey !== playerReturn.from) {
+		setPlayerReturn({ ...playerReturn, to: viewKey });
+	} else if (playerReturn?.to && playerReturn.to !== viewKey) {
+		setPlayerReturn(null);
+	}
+	useBackLayer(isPhone && !nowPlayingOpen && playerReturn?.to === viewKey, () => {
+		setPlayerReturn(null);
+		goBack();
+		setNowPlayingOpen(true);
+	});
+
 	// Esc goes back, unless something else uses it: an open menu, dialog or
 	// cover viewer closes itself, and a text field keeps its own Esc (except
 	// the empty track search, see the toolbar).
@@ -1386,6 +1401,7 @@ function App() {
 
 	// Phones close their player screens when one of these opens another view.
 	const leavePlayer = () => {
+		if (nowPlayingOpen) setPlayerReturn({ from: viewKey, to: null });
 		setPhonePanel(null);
 		setNowPlayingOpen(false);
 	};
