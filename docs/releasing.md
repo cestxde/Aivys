@@ -35,7 +35,8 @@ new version with its release notes.
    installer on GitHub, signs the update and creates a **draft** release with
    the installer, its signature and `latest.json`. The notes are made from the
    commits since the previous tag (`scripts/release-notes.js`): `feat:` under
-   "New", `fix:` under "Fixed"; other commits are left out.
+   "New", `fix:` under "Fixed", the Android app's own (`feat: android: …`)
+   under "Android"; other commits are left out.
 4. Check the draft (edit the notes if needed) and **publish** it. Only then do
    installed apps see the new version.
 

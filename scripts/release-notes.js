@@ -1,6 +1,7 @@
 // Release notes for a tag, from the commits since the previous tag: `feat:`
 // under "New", `fix:` under "Fixed"; other commits (docs, version bumps) are
-// left out. Prints Markdown, which the release workflow puts on the GitHub
+// left out. Those about the Android app only (`android: …` after the type) go
+// under "Android" instead. Prints Markdown, which the release workflow puts on the GitHub
 // release and the app shows in its update dialog.
 //
 //   node scripts/release-notes.js v0.7.0
@@ -21,17 +22,22 @@ const subjects = git('log', '--no-merges', '--format=%s', previous ? `${previous
   .filter(Boolean);
 
 const sections = [
-  ['New', 'feat'],
-  ['Fixed', 'fix'],
+  ['New', 'feat', false],
+  ['Fixed', 'fix', false],
+  // Changes to the Android app only (`feat: android: …`), apart from the desktop's.
+  ['Android', 'feat|fix', true],
 ];
+const ANDROID = /^android:\s*/i;
 const capitalize = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 
 const out = [];
-for (const [title, type] of sections) {
+for (const [title, types, android] of sections) {
   const items = subjects
-    .map((subject) => subject.match(new RegExp(`^${type}(?:\\([^)]*\\))?!?:\\s*(.+)$`)))
+    .map((subject) => subject.match(new RegExp(`^(?:${types})(?:\\([^)]*\\))?!?:\\s*(.+)$`)))
     .filter(Boolean)
-    .map((match) => `- ${capitalize(match[1])}`);
+    .map((match) => match[1])
+    .filter((text) => ANDROID.test(text) === android)
+    .map((text) => `- ${capitalize(text.replace(ANDROID, ''))}`);
   if (items.length === 0) continue;
   if (out.length > 0) out.push('');
   out.push(`### ${title}`, ...items);
