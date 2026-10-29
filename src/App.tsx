@@ -686,11 +686,18 @@ function App() {
 	} else if (playerReturn?.to && playerReturn.to !== viewKey) {
 		setPlayerReturn(null);
 	}
-	useBackLayer(isPhone && !nowPlayingOpen && playerReturn?.to === viewKey, () => {
-		setPlayerReturn(null);
+	const fromPlayer = isPhone && !nowPlayingOpen && playerReturn?.to === viewKey;
+	/** Back from a view: up a level, and to the player again if it was opened from there. */
+	const backFromView = () => {
 		goBack();
-		setNowPlayingOpen(true);
-	});
+		if (fromPlayer) {
+			setPlayerReturn(null);
+			setNowPlayingOpen(true);
+		}
+	};
+	// One layer for both, not two: which of two would be on top depends on
+	// the order they were opened in.
+	useBackLayer(fromPlayer && androidStorage === null, backFromView);
 
 	// Ctrl+V of an image on an album's, artist's or (own) playlist's page: its
 	// cover. Not over a dialog (it takes its own pastes) or in a text field.
@@ -962,7 +969,7 @@ function App() {
 	// desktop (an artist to the artists, ...), and from the library the app to
 	// the background (MainActivity.kt).
 	const awayFromLibrary = inLibrary && !(listView.kind === "system" && listView.id === "library");
-	useBackLayer(androidStorage !== null && awayFromLibrary, () => goBack());
+	useBackLayer(androidStorage !== null && awayFromLibrary, backFromView);
 	useShortcutActions({
 		back: () => inLibrary && goBack(),
 		forward: () => inLibrary && goForward(),
