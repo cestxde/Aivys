@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Heart, PencilLine, Star, Tag } from "lucide-react";
+import { Heart, ListPlus, PencilLine, Star, Tag } from "lucide-react";
 import type { Track, TrackStats, UserTag } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { formatDateTime, formatDuration, formatFileSize } from "../../utils/format";
@@ -17,6 +17,8 @@ interface TrackDetailPanelProps {
     track: Track | null;
     stats: TrackStats | null;
     onToggleFavorite: (track: Track) => void;
+    /** Open the "Add to…" dialog for the track. */
+    onAddTo: (track: Track) => void;
     /** 1-5, or 0 to clear. */
     onSetRating: (track: Track, rating: number) => void;
     tagsById: Map<string, UserTag>;
@@ -82,6 +84,7 @@ export const TrackDetailPanel = ({
     track,
     stats,
     onToggleFavorite,
+    onAddTo,
     onSetRating,
     tagsById,
     onEditTags,
@@ -150,6 +153,9 @@ export const TrackDetailPanel = ({
                     rating={stats?.rating ?? 0}
                     onChange={(rating) => onSetRating(track, rating)}
                 />
+                <button className="detail-add" title={t("common.addTo")} onClick={() => onAddTo(track)}>
+                    <ListPlus size={18} />
+                </button>
                 <button className="detail-edit" title={t("edit.menu")} onClick={() => onEditDetails(track)}>
                     <PencilLine size={18} />
                 </button>

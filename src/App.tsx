@@ -1471,6 +1471,7 @@ function App() {
 			track={currentTrack ?? null}
 			stats={currentTrack ? trackStats.stats[currentTrack.relPath] ?? null : null}
 			onToggleFavorite={trackStats.toggleFavorite}
+			onAddTo={(track) => setAddTo([track])}
 			onSetRating={trackStats.setRating}
 			tagsById={tags.byId}
 			onEditTags={(track) => setTagPicker([track])}

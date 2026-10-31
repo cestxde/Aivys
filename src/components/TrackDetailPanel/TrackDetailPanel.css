@@ -145,6 +145,7 @@
 }
 
 .detail-favorite,
+.detail-add,
 .detail-edit,
 .rating-star {
     display: flex;
@@ -159,6 +160,7 @@
 }
 
 .detail-favorite:hover,
+.detail-add:hover,
 .detail-edit:hover,
 .rating-star:hover {
     opacity: 1;
