@@ -54,6 +54,9 @@ interface CollectionPageProps {
     noMatchText: string;
     layout: PlaylistsLayout;
     onLayoutChange: (layout: PlaylistsLayout) => void;
+    /** The page's filter, held by the app (on phones the top bar hosts it). */
+    filter: string;
+    onFilterChange: (value: string) => void;
     onOpen: (group: TrackGroup) => void;
     onPlay: (group: TrackGroup) => void;
     /** Key of the group playback was started from, to highlight it. */
@@ -84,6 +87,8 @@ export const CollectionPage = ({
     noMatchText,
     layout,
     onLayoutChange,
+    filter,
+    onFilterChange,
     onOpen,
     onPlay,
     playingKey,
@@ -92,7 +97,6 @@ export const CollectionPage = ({
     sorts,
     sections,
 }: CollectionPageProps) => {
-    const [filter, setFilter] = useRememberedState(`${memoryKey}.filter`, "");
     const [limits, setLimits] = useRememberedState<Record<string, number>>(`${memoryKey}.limits`, {});
     // Sections whose folding the user flipped from their default.
     const [flipped, setFlipped] = useRememberedState<string[]>(`${memoryKey}.flipped`, []);
@@ -218,7 +222,7 @@ export const CollectionPage = ({
                     placeholder={filterPlaceholder}
                     value={filter}
                     onChange={(value) => {
-                        setFilter(value);
+                        onFilterChange(value);
                         setLimits({});
                     }}
                 />

@@ -229,8 +229,7 @@
    lines kept for every card, so the rows stay even). */
 @media (max-width: 720px) {
     .playlists-filter {
-        order: 1;
-        flex-basis: 100%;
+        display: none;
     }
 
     .playlists-grid {

@@ -24,7 +24,7 @@ import { Notices } from "./components/Notices/Notices";
 import { useTrackListLogic } from "./hooks/useTrackListLogic";
 import { useSearchScroll } from "./hooks/useSearchScroll";
 import { usePageLayouts } from "./hooks/usePageLayouts";
-import { useStoredState } from "./hooks/useRemembered";
+import { useRememberedState, useStoredState } from "./hooks/useRemembered";
 import { useTheme } from "./hooks/useTheme";
 import { sortScopeOf, useViewSorts } from "./hooks/useViewSorts";
 import { useTrackStats } from "./hooks/useTrackStats";
@@ -1399,6 +1399,13 @@ function App() {
 	const playingIn = (kind: string): string | null =>
 		playingKey?.startsWith(`${kind}:`) ? playingKey.slice(kind.length + 1) : null;
 
+	// The card page's filter, held by the app so the phones' top bar can host
+	// it (the page's own input is hidden there); remembered per page.
+	const [playlistsFilter, setPlaylistsFilter] = useRememberedState("playlists.filter", "");
+	const [tagsFilter, setTagsFilter] = useRememberedState("tags.filter", "");
+	const [artistsFilter, setArtistsFilter] = useRememberedState("artists.filter", "");
+	const [albumsFilter, setAlbumsFilter] = useRememberedState("albums.filter", "");
+
 	// Show the loading screen while the initial folder is being resolved or a
 	// scan is in progress (startup or switching libraries). The track list is
 	// never shown during a scan.
@@ -1447,6 +1454,11 @@ function App() {
 	const hasTrackList = !cardPage && listView.kind !== "settings";
 	const cardLayout = cardPage
 		? { value: layouts[cardPage], onChange: (layout: PlaylistsLayout) => setLayout(cardPage, layout) }
+		: null;
+	const cardFilter = cardPage === "playlists" ? { query: playlistsFilter, placeholder: t("playlists.filter"), onChange: setPlaylistsFilter }
+		: cardPage === "tags" ? { query: tagsFilter, placeholder: t("tags.filter"), onChange: setTagsFilter }
+		: cardPage === "artists" ? { query: artistsFilter, placeholder: t("collection.filterArtists"), onChange: setArtistsFilter }
+		: cardPage === "albums" ? { query: albumsFilter, placeholder: t("collection.filterAlbums"), onChange: setAlbumsFilter }
 		: null;
 
 	// Phones close their player screens when one of these opens another view.
@@ -1502,7 +1514,7 @@ function App() {
 				title={t(SECTION_TITLES[listView.kind === "system" ? listView.id : listView.kind])}
 				summary={listView.kind === "system" ? viewSummary : null}
 				// Phones only: open, it takes Back (the desktop's bar is hidden).
-				search={isPhone && hasTrackList ? { query: searchQuery, placeholder: t("toolbar.search"), onChange: setSearchQuery } : null}
+				search={isPhone ? (hasTrackList ? { query: searchQuery, placeholder: t("toolbar.search"), onChange: setSearchQuery } : cardFilter) : null}
 				layout={cardLayout}
 				selection={phoneSelecting ? {
 					count: selectedRows.length,
@@ -1537,6 +1549,8 @@ function App() {
 							smartPaths={smartPaths}
 							layout={layouts.playlists}
 							onLayoutChange={(layout) => setLayout("playlists", layout)}
+							filter={playlistsFilter}
+							onFilterChange={setPlaylistsFilter}
 							onOpen={(target) => showView({ kind: "playlist", id: target.id })}
 							onPlay={playPlaylist}
 							onOpenMenu={(target, x, y) => setMenu({ x, y, entries: playlistMenu(target) })}
@@ -1551,6 +1565,8 @@ function App() {
 							counts={tagCounts}
 							layout={layouts.tags}
 							onLayoutChange={(layout) => setLayout("tags", layout)}
+							filter={tagsFilter}
+							onFilterChange={setTagsFilter}
 							onOpen={(target) => showView({ kind: "tag", id: target.id })}
 							onPlay={(target) => playTracks(tracksOfTag(target), { kind: "tag", id: target.id })}
 							playingId={playingIn("tag")}
@@ -1589,6 +1605,8 @@ function App() {
 							noMatchText={t("collection.noMatchArtists")}
 							layout={layouts.artists}
 							onLayoutChange={(layout) => setLayout("artists", layout)}
+							filter={artistsFilter}
+							onFilterChange={setArtistsFilter}
 							onOpen={(group) => showView({ kind: "artist", id: group.key })}
 							onPlay={(group) => playTracks(group.tracks, { kind: "artist", id: group.key })}
 							playingKey={playingIn("artist")}
@@ -1611,6 +1629,8 @@ function App() {
 							noMatchText={t("collection.noMatchAlbums")}
 							layout={layouts.albums}
 							onLayoutChange={(layout) => setLayout("albums", layout)}
+							filter={albumsFilter}
+							onFilterChange={setAlbumsFilter}
 							onOpen={(group) => showView({ kind: "album", id: group.key })}
 							onPlay={(group) => playTracks(group.tracks, { kind: "album", id: group.key })}
 							playingKey={playingIn("album")}

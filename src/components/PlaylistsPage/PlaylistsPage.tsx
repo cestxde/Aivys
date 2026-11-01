@@ -5,7 +5,7 @@ import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
 import { CardPlayButton, PinnedMark, PlayingMark } from "../CardPlayButton/CardPlayButton";
 import { pinnedFirst } from "../../hooks/usePins";
 import { t } from "../../i18n";
-import { useRememberedScroll, useRememberedState } from "../../hooks/useRemembered";
+import { useRememberedScroll } from "../../hooks/useRemembered";
 import { SearchInput } from "../SearchInput/SearchInput";
 import "./PlaylistsPage.css";
 
@@ -30,6 +30,9 @@ interface PlaylistsPageProps {
     smartPaths: Map<string, string[]>;
     layout: PlaylistsLayout;
     onLayoutChange: (layout: PlaylistsLayout) => void;
+    /** The page's filter, held by the app (on phones the top bar hosts it). */
+    filter: string;
+    onFilterChange: (value: string) => void;
     onOpenPinned: (id: SystemView) => void;
     onPlayPinned: (id: SystemView) => void;
     /** What playback was started from, to highlight it. */
@@ -103,6 +106,8 @@ export const PlaylistsPage = ({
     smartPaths,
     layout,
     onLayoutChange,
+    filter,
+    onFilterChange,
     onOpenPinned,
     onPlayPinned,
     playingPlaylistId,
@@ -114,7 +119,6 @@ export const PlaylistsPage = ({
     onCreate,
     onCreateSmart,
 }: PlaylistsPageProps) => {
-    const [filter, setFilter] = useRememberedState("playlists.filter", "");
     const { ref: scrollRef, onScroll: onPageScroll } = useRememberedScroll("playlists");
     const query = filter.trim().toLowerCase();
     const matches = (name: string) => !query || name.toLowerCase().includes(query);
@@ -212,7 +216,7 @@ export const PlaylistsPage = ({
                     className="playlists-filter"
                     placeholder={t("playlists.filter")}
                     value={filter}
-                    onChange={setFilter}
+                    onChange={onFilterChange}
                 />
                 <LayoutToggle layout={layout} onChange={onLayoutChange} />
                 <button className="toolbar-button shuffle-button playlists-create" onClick={onCreateSmart}>

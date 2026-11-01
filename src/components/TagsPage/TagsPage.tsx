@@ -22,6 +22,9 @@ interface TagsPageProps {
     counts: Map<string, number>;
     layout: PlaylistsLayout;
     onLayoutChange: (layout: PlaylistsLayout) => void;
+    /** The page's filter, held by the app (on phones the top bar hosts it). */
+    filter: string;
+    onFilterChange: (value: string) => void;
     onOpen: (tag: UserTag) => void;
     onPlay: (tag: UserTag) => void;
     /** Id of the tag playback was started from, to highlight it. */
@@ -70,10 +73,9 @@ const sectionAt = (x: number, y: number): string | null =>
  * tag is dragged to another category (in the list or the sidebar) to move it.
  */
 export const TagsPage = ({
-    tags, categories, counts, layout, onLayoutChange, onOpen, onPlay, playingId, onOpenMenu, isPinned, onCreate,
+    tags, categories, counts, layout, onLayoutChange, filter, onFilterChange, onOpen, onPlay, playingId, onOpenMenu, isPinned, onCreate,
     onCreateCategory, onRenameCategory, onOpenCategoryMenu, onReorderCategories, onMoveTag,
 }: TagsPageProps) => {
-    const [filter, setFilter] = useRememberedState("tags.filter", "");
     const [picked, setPicked] = useRememberedState<CategoryFilter>("tags.category", null);
     const [sort, setSort] = useTagSort();
     const [collapsed, setCollapsed] = useStoredState<string[]>("tags.collapsed", [], isIdList);
@@ -246,7 +248,7 @@ export const TagsPage = ({
                         className="tags-filter"
                         placeholder={t("tags.filter")}
                         value={filter}
-                        onChange={setFilter}
+                        onChange={onFilterChange}
                     />
                     <TagSortButton sort={sort} onChange={setSort} />
                     <LayoutToggle layout={layout} onChange={onLayoutChange} />

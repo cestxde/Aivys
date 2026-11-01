@@ -172,7 +172,7 @@ interface MobileHeaderProps {
     title: string;
     /** Under it: the list's size ("120 tracks · 7 h"), where the page has no heading of its own. */
     summary: string | null;
-    /** Pages of tracks: their search, opened from the bar. */
+    /** The page's search (tracks) or filter (cards), opened from the bar. */
     search: { query: string; placeholder: string; onChange: (query: string) => void } | null;
     /** Pages of cards: grid or list. */
     layout: { value: PlaylistsLayout; onChange: (layout: PlaylistsLayout) => void } | null;
