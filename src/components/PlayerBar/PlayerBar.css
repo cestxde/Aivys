@@ -25,6 +25,11 @@
     flex: 1;
 }
 
+/* The current and total time, meant to be copied. */
+.seek-container .time-label {
+    user-select: text;
+}
+
 .player-bar-content {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
