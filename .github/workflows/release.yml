@@ -1,7 +1,8 @@
 # A pushed version tag (`npm version …` then `git push --follow-tags`) builds
 # the Windows installer, signs the update with the updater key and puts both,
-# with latest.json for the app's updater, on a draft GitHub release. Publishing
-# the draft is what makes installed apps see the new version.
+# with latest.json for the app's updater, on a draft GitHub release. The Android
+# app is built and signed as well, its APK attached to the same release.
+# Publishing the draft is what makes installed apps see the new version.
 name: Release
 
 on:
@@ -57,3 +58,55 @@ jobs:
           includeUpdaterJson: true
           # Update artifacts only here: a local build has no signing key.
           args: --config src-tauri/tauri.release.conf.json
+
+  android:
+    # After the Windows job, which creates the draft release this uploads to.
+    needs: [windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          yes | sdkmanager "ndk;27.2.12479018" > /dev/null
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      - run: npm ci
+
+      - name: Set up Android signing
+        run: |
+          cd src-tauri/gen/android
+          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" > keystore.properties
+          echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> keystore.properties
+          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> keystore.properties
+          base64 -d <<< "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" > "$RUNNER_TEMP/keystore.jks"
+          echo "storeFile=$RUNNER_TEMP/keystore.jks" >> keystore.properties
+
+      - name: Build Android APK
+        run: npx tauri android build --apk
+
+      - name: Upload APK to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
