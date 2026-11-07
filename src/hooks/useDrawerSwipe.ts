@@ -5,7 +5,7 @@ const OPEN_FRACTION = 0.3;
 const FLICK_SPEED = 0.4;
 
 /** Where a sideways swipe is someone else's: the player, dialogs, menus, reordering. */
-const OWN_GESTURES = ".now-playing, .phone-sheet, .dialog-backdrop, .context-menu, .cover-viewer-backdrop, .drag-handle, input, textarea";
+const OWN_GESTURES = ".now-playing, .phone-sheet, .dialog-backdrop, .context-menu, .cover-viewer-backdrop, .drag-handle, .crop-backdrop, input, textarea";
 
 /** Whether `element` or a parent of it scrolls sideways (a swipe there scrolls it). */
 const scrollsSideways = (element: Element | null): boolean => {

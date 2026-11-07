@@ -34,6 +34,8 @@ interface GroupHeaderProps {
     crumbs?: Crumb[];
     /** Albums and artists: buttons for their own cover (set, change, back to the tracks'). */
     coverActions?: MenuEntry[];
+    /** True while the group's own cover is being written (a spinner shows over it). */
+    loading?: boolean;
 }
 
 const COVER_SIZE = 120;
@@ -52,6 +54,7 @@ export const GroupHeader = ({
     onBack,
     crumbs,
     coverActions = [],
+    loading = false,
 }: GroupHeaderProps) => {
     const [viewing, setViewing] = useState(false);
     // One cover (an album's, an artist's) opens large; a mosaic does not.
@@ -72,13 +75,20 @@ export const GroupHeader = ({
                     <ArrowLeft size={18} />
                 </button>
             )}
-            <CoverMosaic
-                covers={covers}
-                size={COVER_SIZE}
-                icon={Icon}
-                className="playlist-header-cover"
-                onClick={single ? () => setViewing(true) : undefined}
-            />
+            <div className="playlist-header-cover-wrap">
+                <CoverMosaic
+                    covers={covers}
+                    size={COVER_SIZE}
+                    icon={Icon}
+                    className="playlist-header-cover"
+                    onClick={single ? () => setViewing(true) : undefined}
+                />
+                {loading && (
+                    <div className="playlist-header-cover-loading">
+                        <span className="spinner" />
+                    </div>
+                )}
+            </div>
 
             <div className="playlist-info">
                 {crumbs && crumbs.length > 0 ? (

@@ -1,0 +1,125 @@
+/* Above the editors (1050): it is opened from the tag editor too. */
+.crop-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(3vmin + var(--safe-top, 0px)) calc(3vmin + var(--safe-right, 0px)) calc(3vmin + var(--safe-bottom, 0px)) calc(3vmin + var(--safe-left, 0px));
+    background: var(--backdrop);
+}
+
+.crop-dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: min(560px, 100%);
+    max-height: 100%;
+    padding: 1rem;
+    box-sizing: border-box;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text-h);
+    box-shadow: var(--shadow-dialog);
+}
+
+.crop-dialog h2 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.crop-hint {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text);
+    opacity: 0.8;
+}
+
+.crop-stage {
+    display: flex;
+    justify-content: center;
+    min-height: 0;
+}
+
+/* Wraps the picture exactly, so the frame's positions are the picture's. */
+.crop-picture-box {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    border-radius: 4px;
+    line-height: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    /* The whole picture area drags the frame; only the handles resize it. */
+    cursor: move;
+    touch-action: none;
+}
+
+.crop-picture {
+    display: block;
+    max-width: 100%;
+    max-height: 50vh;
+    pointer-events: none;
+}
+
+/* Shown while the picture is still being read and decoded (can be slow on phones). */
+.crop-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: min(78vw, 300px);
+    height: 180px;
+    color: var(--text);
+    font-size: 0.85rem;
+    line-height: 1.3;
+    opacity: 0.7;
+}
+
+/* The shadow dims what is outside the frame. */
+.crop-frame {
+    position: absolute;
+    box-sizing: border-box;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+    cursor: move;
+    touch-action: none;
+}
+
+/* Corner handles: drag one to resize the square. */
+.crop-handle {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.35);
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    touch-action: none;
+}
+
+.crop-handle-nw {
+    left: 0;
+    top: 0;
+    cursor: nwse-resize;
+}
+
+.crop-handle-ne {
+    right: 0;
+    top: 0;
+    cursor: nesw-resize;
+}
+
+.crop-handle-sw {
+    left: 0;
+    bottom: 0;
+    cursor: nesw-resize;
+}
+
+.crop-handle-se {
+    right: 0;
+    bottom: 0;
+    cursor: nwse-resize;
+}

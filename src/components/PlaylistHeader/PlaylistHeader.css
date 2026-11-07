@@ -9,6 +9,23 @@
     box-shadow: var(--shadow-cover);
 }
 
+/* Wraps the header cover so a spinner can sit over it while it is being set. */
+.playlist-header-cover-wrap {
+    position: relative;
+    flex-shrink: 0;
+    line-height: 0;
+}
+
+.playlist-header-cover-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.4);
+}
+
 .playlist-back {
     align-self: flex-start;
     display: flex;
@@ -124,7 +141,7 @@
         align-self: start;
     }
 
-    .playlist-header-cover {
+    .playlist-header-cover-wrap {
         grid-column: 2;
         grid-row: 1 / 4;
     }

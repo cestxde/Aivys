@@ -5,7 +5,8 @@ import { CoverArt } from "../CoverArt";
 import { t, type MessageKey } from "../../i18n";
 import "./MetadataEditor.css";
 import { useBackLayer } from "../../hooks/useBackLayer";
-import { clipboardImage, pastedImage, readBase64 } from "../../utils/image";
+import { clipboardImage, cropImage, pastedImage } from "../../utils/image";
+import { cropToSquare } from "../../utils/coverCrop";
 import { notifyError, notifyInfo } from "../../utils/notify";
 
 const TEXT_FIELDS = ["title", "artist", "album", "albumArtist", "genre"] as const;
@@ -77,6 +78,8 @@ export const MetadataEditor = ({ tracks, onSave, onClose }: MetadataEditorProps)
     const [changed, setChanged] = useState<Set<Field>>(new Set());
     const [cover, setCover] = useState<Cover>({ kind: "keep" });
     const [saving, setSaving] = useState(false);
+    // True while the chosen picture is cropped (after the crop dialog closes).
+    const [picking, setPicking] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -104,8 +107,18 @@ export const MetadataEditor = ({ tracks, onSave, onClose }: MetadataEditorProps)
 
     const pickCover = async (file: File | undefined) => {
         if (!file) return;
-        const data = await readBase64(file);
-        setCover({ kind: "set", data, url: URL.createObjectURL(file) });
+        // The square of it the user chooses (zoomable even for square pictures).
+        const frame = await cropToSquare(file);
+        if (!frame) return;
+        setPicking(true);
+        try {
+            const { blob, data } = await cropImage(file, frame);
+            setCover({ kind: "set", data, url: URL.createObjectURL(blob) });
+        } catch (e) {
+            notifyError(t("cover.cropFailed"), e);
+        } finally {
+            setPicking(false);
+        }
     };
 
     /** The clipboard's image as the cover (the button). */
@@ -214,6 +227,11 @@ export const MetadataEditor = ({ tracks, onSave, onClose }: MetadataEditorProps)
                         {cover.kind === "set"
                             ? <img src={cover.url} alt="" className="metadata-cover-image" />
                             : <CoverArt path={shownCover} size={120} className="metadata-cover-image" />}
+                        {picking && (
+                            <div className="metadata-cover-loading">
+                                <span className="spinner" />
+                            </div>
+                        )}
                         {cover.kind === "keep" && covers.size > 1 && (
                             <span className="metadata-cover-note">{t("edit.mixedCovers")}</span>
                         )}

@@ -39,7 +39,8 @@ import { usePins, type PinKind } from "./hooks/usePins";
 import { useGroupCovers, type CoverKind } from "./hooks/useGroupCovers";
 import { useSleepTimer } from "./hooks/useSleepTimer";
 import { useTray } from "./hooks/useTray";
-import { clipboardImage, pastedImage, pickImage } from "./utils/image";
+import { clipboardImage, cropImage, pastedImage, pickFile } from "./utils/image";
+import { cropToSquare } from "./utils/coverCrop";
 import { useViewRows } from "./hooks/useViewRows";
 import { useSmartPlaylistPaths } from "./hooks/useSmartPlaylistPaths";
 import { PlaylistHeader } from "./components/PlaylistHeader/PlaylistHeader";
@@ -52,6 +53,7 @@ import { SelectionBar } from "./components/SelectionBar/SelectionBar";
 import { QueuePanel } from "./components/QueuePanel/QueuePanel";
 import { MetadataEditor, type MetadataEdit } from "./components/MetadataEditor/MetadataEditor";
 import { UpdateDialog } from "./components/UpdateDialog/UpdateDialog";
+import { CoverCropDialog } from "./components/CoverCropDialog/CoverCropDialog";
 import { checkForUpdates, useUpdateDialogOpen } from "./utils/updates";
 import { savePosition } from "./utils/session";
 import { FolderGrid, GroupHeader, type Crumb } from "./components/GroupHeader/GroupHeader";
@@ -128,8 +130,8 @@ const defaultSortLabel = (view: View, playlist: Playlist | null): string | null 
 		case "system":
 			return view.id === "favorites" ? t("sort.recentlyFavorited")
 				: view.id === "recentlyPlayed" ? t("sort.recentlyPlayed")
-				: view.id === "mostPlayed" ? t("sort.mostPlayed")
-				: null;
+					: view.id === "mostPlayed" ? t("sort.mostPlayed")
+						: null;
 		case "artist": return t("sort.albumOrder");
 		case "album": return t("sort.trackOrder");
 		case "folder": return t("sort.folderOrder");
@@ -241,6 +243,8 @@ function App() {
 	const [addTo, setAddTo] = useState<Track[] | null>(null);
 	const [tagDialog, setTagDialog] = useState<TagDialogState | null>(null);
 	const [categoryDialog, setCategoryDialog] = useState<CategoryDialogState | null>(null);
+	// The album or artist whose cover is being written now (a spinner shows on its cover).
+	const [settingCover, setSettingCover] = useState<{ kind: CoverKind; key: string } | null>(null);
 	// The tag the "Merge into…" dialog is open for.
 	const [mergeTag, setMergeTag] = useState<UserTag | null>(null);
 	// Phones: the sidebar is a drawer, open while this is true.
@@ -327,12 +331,12 @@ function App() {
 	// Something that is gone (deleted, renamed tags, other library) falls back to its list.
 	const listView: View =
 		requestedView.kind === "playlist" && !playlists.playlists.some(p => p.id === requestedView.id) ? PLAYLISTS_VIEW
-		: requestedView.kind === "tag" && !tags.byId.has(requestedView.id) ? TAGS_VIEW
-		: requestedView.kind === "artist" && !artistsByKey.has(requestedView.id) ? ARTISTS_VIEW
-		: requestedView.kind === "album" && !albumsByKey.has(requestedView.id) ? ALBUMS_VIEW
-		: requestedView.kind === "folder" && requestedView.id
-			&& !files.some(f => f.relPath.startsWith(`${requestedView.id}/`)) ? ROOT_FOLDER_VIEW
-		: requestedView;
+			: requestedView.kind === "tag" && !tags.byId.has(requestedView.id) ? TAGS_VIEW
+				: requestedView.kind === "artist" && !artistsByKey.has(requestedView.id) ? ARTISTS_VIEW
+					: requestedView.kind === "album" && !albumsByKey.has(requestedView.id) ? ALBUMS_VIEW
+						: requestedView.kind === "folder" && requestedView.id
+							&& !files.some(f => f.relPath.startsWith(`${requestedView.id}/`)) ? ROOT_FOLDER_VIEW
+							: requestedView;
 	const currentTag = listView.kind === "tag" ? tags.byId.get(listView.id) ?? null : null;
 	const smartPaths = useSmartPlaylistPaths(playlists.playlists, trackStats.stats, listView.kind === "playlists");
 
@@ -576,7 +580,7 @@ function App() {
 		const multiDisc = new Set(currentGroup.tracks.map(track => track.discNumber ?? 1)).size > 1;
 		return (track: Track) => track.trackNumber == null ? ""
 			: multiDisc ? `${track.discNumber ?? 1}.${String(track.trackNumber).padStart(2, "0")}`
-			: String(track.trackNumber);
+				: String(track.trackNumber);
 	}, [listView.kind, currentGroup]);
 
 	const {
@@ -731,7 +735,7 @@ function App() {
 	useEffect(() => {
 		pasteInto.current = !pasteTarget ? null
 			: "type" in pasteTarget ? (data) => playlists.setCover(pasteTarget.id, data)
-			: (data) => groupCoverStore.setCover(listView.kind === "album" ? "album" : "artist", pasteTarget.key, data);
+				: (data) => groupCoverStore.setCover(listView.kind === "album" ? "album" : "artist", pasteTarget.key, data);
 	});
 	useEffect(() => {
 		const onPaste = (e: ClipboardEvent) => {
@@ -1278,9 +1282,21 @@ function App() {
 
 	/** Choose an image as the album's or artist's cover. */
 	const chooseGroupCover = (kind: CoverKind, group: TrackGroup) => {
-		pickImage()
-			.then(data => groupCoverStore.setCover(kind, group.key, data))
-			.catch(e => notifyError(t("error.setCover"), e));
+		pickFile().then(async file => {
+			const frame = await cropToSquare(file);
+			if (!frame) return;
+			// The spinner starts the moment the square is chosen, so it also
+			// covers the crop itself, not only the write.
+			setSettingCover({ kind, key: group.key });
+			try {
+				const { data } = await cropImage(file, frame);
+				await groupCoverStore.setCover(kind, group.key, data);
+			} catch (e) {
+				notifyError(t("error.setCover"), e);
+			} finally {
+				setSettingCover(null);
+			}
+		});
 	};
 
 	/** An album's or artist's own cover: set, change, or back to the tracks' art. */
@@ -1296,7 +1312,10 @@ function App() {
 			kind: "item" as const,
 			label: t("cover.pasteCover"),
 			icon: <ClipboardPaste size={16} />,
-			onSelect: () => pasteCover(data => groupCoverStore.setCover(kind, group.key, data)),
+			onSelect: () => pasteCover(data => {
+				setSettingCover({ kind, key: group.key });
+				groupCoverStore.setCover(kind, group.key, data).finally(() => setSettingCover(null));
+			}),
 		}]),
 		...(group.cover ? [{
 			kind: "item" as const,
@@ -1401,10 +1420,10 @@ function App() {
 			: listView.kind === "tag"
 				? "empty.tag"
 				: currentGroup
-				? "empty.group"
-				: playlist?.type === "smart"
-				? "empty.smart"
-				: "empty.playlist");
+					? "empty.group"
+					: playlist?.type === "smart"
+						? "empty.smart"
+						: "empty.playlist");
 
 	// Play all: from the first track, in order.
 	const handlePlayAll = () => {
@@ -1481,9 +1500,9 @@ function App() {
 		: null;
 	const cardFilter = cardPage === "playlists" ? { query: playlistsFilter, placeholder: t("playlists.filter"), onChange: setPlaylistsFilter }
 		: cardPage === "tags" ? { query: tagsFilter, placeholder: t("tags.filter"), onChange: setTagsFilter }
-		: cardPage === "artists" ? { query: artistsFilter, placeholder: t("collection.filterArtists"), onChange: setArtistsFilter }
-		: cardPage === "albums" ? { query: albumsFilter, placeholder: t("collection.filterAlbums"), onChange: setAlbumsFilter }
-		: null;
+			: cardPage === "artists" ? { query: artistsFilter, placeholder: t("collection.filterArtists"), onChange: setArtistsFilter }
+				: cardPage === "albums" ? { query: albumsFilter, placeholder: t("collection.filterAlbums"), onChange: setAlbumsFilter }
+					: null;
 
 	// Phones close their player screens when one of these opens another view.
 	const leavePlayer = () => {
@@ -1686,6 +1705,7 @@ function App() {
 									backTitle={t("group.allArtists")}
 									onBack={goBack}
 									coverActions={coverEntries("artist", currentGroup)}
+									loading={settingCover?.kind === "artist" && settingCover.key === currentGroup.key}
 								/>
 							)}
 							{currentGroup && listView.kind === "album" && (
@@ -1700,6 +1720,7 @@ function App() {
 									backTitle={t("group.allAlbums")}
 									onBack={goBack}
 									coverActions={coverEntries("album", currentGroup)}
+									loading={settingCover?.kind === "album" && settingCover.key === currentGroup.key}
 								/>
 							)}
 							{currentGroup && listView.kind === "folder" && (
@@ -1761,19 +1782,19 @@ function App() {
 									onClear={clearSelection}
 								/>
 							) : (
-							<Toolbar
-								searchQuery={searchQuery}
-								onSearchChange={setSearchQuery}
-								sort={viewSort}
-								defaultLabel={defaultLabel}
-								onSortChange={handleSortChange}
-								display={listDisplay}
-								onDisplayChange={(display) => viewSorts.setDisplay(sortScope ?? "playlist", display)}
-								canGroup={rowSection !== null}
-								sortDisabled={isSearching || sortLocked}
-								onShuffleAll={handleShuffleView}
-								onPlayAll={handlePlayAll}
-							/>
+								<Toolbar
+									searchQuery={searchQuery}
+									onSearchChange={setSearchQuery}
+									sort={viewSort}
+									defaultLabel={defaultLabel}
+									onSortChange={handleSortChange}
+									display={listDisplay}
+									onDisplayChange={(display) => viewSorts.setDisplay(sortScope ?? "playlist", display)}
+									canGroup={rowSection !== null}
+									sortDisabled={isSearching || sortLocked}
+									onShuffleAll={handleShuffleView}
+									onPlayAll={handlePlayAll}
+								/>
 							)}
 
 							<div className="track-list-wrapper" ref={listRef} onScroll={onListScroll}>
@@ -1967,6 +1988,8 @@ function App() {
 			{menu && (
 				<ContextMenu x={menu.x} y={menu.y} entries={menu.entries} onClose={closeMenu} />
 			)}
+
+			<CoverCropDialog />
 
 			{updateDialogOpen && (
 				<UpdateDialog

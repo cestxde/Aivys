@@ -4,7 +4,8 @@ import type { ListRow, Playlist } from "../../types";
 import { formatTotalDuration } from "../../utils/format";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
 import { t } from "../../i18n";
-import { pickImage } from "../../utils/image";
+import { cropImage, pickFile } from "../../utils/image";
+import { cropToSquare } from "../../utils/coverCrop";
 import { notifyError } from "../../utils/notify";
 import "./PlaylistHeader.css";
 
@@ -19,8 +20,8 @@ interface PlaylistHeaderProps {
     /** Asks for confirmation itself. */
     onDelete: () => void;
     onEditRules: () => void;
-    /** The picked image's bytes, base64. */
-    onSetCover: (data: string) => void;
+    /** The picked image's bytes, base64; resolves when the cover is written. */
+    onSetCover: (data: string) => void | Promise<unknown>;
     onClearCover: () => void;
     /** The clipboard's image as the cover (the desktop only). */
     onPasteCover?: () => void;
@@ -42,6 +43,8 @@ export const PlaylistHeader = ({
     onPasteCover,
 }: PlaylistHeaderProps) => {
     const [draft, setDraft] = useState<string | null>(startRenaming ? playlist.name : null);
+    // True while the playlist's cover is being written (a spinner shows over it).
+    const [settingCover, setSettingCover] = useState(false);
     const editable = !playlist.readOnly;
     const smart = playlist.type === "smart";
 
@@ -52,7 +55,21 @@ export const PlaylistHeader = ({
     };
 
     const chooseCover = () => {
-        pickImage().then(onSetCover, e => notifyError(t("error.setCover"), e));
+        pickFile().then(async file => {
+            const frame = await cropToSquare(file);
+            if (!frame) return;
+            // The spinner starts the moment the square is chosen, so it also
+            // covers the crop itself, not only the write.
+            setSettingCover(true);
+            try {
+                const { data } = await cropImage(file, frame);
+                await onSetCover(data);
+            } catch (e) {
+                notifyError(t("error.setCover"), e);
+            } finally {
+                setSettingCover(false);
+            }
+        });
     };
 
     const totalSeconds = rows.reduce((sum, row) => sum + row.track.duration, 0);
@@ -67,13 +84,20 @@ export const PlaylistHeader = ({
             <button className="playlist-back" title={t("playlist.all")} onClick={onBack}>
                 <ArrowLeft size={18} />
             </button>
-            <PlaylistCover
-                playlist={playlist}
-                memberCovers={rows.flatMap(row => row.track.coverPath ?? [])}
-                size={COVER_SIZE}
-                className="playlist-header-cover"
-                onClick={editable ? chooseCover : undefined}
-            />
+            <div className="playlist-header-cover-wrap">
+                <PlaylistCover
+                    playlist={playlist}
+                    memberCovers={rows.flatMap(row => row.track.coverPath ?? [])}
+                    size={COVER_SIZE}
+                    className="playlist-header-cover"
+                    onClick={editable ? chooseCover : undefined}
+                />
+                {settingCover && (
+                    <div className="playlist-header-cover-loading">
+                        <span className="spinner" />
+                    </div>
+                )}
+            </div>
 
             <div className="playlist-info">
                 <span className="playlist-kind">
