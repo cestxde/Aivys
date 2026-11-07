@@ -1,6 +1,7 @@
 package com.aivys.app
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -79,12 +80,16 @@ object PlayerHub {
     if (repeat == mode) return
     repeat = mode
     onModesChanged?.invoke()
+    widgetChanged()
+    saveState(true)
   }
 
   fun setShuffle(on: Boolean) {
     if (shuffle == on) return
     shuffle = on
     onModesChanged?.invoke()
+    widgetChanged()
+    saveState(true)
   }
 
   /**
@@ -119,6 +124,151 @@ object PlayerHub {
 
   private var appContext: Context? = null
 
+  // The home screen widget (PlayerWidget) is redrawn a moment after what it
+  // shows changed, once for several changes (a new track and its metadata).
+  private val widgetRefresh = Runnable { appContext?.let { PlayerWidget.refresh(it) } }
+
+  /** What the widget shows changed: the track, playing, shuffle or repeat. */
+  fun widgetChanged() {
+    main.removeCallbacks(widgetRefresh)
+    main.postDelayed(widgetRefresh, WIDGET_DELAY_MS)
+  }
+
+  /** What the widget shows; `label` is "title - artist", null with nothing loaded. */
+  class WidgetState(
+    val label: String?,
+    val cover: String?,
+    val playing: Boolean,
+    val shuffle: Boolean,
+    val repeat: String,
+  )
+
+  fun widgetState(context: Context): WidgetState {
+    // With nothing loaded (the process is new) the session kept last time is what shows.
+    val kept = path == null
+    val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    val data = if (kept) savedMetadata(preferences.getString(KEPT_METADATA, null)) else metadata
+    val title = text(data, "title") ?: path?.let { File(it).nameWithoutExtension }
+    val artist = text(data, "artist")
+    val label = if (title == null) null else if (artist == null) title else "$title - $artist"
+    val cover = text(data, "cover")?.takeIf { File(it).isFile }
+    return WidgetState(
+      label,
+      cover,
+      exo != null && playing,
+      if (kept) preferences.getBoolean(KEPT_SHUFFLE, false) else shuffle,
+      if (kept) preferences.getString(KEPT_REPEAT, "none") ?: "none" else repeat,
+    )
+  }
+
+  // A text of the metadata; null if it is missing, null or empty.
+  private fun text(data: JSONObject, key: String): String? = if (data.isNull(key)) null else data.optString(key).ifEmpty { null }
+
+  private fun savedMetadata(json: String?): JSONObject = runCatching { JSONObject(json ?: "{}") }.getOrDefault(JSONObject())
+
+  /**
+   * Whether the widget's buttons have a session to drive: a track is loaded,
+   * or the one kept last time is brought back (`restore`).
+   */
+  fun prepareSession(context: Context): Boolean = path != null || restore(context)
+
+  /** The page's queue, parsed (`NativePlayer.setQueue`, and `restore` from what was kept). */
+  fun parseQueue(json: String): List<QueueItem> {
+    val array = JSONArray(json)
+    return List(array.length()) { i ->
+      val entry = array.getJSONObject(i)
+      QueueItem(entry.getString("path"), entry)
+    }
+  }
+
+  /** Kept as the page sent it, to bring the session back without the page (`restore`). */
+  fun saveQueue(context: Context, json: String) {
+    runCatching { File(context.applicationContext.filesDir, QUEUE_FILE).writeText(json) }
+  }
+
+  fun attachContext(context: Context) {
+    appContext = context.applicationContext
+  }
+
+  private var stateSavedAt = 0L
+
+  /**
+   * Keep where the session is: the track, its place in the queue, the position
+   * and the modes. Often while playing, but not every tick.
+   */
+  fun saveState(force: Boolean) {
+    val context = appContext ?: return
+    // Nothing loaded: what was kept stays.
+    if (path == null) return
+    val now = SystemClock.uptimeMillis()
+    if (!force && now - stateSavedAt < STATE_SAVE_MS) return
+    stateSavedAt = now
+    context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit()
+      .putString(KEPT_PATH, path)
+      .putInt(KEPT_INDEX, queueIndex)
+      .putFloat(KEPT_POSITION, position.toFloat())
+      .putString(KEPT_REPEAT, repeat)
+      .putBoolean(KEPT_SHUFFLE, shuffle)
+      .putString(KEPT_METADATA, metadata.toString())
+      .apply()
+  }
+
+  /**
+   * Bring back the session kept last time, with the process new and the page
+   * gone: the queue, the track and where it stopped, the modes; paused until
+   * the caller plays it. False if nothing was kept, or the page is there to
+   * ask (it has its own).
+   */
+  private fun restore(context: Context): Boolean {
+    if (sink != null) return false
+    val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    val file = File(context.applicationContext.filesDir, QUEUE_FILE)
+    val keptPath = preferences.getString(KEPT_PATH, null) ?: return false
+    if (!file.isFile) return false
+    val items = runCatching { parseQueue(file.readText()) }.getOrNull() ?: return false
+    val keptIndex = preferences.getInt(KEPT_INDEX, -1)
+    val index = if (items.getOrNull(keptIndex)?.path == keptPath) keptIndex else items.indexOfFirst { it.path == keptPath }
+    if (index < 0 || !File(keptPath).isFile) return false
+
+    appContext = context.applicationContext
+    queue = items
+    queueIndex = index
+    repeat = preferences.getString(KEPT_REPEAT, "none") ?: "none"
+    shuffle = preferences.getBoolean(KEPT_SHUFFLE, false)
+    metadata = savedMetadata(preferences.getString(KEPT_METADATA, null))
+    loaded(keptPath, preferences.getFloat(KEPT_POSITION, 0f).toDouble())
+    return true
+  }
+
+  // The widget's buttons work with the app's page gone, and the player not made
+  // (the service stopped after a long pause): they make it, as a page's load does.
+  private fun startPlayback(context: Context) {
+    runCatching { context.applicationContext.startService(Intent(context, PlaybackService::class.java)) }
+  }
+
+  /** The widget's play / pause. False with nothing loaded (the widget opens the app). */
+  fun togglePlay(context: Context): Boolean {
+    if (!prepareSession(context)) return false
+    startPlayback(context)
+    val player = player(context)
+    if (player.playWhenReady) {
+      player.playWhenReady = false
+    } else {
+      if (player.playbackState == Player.STATE_ENDED) player.seekTo(0)
+      player.playWhenReady = true
+    }
+    return true
+  }
+
+  /** The widget's previous / next, as the system's controls do it. False with nothing loaded. */
+  fun skipFromWidget(context: Context, next: Boolean): Boolean {
+    if (!prepareSession(context)) return false
+    startPlayback(context)
+    player(context)
+    skip(next)
+    return true
+  }
+
   // A copy of the player's state for `state`, read off the main thread
   // (the player itself is only touched on it).
   @Volatile private var position = 0.0
@@ -147,6 +297,8 @@ object PlayerHub {
     duration = null
     playCounted = false
     completeCounted = false
+    widgetChanged()
+    saveState(true)
   }
 
   private val ticker = object : Runnable {
@@ -154,6 +306,7 @@ object PlayerHub {
       val player = exo ?: return
       position = player.currentPosition / 1000.0
       countCompletion()
+      saveState(false)
       val now = SystemClock.uptimeMillis()
       if (pageVisible || now - timeSentAt >= HIDDEN_TICK_MS) {
         timeSentAt = now
@@ -279,6 +432,7 @@ object PlayerHub {
     main.removeCallbacks(sleeper)
     sleepAt = 0L
     exo?.let { position = it.currentPosition / 1000.0 }
+    saveState(true)
     exo?.release()
     exo = null
     forwarding = null
@@ -286,6 +440,7 @@ object PlayerHub {
       playing = false
       emit(JSONObject().put("type", "pause"))
     }
+    widgetChanged()
   }
 
   // "Next" and "previous" of the system's controls: the page's to answer, or
@@ -398,6 +553,11 @@ object PlayerHub {
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
       playing = playWhenReady
+      widgetChanged()
+      if (!playWhenReady) {
+        position = exo?.let { it.currentPosition / 1000.0 } ?: position
+        saveState(true)
+      }
       emit(JSONObject().put("type", if (playWhenReady) "play" else "pause"))
     }
 
@@ -436,6 +596,15 @@ object PlayerHub {
   private const val MISSED_KEY = "missed"
   private const val COMPLETE_RATIO = 0.9
   private const val RESTART_MS = 3000L
+  private const val QUEUE_FILE = "player-queue.json"
+  private const val KEPT_PATH = "keptPath"
+  private const val KEPT_INDEX = "keptIndex"
+  private const val KEPT_POSITION = "keptPosition"
+  private const val KEPT_REPEAT = "keptRepeat"
+  private const val KEPT_SHUFFLE = "keptShuffle"
+  private const val KEPT_METADATA = "keptMetadata"
+  private const val STATE_SAVE_MS = 10_000L
+  private const val WIDGET_DELAY_MS = 250L
   private const val TICK_MS = 250L
   private const val HIDDEN_TICK_MS = 5000L
   private const val SLEEP_FADE_MS = 15_000L

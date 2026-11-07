@@ -36,6 +36,7 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
   init {
     // This page gets the events from now on (a page before it is gone).
     PlayerHub.sink = sink
+    PlayerHub.attachContext(activity)
   }
 
   /** The page is gone (the activity destroyed): the player goes through the queue by itself now. */
@@ -83,17 +84,17 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
    */
   @JavascriptInterface
   fun setQueue(json: String) {
-    // Parsed here, on the WebView's thread: it can be a long list.
-    val array = JSONArray(json)
-    val items = List(array.length()) { i ->
-      val entry = array.getJSONObject(i)
-      PlayerHub.QueueItem(entry.getString("path"), entry)
-    }
+    // Parsed (and kept for the widget) here, on the WebView's thread: it can be a long list.
+    val items = PlayerHub.parseQueue(json)
+    PlayerHub.saveQueue(activity, json)
     main.post { PlayerHub.queue = items }
   }
 
   @JavascriptInterface
-  fun setQueueIndex(index: Int) = main.post { PlayerHub.queueIndex = index }
+  fun setQueueIndex(index: Int) = main.post {
+    PlayerHub.queueIndex = index
+    PlayerHub.saveState(true)
+  }
 
   /** The repeat mode: "none", "all" or "one". */
   @JavascriptInterface
@@ -134,6 +135,7 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
     PlayerHub.path = null
     player.stop()
     player.clearMediaItems()
+    PlayerHub.widgetChanged()
   }
 
   /**
@@ -143,6 +145,8 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
   @JavascriptInterface
   fun setMetadata(json: String) = main.post {
     PlayerHub.metadata = JSONObject(json)
+    PlayerHub.widgetChanged()
+    PlayerHub.saveState(true)
     val current = PlayerHub.path ?: return@post
     if (player.mediaItemCount > 0) player.replaceMediaItem(0, PlayerHub.item(current))
   }
