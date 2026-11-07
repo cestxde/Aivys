@@ -9,6 +9,15 @@ import androidx.activity.enableEdgeToEdge
 class MainActivity : TauriActivity() {
   private var player: NativePlayer? = null
 
+  // The app's window, made by the Rust side: for the activities after the
+  // process's first (see `openWindow` in lib.rs).
+  private external fun openWindow()
+
+  private companion object {
+    // Whether an activity was made in this process before.
+    var made = false
+  }
+
   // Back is handled below: to the app in the background rather than closed.
   override val handleBackNavigation: Boolean = false
 
@@ -17,6 +26,10 @@ class MainActivity : TauriActivity() {
     // The navigation buttons over the page as they are, without a dimmed strip under them.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) window.isNavigationBarContrastEnforced = false
     super.onCreate(savedInstanceState)
+    // The process outlived the last activity (the app swiped away, its music
+    // going on) and took its window along: the new activity needs a new one.
+    if (made) openWindow()
+    made = true
   }
 
   override fun onResume() {

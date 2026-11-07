@@ -25,6 +25,37 @@ fn show_main_window(window: tauri::Window) {
     let _ = window.show();
 }
 
+/// The app, for the activity to ask for a window (`open_window`).
+#[cfg(target_os = "android")]
+static APP: std::sync::OnceLock<tauri::AppHandle> = std::sync::OnceLock::new();
+
+/// Android: the activity of an app swiped away from the recent apps is gone and
+/// its window with it, while the process lives on for the music
+/// (PlaybackService.kt). Opening the app again makes a new activity, which has
+/// no window: only the process's first activity gets the one made at startup.
+/// `MainActivity` calls this for the others.
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub extern "system" fn Java_com_aivys_app_MainActivity_openWindow(
+    _env: *mut std::ffi::c_void,
+    _activity: *mut std::ffi::c_void,
+) {
+    let Some(app) = APP.get().cloned() else { return };
+    // Not on the activity's (UI) thread: the window is made by the event loop,
+    // which needs that thread for the webview.
+    std::thread::spawn(move || {
+        // An activity made anew with its window kept (the screen rotated) has it.
+        if app.get_webview_window("main").is_some() {
+            return;
+        }
+        let Some(config) = app.config().app.windows.first() else { return };
+        let built = tauri::WebviewWindowBuilder::from_config(&app, config).and_then(|window| window.build());
+        if let Err(err) = built {
+            log::error!("cannot open the window again: {err}");
+        }
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -103,6 +134,9 @@ pub fn run() {
             undo_track_edit
         ])
         .setup(|app| {
+            #[cfg(target_os = "android")]
+            let _ = APP.set(app.handle().clone());
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
