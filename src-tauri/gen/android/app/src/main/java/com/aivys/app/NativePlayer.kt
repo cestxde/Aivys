@@ -7,6 +7,7 @@ import android.os.Looper
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.media3.common.Player
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -20,15 +21,25 @@ import org.json.JSONObject
  * `{type: "loaded", duration}`, `play`, `pause`, `{type: "time", position}`,
  * `{type: "seeked", position}`, `ended`, `{type: "error", message}`, `next`,
  * `previous`, `slept` (the sleep timer paused it) (seconds throughout).
+ *
+ * The page also tells the player its queue, for it to go on through it with
+ * the page gone (the app swiped away), and takes the plays it counted then.
  */
 class NativePlayer(private val activity: Activity, private val webView: WebView) {
   private val main = Handler(Looper.getMainLooper())
 
   private val player get() = PlayerHub.player(activity)
 
+  private val sink: (JSONObject) -> Unit = { detail -> emit(detail) }
+
   init {
     // This page gets the events from now on (a page before it is gone).
-    PlayerHub.sink = { detail -> emit(detail) }
+    PlayerHub.sink = sink
+  }
+
+  /** The page is gone (the activity destroyed): the player goes through the queue by itself now. */
+  fun detach() {
+    if (PlayerHub.sink === sink) PlayerHub.sink = null
   }
 
   /**
@@ -63,6 +74,41 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
 
   @JavascriptInterface
   fun seek(seconds: Double) = main.post { player.seekTo((seconds * 1000).toLong()) }
+
+  /**
+   * The queue, in the order it plays: JSON `[{path, title, artist, album,
+   * cover}]` (what the system's media controls show for each; absent when
+   * the track has none). Where the loaded track is in it: `setQueueIndex`.
+   */
+  @JavascriptInterface
+  fun setQueue(json: String) {
+    // Parsed here, on the WebView's thread: it can be a long list.
+    val array = JSONArray(json)
+    val items = List(array.length()) { i ->
+      val entry = array.getJSONObject(i)
+      PlayerHub.QueueItem(entry.getString("path"), entry)
+    }
+    main.post { PlayerHub.queue = items }
+  }
+
+  @JavascriptInterface
+  fun setQueueIndex(index: Int) = main.post { PlayerHub.queueIndex = index }
+
+  /** The repeat mode: "none", "all" or "one". */
+  @JavascriptInterface
+  fun setRepeat(mode: String) = main.post { PlayerHub.repeat = mode }
+
+  /** The sleep timer's "end of the track" is on or off. */
+  @JavascriptInterface
+  fun setStopAfterTrack(on: Boolean) = main.post { PlayerHub.stopAfterTrack = on }
+
+  /**
+   * The plays counted while the page was gone, for it to record:
+   * `[{kind: "play" | "complete", path, at}]` (`at` in Unix seconds). Taken
+   * once; they are not given again.
+   */
+  @JavascriptInterface
+  fun takeMissedEvents(): String = PlayerHub.takeMissed(activity)
 
   /** The sleep timer: fade out and pause in `seconds`. */
   @JavascriptInterface

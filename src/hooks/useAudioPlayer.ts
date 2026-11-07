@@ -4,6 +4,8 @@ import { useAudioQueue } from "./useAudioQueue";
 import type { Track, PlayerSettings } from "../types";
 import { nextRepeatMode } from "../constants";
 import { loadPosition, loadQueue, savePosition, saveQueue } from "../utils/session";
+import { asNativeAudio } from "../utils/nativeAudio";
+import { displayArtists, displayTitle } from "../utils/track";
 
 /** Back goes to the start of the track until it has played this long (seconds). */
 const RESTART_THRESHOLD = 3;
@@ -56,7 +58,9 @@ export const useAudioPlayer = (
     const stopAfterTrack = useRef<(() => void) | null>(null);
     const setStopAfterTrack = useCallback((done: (() => void) | null) => {
         stopAfterTrack.current = done;
-    }, []);
+        // Android: the app's player stops there too, with the page gone.
+        asNativeAudio(audio.element)?.setStopAfterTrack(done !== null);
+    }, [audio.element]);
 
     /** The previous track, however far into this one (a swipe on the phone's player). */
     const previousTrack = () => goTo(q.move(-1, true));
@@ -107,8 +111,18 @@ export const useAudioPlayer = (
         resumed.current = true;
         const saved = loadQueue(tracks);
         if (!saved) return;
-        q.restore(saved);
-        const track = saved.order[saved.index];
+        // On Android the app's player may have gone on through the queue while
+        // the page was gone (the app swiped away): the queue goes on from there.
+        const playing = asNativeAudio(audio.element)?.before ?? null;
+        let index = saved.index;
+        if (playing) {
+            const at = saved.order[playing.queueIndex]?.path === playing.path
+                ? playing.queueIndex
+                : saved.order.findIndex(track => track.path === playing.path);
+            if (at >= 0) index = at;
+        }
+        q.restore({ ...saved, index });
+        const track = saved.order[index];
         if (track) audio.loadFilePaused(track.path, loadPosition(track.path));
     };
 
@@ -116,6 +130,27 @@ export const useAudioPlayer = (
     useEffect(() => {
         if (resumed.current) saveQueue({ source, order, index });
     }, [source, order, index]);
+
+    // Android: the app's player is told the queue too, to go on through it with
+    // the page gone (the app swiped away). Not before the last session's queue
+    // is taken over: the player may be going on through it already.
+    const native = asNativeAudio(audio.element);
+    useEffect(() => {
+        if (!native || !resumed.current) return;
+        native.setQueue(order.map(track => ({
+            path: track.path,
+            title: displayTitle(track),
+            artist: displayArtists(track),
+            album: track.album,
+            cover: track.coverPath,
+        })));
+    }, [native, order]);
+    useEffect(() => {
+        if (native && resumed.current) native.setQueueIndex(index);
+    }, [native, order, index]);
+    useEffect(() => {
+        native?.setRepeat(repeatMode);
+    }, [native, repeatMode]);
 
     // The position: every few seconds while playing, and on pause, seek and close.
     const { element } = audio;

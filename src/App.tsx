@@ -28,6 +28,7 @@ import { useRememberedState, useStoredState } from "./hooks/useRemembered";
 import { useTheme } from "./hooks/useTheme";
 import { sortScopeOf, useViewSorts } from "./hooks/useViewSorts";
 import { useTrackStats } from "./hooks/useTrackStats";
+import { asNativeAudio } from "./utils/nativeAudio";
 import { usePlayTracking } from "./hooks/usePlayTracking";
 import { useTaskbar } from "./hooks/useTaskbar";
 import { useMediaControls } from "./hooks/useMediaControls";
@@ -286,6 +287,17 @@ function App() {
 
 	const trackStats = useTrackStats(files);
 	usePlayTracking(element, currentTrack ?? null, trackStats.recordPlay, trackStats.recordComplete);
+
+	// Android: the plays the app's player counted while the page was gone (the
+	// app swiped away) are recorded now, as of when they happened.
+	const recordMissedPlays = (scanned: Track[]) => {
+		const missed = asNativeAudio(element)?.takeMissedEvents() ?? [];
+		const byPath = new Map(scanned.map(track => [track.path, track]));
+		trackStats.recordMissed(missed.flatMap(({ path, kind, at }) => {
+			const track = byPath.get(path);
+			return track ? [{ track, kind, at }] : [];
+		}));
+	};
 	useTaskbar(isPlaying, !!activePath, language, { previous: onPrev, toggle: togglePlay, next: onNext });
 	useTray(androidStorage === null, language);
 	useMediaControls(element, currentTrack ?? null, isPlaying, {
@@ -460,7 +472,9 @@ function App() {
 			if (last) {
 				const valid = await library.validate(last);
 				if (valid) {
-					resume(await library.scan(last) ?? []);
+					const scanned = await library.scan(last) ?? [];
+					resume(scanned);
+					recordMissedPlays(scanned);
 					setView("library");
 					return;
 				}

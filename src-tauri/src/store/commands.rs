@@ -92,9 +92,24 @@ fn with_store<R>(
 }
 
 fn record(state: &State<'_, StoreState>, path: &str, kind: EventKind, value: Option<i64>, tag_id: Option<String>) -> Result<(), StoreError> {
+    record_at(state, path, kind, value, tag_id, None)
+}
+
+/// `at`: when the event happened (Unix seconds), if not just now.
+fn record_at(
+    state: &State<'_, StoreState>,
+    path: &str,
+    kind: EventKind,
+    value: Option<i64>,
+    tag_id: Option<String>,
+    at: Option<u64>,
+) -> Result<(), StoreError> {
     with_store(state, |store| {
         let key = store.track_key(path)?;
-        events::append(store, &key, kind, value, tag_id)
+        match at {
+            Some(ts) => events::append_at(store, &key, kind, value, tag_id, ts),
+            None => events::append(store, &key, kind, value, tag_id),
+        }
     })
 }
 
@@ -141,13 +156,13 @@ pub(crate) async fn resolve_conflicts(state: State<'_, StoreState>) -> Result<Co
 // ---- Per-track events ----
 
 #[tauri::command]
-pub(crate) async fn record_play(state: State<'_, StoreState>, path: String) -> Result<(), StoreError> {
-    record(&state, &path, EventKind::Play, None, None)
+pub(crate) async fn record_play(state: State<'_, StoreState>, path: String, at: Option<u64>) -> Result<(), StoreError> {
+    record_at(&state, &path, EventKind::Play, None, None, at)
 }
 
 #[tauri::command]
-pub(crate) async fn record_complete(state: State<'_, StoreState>, path: String) -> Result<(), StoreError> {
-    record(&state, &path, EventKind::Complete, None, None)
+pub(crate) async fn record_complete(state: State<'_, StoreState>, path: String, at: Option<u64>) -> Result<(), StoreError> {
+    record_at(&state, &path, EventKind::Complete, None, None, at)
 }
 
 /// `rating` is 1–5, or 0 to clear.

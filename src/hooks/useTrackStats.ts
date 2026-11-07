@@ -112,6 +112,15 @@ export const useTrackStats = (files: Track[]) => {
         persist("record_complete", { path: track.relPath });
     }, [patch, persist]);
 
+    /** Plays that happened while the page was gone (Android, the app swiped away): `at` is when, in Unix seconds. */
+    const recordMissed = useCallback(async (events: { track: Track; kind: "play" | "complete"; at: number }[]) => {
+        if (events.length === 0) return;
+        for (const { track, kind, at } of events) {
+            await persist(kind === "play" ? "record_play" : "record_complete", { path: track.relPath, at });
+        }
+        reload();
+    }, [persist, reload]);
+
     // An empty library shows none (not those of the library opened before).
-    return { stats: files.length > 0 ? stats : NO_STATS, reload, setFavorite, toggleFavorite, setRating, setTrackTag, recordPlay, recordComplete };
+    return { stats: files.length > 0 ? stats : NO_STATS, reload, setFavorite, toggleFavorite, setRating, setTrackTag, recordPlay, recordComplete, recordMissed };
 };

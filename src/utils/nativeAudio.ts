@@ -1,3 +1,5 @@
+import type { RepeatMode } from "../types";
+
 /**
  * The app's player on Android, given to the page by the activity
  * (`NativePlayer.kt`); null elsewhere. The WebView there cannot stream local
@@ -17,6 +19,15 @@ interface AndroidPlayer {
     /** The sleep timer: fade out and pause in `seconds`; it fires `slept` then. */
     sleepAfter(seconds: number): void;
     cancelSleep(): void;
+    /** JSON `QueueEntry[]`: the queue in the order it plays, for the player to go through with the page gone. */
+    setQueue(json: string): void;
+    /** Where the loaded track is in the queue. */
+    setQueueIndex(index: number): void;
+    setRepeat(mode: string): void;
+    /** The sleep timer's "end of the track" is on or off. */
+    setStopAfterTrack(on: boolean): void;
+    /** JSON `MissedEvent[]`: the plays counted with the page gone; given once. */
+    takeMissedEvents(): string;
 }
 
 const bridge = (window as unknown as { AivysPlayer?: AndroidPlayer }).AivysPlayer ?? null;
@@ -34,6 +45,8 @@ interface PlayingState {
     position: number;
     duration: number | null;
     playing: boolean;
+    /** Where the track is in the queue the player was told. */
+    queueIndex: number;
 }
 
 /** What the system's media controls show for the loaded track. */
@@ -43,6 +56,18 @@ export interface NowPlaying {
     album: string | null;
     /** Path of the cover image. */
     cover: string | null;
+}
+
+/** A track of the queue the player is told: its file, and what the system's media controls show for it. */
+export interface QueueEntry extends NowPlaying {
+    path: string;
+}
+
+/** A play the player counted while the page was gone; `at` is when, in Unix seconds. */
+export interface MissedEvent {
+    kind: "play" | "complete";
+    path: string;
+    at: number;
 }
 
 /** The file path an asset URL (`convertFileSrc`, maybe with `?v=`) points at. */
@@ -57,7 +82,8 @@ const pathOf = (url: string): string => decodeURIComponent(new URL(url).pathname
  *
  * The music outlives the page (the app swiped away from the recent apps): a
  * new page's first load of the track that still plays takes it over where it
- * is, rather than loading it again.
+ * is, rather than loading it again. Meanwhile the player goes through the
+ * queue the page told it, and counts the plays (`takeMissedEvents`).
  */
 export class NativeAudio extends EventTarget {
     private readonly player: AndroidPlayer;
@@ -84,6 +110,11 @@ export class NativeAudio extends EventTarget {
             this.playingBefore = null;
         }
         window.addEventListener("aivys-player", (e) => this.receive((e as CustomEvent<PlayerEvent>).detail));
+    }
+
+    /** What played before this page, if its first load has not taken it over yet. */
+    get before(): PlayingState | null {
+        return this.playingBefore;
     }
 
     get src() {
@@ -183,6 +214,33 @@ export class NativeAudio extends EventTarget {
     /** What the system's media controls show. */
     setNowPlaying(info: NowPlaying) {
         this.player.setMetadata(JSON.stringify(info));
+    }
+
+    /** The queue, in the order it plays, for the player to go through with the page gone (the app swiped away). */
+    setQueue(entries: QueueEntry[]) {
+        // A track without an artist or a cover has no such field.
+        this.player.setQueue(JSON.stringify(entries, (_, value) => value ?? undefined));
+    }
+
+    setQueueIndex(index: number) {
+        this.player.setQueueIndex(index);
+    }
+
+    setRepeat(mode: RepeatMode) {
+        this.player.setRepeat(mode);
+    }
+
+    setStopAfterTrack(on: boolean) {
+        this.player.setStopAfterTrack(on);
+    }
+
+    /** The plays the player counted while the page was gone, to be recorded; given once. */
+    takeMissedEvents(): MissedEvent[] {
+        try {
+            return JSON.parse(this.player.takeMissedEvents()) as MissedEvent[];
+        } catch {
+            return [];
+        }
     }
 
     /** The sleep timer, kept by the app's player: fade out and pause in `seconds`, then fire `slept`. */

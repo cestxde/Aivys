@@ -7,6 +7,8 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 
 class MainActivity : TauriActivity() {
+  private var player: NativePlayer? = null
+
   // Back is handled below: to the app in the background rather than closed.
   override val handleBackNavigation: Boolean = false
 
@@ -27,6 +29,14 @@ class MainActivity : TauriActivity() {
     super.onPause()
   }
 
+  // The page is gone with the activity (the app swiped away); the music may go
+  // on, and the player takes over the queue.
+  override fun onDestroy() {
+    player?.detach()
+    player = null
+    super.onDestroy()
+  }
+
   // The page asks for, and checks, access to the music folders, keeps its
   // content out of the system bars and plays through the app's player,
   // through these.
@@ -37,7 +47,7 @@ class MainActivity : TauriActivity() {
     webView.settings.displayZoomControls = false
     webView.addJavascriptInterface(StorageAccess(this), "AivysStorage")
     webView.addJavascriptInterface(SafeInsets(webView), "AivysInsets")
-    webView.addJavascriptInterface(NativePlayer(this, webView), "AivysPlayer")
+    player = NativePlayer(this, webView).also { webView.addJavascriptInterface(it, "AivysPlayer") }
 
     // Back closes what the page has open (a dialog, the player, a view other
     // than the library: useBackLayer.ts); with nothing left, the app goes to

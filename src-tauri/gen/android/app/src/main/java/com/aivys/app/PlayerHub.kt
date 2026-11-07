@@ -15,6 +15,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
@@ -22,10 +23,15 @@ import java.io.File
  * The app's one player, shared by the page's bridge (`NativePlayer`) and the
  * background service (`PlaybackService`). It outlives the page: swiped away
  * from the recent apps, the app keeps playing here, and a new page finds what
- * plays (`state`). It plays one track at a time: the queue stays in the page,
- * which loads the next track when one ends. Only touched on the main thread.
+ * plays (`state`). It plays one track at a time: the queue is the page's,
+ * which loads the next track when one ends. The page also tells the player
+ * the queue (`queue`, `queueIndex`, `repeat`, `stopAfterTrack`), and with the
+ * page gone (the app swiped away) the player goes through it by itself,
+ * counting the plays for the page to record when it is back (`takeMissed`).
+ * Only touched on the main thread.
  *
- * Its events go to the current page through `sink` (see `NativePlayer`).
+ * Its events go to the current page through `sink` (see `NativePlayer`), null
+ * with the page gone.
  *
  * The system stops the service a while after the music is paused in the
  * background, and the player with it (`release`); the track stays loaded for
@@ -48,6 +54,28 @@ object PlayerHub {
 
   /** The page's volume, 0 to 1, kept for a player made anew. */
   var volume = 1f
+
+  /** A track of the queue: its file and what the system's media controls show for it (`NativePlayer.setQueue`). */
+  class QueueItem(val path: String, val metadata: JSONObject)
+
+  /** What plays after the loaded track, in the order it plays, as the page last told. */
+  var queue: List<QueueItem> = emptyList()
+
+  /** Where the loaded track is in `queue`. */
+  @Volatile var queueIndex = -1
+
+  /** The page's repeat mode: "none", "all" or "one". */
+  var repeat = "none"
+
+  /** The sleep timer's "end of the track": at the end of this one the next is loaded, paused. */
+  var stopAfterTrack = false
+
+  // Whether the loaded track's play and completion are counted (by the page,
+  // or here with the page gone), so each is once per play of the track.
+  private var playCounted = false
+  private var completeCounted = false
+
+  private var appContext: Context? = null
 
   // A copy of the player's state for `state`, read off the main thread
   // (the player itself is only touched on it).
@@ -75,12 +103,15 @@ object PlayerHub {
     this.path = path
     position = startAt
     duration = null
+    playCounted = false
+    completeCounted = false
   }
 
   private val ticker = object : Runnable {
     override fun run() {
       val player = exo ?: return
       position = player.currentPosition / 1000.0
+      countCompletion()
       val now = SystemClock.uptimeMillis()
       if (pageVisible || now - timeSentAt >= HIDDEN_TICK_MS) {
         timeSentAt = now
@@ -92,7 +123,7 @@ object PlayerHub {
 
   @OptIn(UnstableApi::class)
   fun player(context: Context): ExoPlayer =
-    exo ?: ExoPlayer.Builder(context.applicationContext)
+    exo ?: ExoPlayer.Builder(context.applicationContext.also { appContext = it })
       .setAudioAttributes(
         AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
         /* handleAudioFocus = */ true,
@@ -151,14 +182,15 @@ object PlayerHub {
     }.also { forwarding = it }
 
   /**
-   * What plays, for a new page: `{path, position, duration, playing}`
-   * (seconds; `path` null with nothing loaded).
+   * What plays, for a new page: `{path, position, duration, playing,
+   * queueIndex}` (seconds; `path` null with nothing loaded).
    */
   fun state(): JSONObject = JSONObject()
     .put("path", path ?: JSONObject.NULL)
     .put("position", position)
     .put("duration", duration ?: JSONObject.NULL)
     .put("playing", playing)
+    .put("queueIndex", queueIndex)
 
   // The sleep timer: at `sleepAt` (elapsed real time, ms) the music has faded
   // out over SLEEP_FADE_MS and pauses. Here rather than in the page, which
@@ -212,7 +244,97 @@ object PlayerHub {
     }
   }
 
-  private fun skip(next: Boolean) = emit(JSONObject().put("type", if (next) "next" else "previous"))
+  // "Next" and "previous" of the system's controls: the page's to answer, or
+  // with the page gone, the player's own, as the page does it.
+  private fun skip(next: Boolean) {
+    if (sink != null) {
+      emit(JSONObject().put("type", if (next) "next" else "previous"))
+      return
+    }
+    val player = exo ?: return
+    val here = here()
+    if (here < 0) return
+    if (!next && player.currentPosition > RESTART_MS) {
+      player.seekTo(0)
+      return
+    }
+    val size = queue.size
+    go(if (next) (here + 1) % size else (here - 1 + size) % size, play = true)
+  }
+
+  /** Where the loaded track is in `queue`: -1 if it is not there. */
+  private fun here(): Int {
+    val current = path ?: return -1
+    if (queue.getOrNull(queueIndex)?.path == current) return queueIndex
+    return queue.indexOfFirst { it.path == current }
+  }
+
+  /** Load the queue's track `index`, and play it or leave it paused. */
+  private fun go(index: Int, play: Boolean) {
+    val player = exo ?: return
+    val entry = queue.getOrNull(index) ?: return
+    queueIndex = index
+    loaded(entry.path, 0.0)
+    metadata = entry.metadata
+    player.setMediaItem(item(entry.path), 0)
+    player.playWhenReady = play
+    player.prepare()
+  }
+
+  /**
+   * A track ended with the page gone: as the page does it, the sleep timer's
+   * stop, repeating the track, stopping on the first track at the end of the
+   * queue without repeat, or going on.
+   */
+  private fun endedAlone() {
+    val player = exo ?: return
+    val here = here()
+    if (here < 0) return
+    val next = (here + 1) % queue.size
+    if (stopAfterTrack) {
+      stopAfterTrack = false
+      go(next, play = false)
+    } else if (repeat == "one") {
+      position = 0.0
+      player.seekTo(0)
+      player.playWhenReady = true
+    } else if (here == queue.size - 1 && repeat == "none") {
+      go(0, play = false)
+    } else {
+      go(next, play = true)
+    }
+  }
+
+  // Plays the page does not see (it is gone) are kept, with when they were, in
+  // the preferences, as the process may be gone before the page is back.
+  private val missedLock = Any()
+
+  private fun missed(kind: String) {
+    val file = path ?: return
+    val context = appContext ?: return
+    synchronized(missedLock) {
+      val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+      val list = JSONArray(preferences.getString(MISSED_KEY, "[]"))
+      list.put(JSONObject().put("kind", kind).put("path", file).put("at", System.currentTimeMillis() / 1000))
+      preferences.edit().putString(MISSED_KEY, list.toString()).apply()
+    }
+  }
+
+  /** The plays counted with the page gone, `[{kind: "play" | "complete", path, at}]` (`at` in Unix seconds), now handed over. */
+  fun takeMissed(context: Context): String = synchronized(missedLock) {
+    val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    val list = preferences.getString(MISSED_KEY, null) ?: "[]"
+    preferences.edit().remove(MISSED_KEY).apply()
+    list
+  }
+
+  // A track counts as completed when it has played this far, as in the page (usePlayTracking.ts).
+  private fun countCompletion() {
+    val length = duration ?: return
+    if (completeCounted || length <= 0 || position < length * COMPLETE_RATIO) return
+    completeCounted = true
+    if (sink == null) missed("complete")
+  }
 
   private fun emit(detail: JSONObject) {
     sink?.invoke(detail)
@@ -223,6 +345,10 @@ object PlayerHub {
       if (isPlaying) {
         main.removeCallbacks(ticker)
         main.post(ticker)
+        if (!playCounted) {
+          playCounted = true
+          if (sink == null) missed("play")
+        }
       }
     }
 
@@ -240,7 +366,12 @@ object PlayerHub {
         }
         Player.STATE_ENDED -> {
           player.playWhenReady = false
-          emit(JSONObject().put("type", "ended"))
+          position = duration ?: position
+          countCompletion()
+          // Whatever plays next, or this again, is a new play.
+          playCounted = false
+          completeCounted = false
+          if (sink == null) endedAlone() else emit(JSONObject().put("type", "ended"))
         }
       }
     }
@@ -257,6 +388,10 @@ object PlayerHub {
     }
   }
 
+  private const val PREFERENCES = "player"
+  private const val MISSED_KEY = "missed"
+  private const val COMPLETE_RATIO = 0.9
+  private const val RESTART_MS = 3000L
   private const val TICK_MS = 250L
   private const val HIDDEN_TICK_MS = 5000L
   private const val SLEEP_FADE_MS = 15_000L

@@ -133,9 +133,22 @@ pub(crate) fn append(
     value: Option<i64>,
     tag_id: Option<String>,
 ) -> Result<(), StoreError> {
+    append_at(store, path, kind, value, tag_id, now_unix())
+}
+
+/// Append an event that happened at `ts` (Unix seconds), e.g. a play the
+/// Android player counted while the app's page was gone.
+pub(crate) fn append_at(
+    store: &Store,
+    path: &str,
+    kind: EventKind,
+    value: Option<i64>,
+    tag_id: Option<String>,
+    ts: u64,
+) -> Result<(), StoreError> {
     let line = EventLine {
         schema_version: SCHEMA_VERSION,
-        ts: now_unix(),
+        ts,
         device: store.device_id().to_owned(),
         path: path.to_owned(),
         event: kind.as_str().to_owned(),
