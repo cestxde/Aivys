@@ -208,7 +208,9 @@ export class NativeAudio extends EventTarget {
 
     pause() {
         this.setPaused(true);
-        this.player.pause();
+        // With no source there is nothing to pause here: the player may still be
+        // playing what an earlier page started, for this page's first load to take over.
+        if (this.url) this.player.pause();
     }
 
     /** What the system's media controls show. */
