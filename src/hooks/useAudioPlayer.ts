@@ -122,6 +122,11 @@ export const useAudioPlayer = (
             if (at >= 0) index = at;
         }
         q.restore({ ...saved, index });
+        // The modes may have been changed with the buttons of the system's controls meanwhile.
+        if (playing) {
+            if (playing.repeat !== repeatMode) updateSettings({ repeatMode: playing.repeat });
+            if (playing.shuffle !== isShuffle) toggleShuffle();
+        }
         const track = saved.order[index];
         if (track) audio.loadFilePaused(track.path, loadPosition(track.path));
     };
@@ -151,6 +156,9 @@ export const useAudioPlayer = (
     useEffect(() => {
         native?.setRepeat(repeatMode);
     }, [native, repeatMode]);
+    useEffect(() => {
+        native?.setShuffle(isShuffle);
+    }, [native, isShuffle]);
 
     // The position: every few seconds while playing, and on pause, seek and close.
     const { element } = audio;
@@ -261,6 +269,18 @@ export const useAudioPlayer = (
     const toggleRepeatMode = () => {
         updateSettings({ repeatMode: nextRepeatMode(repeatMode) });
     };
+
+    // Android: the shuffle and repeat buttons of the system's controls. Re-subscribed
+    // every render, so the handlers see the current modes.
+    useEffect(() => {
+        if (!native) return;
+        native.addEventListener("shufflebutton", toggleShuffle);
+        native.addEventListener("repeatbutton", toggleRepeatMode);
+        return () => {
+            native.removeEventListener("shufflebutton", toggleShuffle);
+            native.removeEventListener("repeatbutton", toggleRepeatMode);
+        };
+    });
 
     return {
         activePath,

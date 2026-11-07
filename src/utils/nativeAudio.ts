@@ -24,6 +24,7 @@ interface AndroidPlayer {
     /** Where the loaded track is in the queue. */
     setQueueIndex(index: number): void;
     setRepeat(mode: string): void;
+    setShuffle(on: boolean): void;
     /** The sleep timer's "end of the track" is on or off. */
     setStopAfterTrack(on: boolean): void;
     /** JSON `MissedEvent[]`: the plays counted with the page gone; given once. */
@@ -35,7 +36,7 @@ const bridge = (window as unknown as { AivysPlayer?: AndroidPlayer }).AivysPlaye
 /** What the native player tells the page (seconds throughout). */
 type PlayerEvent =
     | { type: "loaded"; duration: number }
-    | { type: "play" | "pause" | "ended" | "next" | "previous" | "slept" }
+    | { type: "play" | "pause" | "ended" | "next" | "previous" | "slept" | "shuffle" | "repeat" }
     | { type: "time" | "seeked"; position: number }
     | { type: "error"; message: string };
 
@@ -47,6 +48,9 @@ interface PlayingState {
     playing: boolean;
     /** Where the track is in the queue the player was told. */
     queueIndex: number;
+    /** The modes the player was told, as the buttons of the system's controls left them. */
+    shuffle: boolean;
+    repeat: RepeatMode;
 }
 
 /** What the system's media controls show for the loaded track. */
@@ -232,6 +236,10 @@ export class NativeAudio extends EventTarget {
         this.player.setRepeat(mode);
     }
 
+    setShuffle(on: boolean) {
+        this.player.setShuffle(on);
+    }
+
     setStopAfterTrack(on: boolean) {
         this.player.setStopAfterTrack(on);
     }
@@ -303,6 +311,13 @@ export class NativeAudio extends EventTarget {
                 break;
             case "slept":
                 this.fire("slept");
+                break;
+            // The shuffle and repeat buttons of the system's controls.
+            case "shuffle":
+                this.fire("shufflebutton");
+                break;
+            case "repeat":
+                this.fire("repeatbutton");
                 break;
         }
     }

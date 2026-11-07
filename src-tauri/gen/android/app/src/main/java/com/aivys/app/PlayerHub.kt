@@ -66,6 +66,48 @@ object PlayerHub {
 
   /** The page's repeat mode: "none", "all" or "one". */
   var repeat = "none"
+    private set
+
+  /** Whether the page shuffles its queue. */
+  var shuffle = false
+    private set
+
+  /** The shuffle or repeat mode changed (for the buttons of the system's controls): set by `PlaybackService`. */
+  var onModesChanged: (() -> Unit)? = null
+
+  fun setRepeatMode(mode: String) {
+    if (repeat == mode) return
+    repeat = mode
+    onModesChanged?.invoke()
+  }
+
+  fun setShuffle(on: Boolean) {
+    if (shuffle == on) return
+    shuffle = on
+    onModesChanged?.invoke()
+  }
+
+  /**
+   * The shuffle button of the system's controls was pressed: the page's to
+   * answer, which tells the new mode back. With the page gone the mode is
+   * flipped here, and the page takes it when it is back (`state`).
+   */
+  fun pressShuffle() {
+    if (sink != null) emit(JSONObject().put("type", "shuffle")) else setShuffle(!shuffle)
+  }
+
+  /** The repeat button of the system's controls was pressed (as `pressShuffle`). */
+  fun pressRepeat() {
+    if (sink != null) {
+      emit(JSONObject().put("type", "repeat"))
+    } else {
+      setRepeatMode(when (repeat) {
+        "none" -> "all"
+        "all" -> "one"
+        else -> "none"
+      })
+    }
+  }
 
   /** The sleep timer's "end of the track": at the end of this one the next is loaded, paused. */
   var stopAfterTrack = false
@@ -183,7 +225,7 @@ object PlayerHub {
 
   /**
    * What plays, for a new page: `{path, position, duration, playing,
-   * queueIndex}` (seconds; `path` null with nothing loaded).
+   * queueIndex, shuffle, repeat}` (seconds; `path` null with nothing loaded).
    */
   fun state(): JSONObject = JSONObject()
     .put("path", path ?: JSONObject.NULL)
@@ -191,6 +233,8 @@ object PlayerHub {
     .put("duration", duration ?: JSONObject.NULL)
     .put("playing", playing)
     .put("queueIndex", queueIndex)
+    .put("shuffle", shuffle)
+    .put("repeat", repeat)
 
   // The sleep timer: at `sleepAt` (elapsed real time, ms) the music has faded
   // out over SLEEP_FADE_MS and pauses. Here rather than in the page, which

@@ -20,7 +20,8 @@ import org.json.JSONObject
  * Events go back as `aivys-player` events with a JSON `detail`:
  * `{type: "loaded", duration}`, `play`, `pause`, `{type: "time", position}`,
  * `{type: "seeked", position}`, `ended`, `{type: "error", message}`, `next`,
- * `previous`, `slept` (the sleep timer paused it) (seconds throughout).
+ * `previous`, `shuffle` and `repeat` (their buttons of the system's controls
+ * were pressed), `slept` (the sleep timer paused it) (seconds throughout).
  *
  * The page also tells the player its queue, for it to go on through it with
  * the page gone (the app swiped away), and takes the plays it counted then.
@@ -96,7 +97,11 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
 
   /** The repeat mode: "none", "all" or "one". */
   @JavascriptInterface
-  fun setRepeat(mode: String) = main.post { PlayerHub.repeat = mode }
+  fun setRepeat(mode: String) = main.post { PlayerHub.setRepeatMode(mode) }
+
+  /** Whether the page shuffles its queue. */
+  @JavascriptInterface
+  fun setShuffle(on: Boolean) = main.post { PlayerHub.setShuffle(on) }
 
   /** The sleep timer's "end of the track" is on or off. */
   @JavascriptInterface
