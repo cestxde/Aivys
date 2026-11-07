@@ -555,6 +555,9 @@ export const en = {
     "updates.dontShow": "Don't show again",
     "updates.later": "Later",
     "updates.install": "Update",
+    "updates.download": "Download",
+    "updates.promptHintApk": "On startup, look for a new release on GitHub and offer to download it.",
+    "updates.openFailed": "Could not open the link",
     "updates.installing": "Updating…",
     "settings.version": "Version {version}",
 } satisfies Record<string, Message>;

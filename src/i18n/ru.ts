@@ -586,6 +586,9 @@ export const ru: Record<MessageKey, Message> = {
     "updates.dontShow": "Больше не показывать",
     "updates.later": "Позже",
     "updates.install": "Обновить",
+    "updates.download": "Скачать",
+    "updates.promptHintApk": "При запуске проверять новые релизы на GitHub и предлагать скачать.",
+    "updates.openFailed": "Не удалось открыть ссылку",
     "updates.installing": "Обновление…",
     "settings.version": "Версия {version}",
 };

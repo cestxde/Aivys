@@ -1,17 +1,40 @@
 import { useSyncExternalStore } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { t } from "../i18n";
+import { notifyError } from "./notify";
 
 /**
  * App updates from the GitHub releases (the updater plugin checks the latest
  * release's `latest.json`). One state for the whole app: the dialog shown on
  * startup and the settings section read and drive the same check.
+ *
+ * Android has no updater plugin: there the latest release is read from the
+ * GitHub API, and the update is a link to its APK (`LinkUpdate`) that the
+ * browser downloads and the system installs.
  */
+export interface LinkUpdate {
+    version: string;
+    currentVersion: string;
+    body?: string;
+    downloadUrl: string;
+}
+
+export type AvailableUpdate = Update | LinkUpdate;
+
+export const isLinkUpdate = (update: AvailableUpdate): update is LinkUpdate => "downloadUrl" in update;
+
+export const isAndroid = /Android/i.test(navigator.userAgent);
+
+const REPOSITORY = "cestxde/Aivys";
+
 export type UpdateStatus =
     | { kind: "idle" }
     | { kind: "checking" }
     | { kind: "current" }
-    | { kind: "available"; update: Update }
+    | { kind: "available"; update: AvailableUpdate }
     | { kind: "downloading"; update: Update; done: number; total: number | null }
     | { kind: "error"; message: string; update?: Update };
 
@@ -69,6 +92,47 @@ export const closeUpdateDialog = () => {
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+/** Whether version `a` is newer than `b` (dotted numbers; what follows a `-` is ignored). */
+const isNewer = (a: string, b: string) => {
+    const parts = (version: string) => version.split("-")[0].split(".").map(part => parseInt(part, 10) || 0);
+    const [x, y] = [parts(a), parts(b)];
+    for (let i = 0; i < Math.max(x.length, y.length); i++) {
+        const difference = (x[i] ?? 0) - (y[i] ?? 0);
+        if (difference !== 0) return difference > 0;
+    }
+    return false;
+};
+
+/** Android's check: the latest GitHub release, if it is newer than this app. */
+const checkRelease = async (): Promise<LinkUpdate | null> => {
+    const response = await fetch(`https://api.github.com/repos/${REPOSITORY}/releases/latest`);
+    if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
+    const release = await response.json() as {
+        tag_name?: string;
+        body?: string | null;
+        html_url?: string;
+        assets?: { name: string; browser_download_url: string }[];
+    };
+    const version = (release.tag_name ?? "").replace(/^v/, "");
+    const currentVersion = await getVersion();
+    if (!version || !isNewer(version, currentVersion)) return null;
+    // The release page if the APK is not attached (yet).
+    const apk = release.assets?.find(asset => asset.name.endsWith(".apk"));
+    return {
+        version,
+        currentVersion,
+        body: release.body ?? undefined,
+        downloadUrl: apk?.browser_download_url ?? release.html_url ?? `https://github.com/${REPOSITORY}/releases/latest`,
+    };
+};
+
+/** Open the APK's link (the browser takes it from there). */
+export const openDownload = (update: LinkUpdate) => {
+    openUrl(update.downloadUrl)
+        .then(closeUpdateDialog)
+        .catch(e => notifyError(t("updates.openFailed"), e));
+};
+
 /**
  * Look for a newer version. On startup (`manual` false) this is quiet: only
  * an available update is shown (as the dialog, if the prompt is on), errors
@@ -78,7 +142,7 @@ export const checkForUpdates = async ({ manual }: { manual: boolean }) => {
     if (status.kind === "checking" || status.kind === "downloading") return;
     set({ kind: "checking" });
     try {
-        const update = await check();
+        const update = isAndroid ? await checkRelease() : await check();
         if (update) {
             set({ kind: "available", update });
             if (manual || prompt) openUpdateDialog();

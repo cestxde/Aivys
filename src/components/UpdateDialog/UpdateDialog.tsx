@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { Download, X } from "lucide-react";
 import {
-    closeUpdateDialog, installUpdate, setUpdatePrompt, useUpdatePrompt, useUpdateStatus,
+    closeUpdateDialog, installUpdate, isLinkUpdate, openDownload, setUpdatePrompt, useUpdatePrompt, useUpdateStatus,
 } from "../../utils/updates";
 import { formatFileSize } from "../../utils/format";
 import { t } from "../../i18n";
@@ -39,7 +39,7 @@ interface UpdateDialogProps {
     onBeforeInstall: () => void;
 }
 
-/** "A new version is available": its notes, install now or later. */
+/** "A new version is available": its notes, install now or later (on Android, download the APK). */
 export const UpdateDialog = ({ onBeforeInstall }: UpdateDialogProps) => {
     useBackLayer(true, closeUpdateDialog);
     const status = useUpdateStatus();
@@ -100,9 +100,15 @@ export const UpdateDialog = ({ onBeforeInstall }: UpdateDialogProps) => {
                         {t("updates.dontShow")}
                     </label>
                     <button className="editor-button" disabled={busy} onClick={closeUpdateDialog}>{t("updates.later")}</button>
-                    <button className="editor-button primary" disabled={busy} onClick={() => installUpdate(update, onBeforeInstall)}>
-                        {busy ? t("updates.installing") : t("updates.install")}
-                    </button>
+                    {isLinkUpdate(update) ? (
+                        <button className="editor-button primary" onClick={() => openDownload(update)}>
+                            <Download size={14} /> {t("updates.download")}
+                        </button>
+                    ) : (
+                        <button className="editor-button primary" disabled={busy} onClick={() => installUpdate(update, onBeforeInstall)}>
+                            {busy ? t("updates.installing") : t("updates.install")}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

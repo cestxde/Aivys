@@ -1,0 +1,9 @@
+{
+  "app": {
+    "security": {
+      "csp": {
+        "connect-src": "ipc: http://ipc.localhost https://api.github.com"
+      }
+    }
+  }
+}

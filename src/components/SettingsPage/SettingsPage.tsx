@@ -4,7 +4,7 @@ import { AppWindow, Download, FolderOpen, Info, Keyboard, MicVocal, Palette, Ref
 import { ArtistRulesEditor } from "./ArtistRules";
 import { ShortcutSettings } from "./ShortcutSettings";
 import {
-    checkForUpdates, openUpdateDialog, setUpdatePrompt, useUpdatePrompt, useUpdateStatus,
+    checkForUpdates, isAndroid, isLinkUpdate, openUpdateDialog, setUpdatePrompt, useUpdatePrompt, useUpdateStatus,
 } from "../../utils/updates";
 import type { ThemePreference } from "../../utils/theme";
 import {
@@ -216,7 +216,7 @@ export const SettingsPage = ({
                 >
                     {updates.kind === "available" || updates.kind === "downloading" || (updates.kind === "error" && updates.update) ? (
                         <button className="settings-button" onClick={openUpdateDialog}>
-                            <Download size={14} /> {t("updates.install")}
+                            <Download size={14} /> {"update" in updates && updates.update && isLinkUpdate(updates.update) ? t("updates.download") : t("updates.install")}
                         </button>
                     ) : (
                         <button
@@ -228,7 +228,7 @@ export const SettingsPage = ({
                         </button>
                     )}
                 </Row>
-                <Row title={t("updates.prompt")} description={t("updates.promptHint")}>
+                <Row title={t("updates.prompt")} description={t(isAndroid ? "updates.promptHintApk" : "updates.promptHint")}>
                     <input
                         type="checkbox"
                         className="settings-checkbox"
