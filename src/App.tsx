@@ -472,6 +472,16 @@ function App() {
 			if (last) {
 				const valid = await library.validate(last);
 				if (valid) {
+					// The library as the last scan left it shows at once; the
+					// folder is checked meanwhile, and what changed shows after.
+					const indexed = await library.loadIndexed(last);
+					if (indexed) {
+						resume(indexed);
+						recordMissedPlays(indexed);
+						setView("library");
+						library.scan(last, { background: true });
+						return;
+					}
 					const scanned = await library.scan(last) ?? [];
 					resume(scanned);
 					recordMissedPlays(scanned);

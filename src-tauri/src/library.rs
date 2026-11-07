@@ -194,9 +194,12 @@ fn scan_cached(
         upserts.len(),
         removed.len()
     );
+    let started = std::time::Instant::now();
     db.apply_scan(&upserts, &added_at_updates, &removed)?;
     db.derive_artists(rules, !upserts.is_empty() || !removed.is_empty())?;
-    db.load_tracks(base)
+    let tracks = db.load_tracks(base)?;
+    log::info!("scan: index updated and read in {:?}", started.elapsed());
+    Ok(tracks)
 }
 
 /// The blocking part of a scan: walks the folder, reads tags and covers, and
@@ -204,7 +207,9 @@ fn scan_cached(
 /// run on a blocking thread pool via [`scan_directory`], never on the UI thread.
 fn do_scan(base_path: &str, covers_dir: &Path, app_data: Option<&Path>, rules: &ArtistRules) -> Vec<Track> {
     let base = Path::new(base_path);
+    let started = std::time::Instant::now();
     let files = find_files(base);
+    log::info!("scan: walked {} files in {:?}", files.len(), started.elapsed());
 
     let db = app_data.and_then(|app_data| match LibraryDb::open(app_data, base) {
         Ok(db) => Some(db),
@@ -224,8 +229,30 @@ fn do_scan(base_path: &str, covers_dir: &Path, app_data: Option<&Path>, rules: &
     files.iter().filter_map(|file| read_found(file, covers_dir, &splitter)).collect()
 }
 
+/// Opens the library's `.aivys/` store and lets the page load the files of the
+/// library: what a scan starts with, and what showing the index without one
+/// needs too.
+fn open_library(app: &tauri::AppHandle, base_path: &str, covers_dir: &Path) {
+    // Open `.aivys/` first: it merges sync conflicts (including
+    // added-at.json) before the scan reads them.
+    let started = std::time::Instant::now();
+    if let Err(err) = open_store(app, Path::new(base_path)) {
+        log::warn!("cannot open .aivys store: {err}");
+    }
+    log::info!("scan: store opened in {:?}", started.elapsed());
+    // The page may load files of the open library only (tracks, and
+    // playlist covers in .aivys) and of the cover cache.
+    for dir in [Path::new(base_path), covers_dir] {
+        if let Err(err) = app.asset_protocol_scope().allow_directory(dir, true) {
+            log::warn!("cannot allow {} for the asset protocol: {err}", dir.display());
+        }
+    }
+}
+
+/// `reuse_store`: the library was opened already (`cached_tracks`), this scan
+/// only checks its files.
 #[tauri::command(rename_all = "camelCase")]
-pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String) -> Vec<Track> {
+pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String, reuse_store: Option<bool>) -> Vec<Track> {
     let covers_dir = resolve_covers_dir(&app);
     let app_data = app.path().app_data_dir().ok();
 
@@ -233,20 +260,44 @@ pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String) -> 
     // stays responsive (spinner keeps animating) during a large scan.
     tauri::async_runtime::spawn_blocking(move || {
         let _scanning = scan_lock();
-
-        // Open `.aivys/` first: it merges sync conflicts (including
-        // added-at.json) before the scan reads them.
-        if let Err(err) = open_store(&app, Path::new(&base_path)) {
-            log::warn!("cannot open .aivys store: {err}");
-        }
-        // The page may load files of the open library only (tracks, and
-        // playlist covers in .aivys) and of the cover cache.
-        for dir in [Path::new(&base_path), covers_dir.as_path()] {
-            if let Err(err) = app.asset_protocol_scope().allow_directory(dir, true) {
-                log::warn!("cannot allow {} for the asset protocol: {err}", dir.display());
-            }
+        if !reuse_store.unwrap_or(false) {
+            open_library(&app, &base_path, &covers_dir);
         }
         do_scan(&base_path, &covers_dir, app_data.as_deref(), &artist_rules(&app))
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/// The library as the index has it from the last scan, without walking the
+/// folder: for showing it at once, while `scan_directory` (with `reuseStore`)
+/// checks the files after. Opens the library as a scan does. Empty when
+/// nothing is indexed yet.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn cached_tracks(app: tauri::AppHandle, base_path: String) -> Vec<Track> {
+    let covers_dir = resolve_covers_dir(&app);
+    let app_data = app.path().app_data_dir().ok();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let _scanning = scan_lock();
+        open_library(&app, &base_path, &covers_dir);
+        let Some(app_data) = app_data else {
+            return Vec::new();
+        };
+        let base = Path::new(&base_path);
+        let started = std::time::Instant::now();
+        let tracks = match LibraryDb::open(&app_data, base) {
+            Ok(db) => db.load_tracks(base).unwrap_or_else(|err| {
+                log::warn!("cannot read the library index: {err}");
+                Vec::new()
+            }),
+            Err(err) => {
+                log::warn!("cannot open library index: {err}");
+                Vec::new()
+            }
+        };
+        log::info!("scan: {} tracks from the index in {:?}", tracks.len(), started.elapsed());
+        tracks
     })
     .await
     .unwrap_or_default()

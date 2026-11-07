@@ -10,7 +10,7 @@ mod text;
 mod track;
 mod tray;
 
-use library::{list_folders, scan_directory, validate_directory};
+use library::{cached_tracks, list_folders, scan_directory, validate_directory};
 use store::commands::*;
 use media_controls::set_media_state;
 use taskbar::set_taskbar_state;
@@ -83,6 +83,7 @@ pub fn run() {
         .manage(metadata::EditUndo::default())
         .invoke_handler(tauri::generate_handler![
             scan_directory,
+            cached_tracks,
             validate_directory,
             list_folders,
             show_main_window,
