@@ -212,7 +212,10 @@ fn connect(path: &Path) -> rusqlite::Result<Connection> {
     smart::register_functions(&conn)?;
     conn.execute_batch(UNLISTED_ARTISTS)?;
     conn.execute_batch(SYNC_FINGERPRINTS)?;
-    conn.execute_batch(EVENTS_PLAY_TS)?;
+    // Only once `events` exists: `create` opens an empty file through here
+    // before applying SCHEMA, and indexing a missing table made the whole
+    // library index fail to open (search and scripts filter gone).
+    ensure_events_play_ts(&conn)?;
     // A new table in an existing index: forget the fingerprints, so the next
     // sync reads tags.json (and fills it) even though nothing changed.
     let had_categories: bool = conn.query_row(
@@ -225,6 +228,19 @@ fn connect(path: &Path) -> rusqlite::Result<Connection> {
         conn.execute("DELETE FROM sync_fingerprints", [])?;
     }
     Ok(conn)
+}
+
+/// `events_play_ts` for the stats page; no-op until SCHEMA has created `events`.
+fn ensure_events_play_ts(conn: &Connection) -> rusqlite::Result<()> {
+    let has_events: bool = conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'events')",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_events {
+        conn.execute_batch(EVENTS_PLAY_TS)?;
+    }
+    Ok(())
 }
 
 impl LibraryDb {
@@ -265,6 +281,7 @@ impl LibraryDb {
     fn create(path: &Path, library_root: &Path) -> rusqlite::Result<Connection> {
         let conn = connect(path)?;
         conn.execute_batch(SCHEMA)?;
+        ensure_events_play_ts(&conn)?;
         conn.execute(
             "INSERT INTO meta (key, value) VALUES ('libraryRoot', ?1)",
             [library_root.to_string_lossy()],
