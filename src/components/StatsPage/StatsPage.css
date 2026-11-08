@@ -1,0 +1,242 @@
+.stats-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.stats-page > * {
+    flex-shrink: 0;
+}
+
+.stats-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    max-width: 760px;
+}
+
+.stats-title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-h);
+}
+
+.stats-periods {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.stats-periods button {
+    padding: 6px 12px;
+    border: none;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.stats-periods button + button {
+    border-left: 1px solid var(--border);
+}
+
+.stats-periods button.active {
+    background: var(--surface);
+    color: var(--text-h);
+    font-weight: 600;
+}
+
+.stats-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    transition: opacity 0.15s ease;
+}
+
+.stats-body.waiting {
+    opacity: 0.55;
+}
+
+.stats-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    max-width: 760px;
+}
+
+@media (min-width: 720px) {
+    .stats-metrics {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.stats-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+
+button.stats-metric {
+    cursor: pointer;
+}
+
+button.stats-metric:hover {
+    background: var(--surface);
+}
+
+.stats-metric-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text);
+}
+
+.stats-metric-value {
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--text-h);
+    line-height: 1.1;
+}
+
+.stats-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 760px;
+}
+
+.stats-section-title {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text);
+}
+
+.stats-rank-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.stats-rank-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.55rem 0.85rem;
+    border: none;
+    background: var(--bg);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.stats-rank-row + .stats-rank-row,
+.stats-rank-row + .stats-expand,
+.stats-expand {
+    border-top: 1px solid var(--border);
+}
+
+.stats-rank-row:hover {
+    background: var(--surface);
+}
+
+.stats-rank-n {
+    flex: 0 0 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+
+.stats-rank-cover {
+    flex-shrink: 0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.stats-rank-cover.round {
+    border-radius: 50%;
+}
+
+.stats-rank-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.stats-rank-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-h);
+    font-weight: 500;
+}
+
+.stats-rank-sub {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    color: var(--text);
+}
+
+.stats-rank-count {
+    flex-shrink: 0;
+    font-size: 0.85rem;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+
+.stats-expand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border: none;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.stats-expand:hover {
+    background: var(--surface);
+    color: var(--text-h);
+}
+
+.stats-empty {
+    margin: 0;
+    padding: 1rem;
+    color: var(--text);
+    font-size: 0.9rem;
+}

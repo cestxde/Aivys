@@ -236,6 +236,38 @@ pub(crate) async fn get_track_stats(state: State<'_, StoreState>) -> Result<Hash
     })
 }
 
+/// Play counts per track since `since` (Unix seconds), or all time when omitted.
+#[tauri::command]
+pub(crate) async fn get_play_counts(
+    state: State<'_, StoreState>,
+    since: Option<u64>,
+) -> Result<HashMap<String, u32>, StoreError> {
+    with_library(&state, |library| {
+        if let Some(db) = library.synced_db() {
+            match db.play_counts_since(since) {
+                Ok(counts) => return Ok(counts),
+                Err(err) => log::warn!("index query failed: {err}"),
+            }
+        }
+        play_counts_from_journals(&library.store, since)
+    })
+}
+
+/// Play counts from the journals directly (when the index is unavailable).
+fn play_counts_from_journals(store: &Store, since: Option<u64>) -> Result<HashMap<String, u32>, StoreError> {
+    let mut counts = HashMap::new();
+    for event in events::read_all(store)? {
+        if event.kind != EventKind::Play {
+            continue;
+        }
+        if since.is_some_and(|from| event.line.ts < from) {
+            continue;
+        }
+        *counts.entry(event.line.path).or_insert(0) += 1;
+    }
+    Ok(counts)
+}
+
 // ---- Track files ----
 
 /// Move track files to the system trash. Their `.aivys` data is kept: playlist

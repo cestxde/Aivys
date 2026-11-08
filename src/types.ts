@@ -110,6 +110,7 @@ export type View =
     | { kind: 'album'; id: string }
     // `id` is the "/"-separated folder path, "" for the library root.
     | { kind: 'folder'; id: string }
+    | { kind: 'stats' }
     | { kind: 'settings' };
 
 /** How artist tags are split into artists (`.aivys/library.json` → `artists`). */

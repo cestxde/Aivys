@@ -152,6 +152,48 @@ impl LibraryDb {
         Ok(ingested)
     }
 
+    /// Play counts per track since `since` (Unix seconds), or all time when
+    /// `since` is `None`. Conflict copies are collapsed like journal derivation.
+    pub(crate) fn play_counts_since(&self, since: Option<u64>) -> rusqlite::Result<HashMap<String, u32>> {
+        if since.is_none() {
+            let mut stmt = self
+                .conn
+                .prepare("SELECT rel_path, play_count FROM track_state WHERE play_count > 0")?;
+            let mut counts = HashMap::new();
+            let mut rows = stmt.query([])?;
+            while let Some(row) = rows.next()? {
+                counts.insert(row.get(0)?, row.get(1)?);
+            }
+            return Ok(counts);
+        }
+
+        let mut stmt = self.conn.prepare(
+            "SELECT file, ts, device, path, value, tag_id FROM events
+             WHERE event = 'play' AND ts >= ?1
+             ORDER BY file, seq",
+        )?;
+        let mut dedup = Dedup::new();
+        let mut counts = HashMap::new();
+        let mut rows = stmt.query([since.unwrap() as i64])?;
+        while let Some(row) = rows.next()? {
+            let file: String = row.get(0)?;
+            let line = EventLine {
+                schema_version: 1,
+                ts: row.get(1)?,
+                device: row.get(2)?,
+                path: row.get(3)?,
+                event: "play".to_owned(),
+                value: row.get(4)?,
+                tag_id: row.get(5)?,
+                extra: Map::new(),
+            };
+            if dedup.keep(file, line.dedup_key()) {
+                *counts.entry(line.path).or_insert(0) += 1;
+            }
+        }
+        Ok(counts)
+    }
+
     /// Derived state of every track that has any, keyed by relative path.
     /// Tags deleted in `tags.json` are left out.
     pub(crate) fn track_stats(&self) -> rusqlite::Result<HashMap<String, TrackStats>> {

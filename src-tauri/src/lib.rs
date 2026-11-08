@@ -102,6 +102,7 @@ pub fn run() {
             set_favorite,
             set_track_tag,
             get_track_stats,
+            get_play_counts,
             list_tags,
             create_tag,
             update_tag,

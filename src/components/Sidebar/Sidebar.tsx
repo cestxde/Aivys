@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Search, Settings, X, CheckCheck, Languages, Check } from "lucide-react";
+import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Search, Settings, X, CheckCheck, Languages, Check, ChartColumn } from "lucide-react";
 import { ThemedLogo } from "../ThemedLogo";
 import { PlayingMark } from "../CardPlayButton/CardPlayButton";
 import type { View } from "../../types";
@@ -36,6 +36,7 @@ const SECTIONS: SidebarItem[][] = [
         FOLDERS,
     ],
     [
+        { label: "nav.stats", icon: <ChartColumn size={18} />, view: { kind: "stats" } },
         { label: "nav.mostPlayed", icon: <TrendingUp size={18} />, view: { kind: "system", id: "mostPlayed" } },
         { label: "nav.recentlyPlayed", icon: <History size={18} />, view: { kind: "system", id: "recentlyPlayed" } },
     ],
@@ -82,6 +83,7 @@ const isCurrent = (item: View, view: View): boolean => {
         case "artists": return view.kind === "artists" || view.kind === "artist";
         case "albums": return view.kind === "albums" || view.kind === "album";
         case "folder": return view.kind === "folder";
+        case "stats": return view.kind === "stats";
         case "settings": return view.kind === "settings";
         case "system": return view.kind === "system" && item.id === view.id;
         default: return false;

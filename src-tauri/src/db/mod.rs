@@ -35,6 +35,9 @@ const USER_TAG_CATEGORIES: &str = "CREATE TABLE IF NOT EXISTS user_tag_categorie
     PRIMARY KEY (tag_id, category_id)
 );";
 
+/// Speeds up play counts for a time window (stats page). Additive.
+const EVENTS_PLAY_TS: &str = "CREATE INDEX IF NOT EXISTS events_play_ts ON events(event, ts);";
+
 /// Bump on any schema change. A database with another version is deleted and
 /// rebuilt from scratch: it only holds rebuildable data, so no migrations.
 /// Also bump when the event vocabulary changes, so journals are re-ingested,
@@ -209,6 +212,7 @@ fn connect(path: &Path) -> rusqlite::Result<Connection> {
     smart::register_functions(&conn)?;
     conn.execute_batch(UNLISTED_ARTISTS)?;
     conn.execute_batch(SYNC_FINGERPRINTS)?;
+    conn.execute_batch(EVENTS_PLAY_TS)?;
     // A new table in an existing index: forget the fingerprints, so the next
     // sync reads tags.json (and fills it) even though nothing changed.
     let had_categories: bool = conn.query_row(

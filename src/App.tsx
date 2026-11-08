@@ -66,6 +66,7 @@ import { CategoryDialog } from "./components/TagDialog/CategoryDialog";
 import { MergeTagDialog } from "./components/TagPicker/MergeTagDialog";
 import { TagPicker } from "./components/TagPicker/TagPicker";
 import { SettingsPage } from "./components/SettingsPage/SettingsPage";
+import { StatsPage } from "./components/StatsPage/StatsPage";
 import { systemViewTracks, tagTracks, untaggedTracks, UNTAGGED_KEY } from "./utils/views";
 import {
 	compareBy, hintOf, sectionOf, sortSpecOf, viewSortOf, DEFAULT_SORT, type SortSection, type ViewSort,
@@ -112,6 +113,7 @@ const SECTION_TITLES: Record<SystemView | Exclude<View["kind"], "system">, Messa
 	albums: "nav.albums",
 	album: "nav.albums",
 	folder: "nav.folders",
+	stats: "nav.stats",
 	settings: "nav.settings",
 };
 const PLAYLISTS_VIEW: View = { kind: "playlists" };
@@ -205,7 +207,7 @@ const VOLUME_STEP = 0.05;
 const SEEK_STEP = 5;
 
 /** Pages that show cards rather than a track list. */
-const CARD_PAGES: View["kind"][] = ["playlists", "tags", "settings", "artists", "albums"];
+const CARD_PAGES: View["kind"][] = ["playlists", "tags", "settings", "stats", "artists", "albums"];
 
 /** The smart-playlist editor: creating a new one, or editing `playlist`. */
 interface EditorState {
@@ -719,6 +721,7 @@ function App() {
 			case "folder":
 				return backTo ?? (listView.id ? { kind: "folder", id: listView.id.split("/").slice(0, -1).join("/") } : LIBRARY_VIEW);
 			case "settings": return backTo ?? LIBRARY_VIEW;
+			case "stats": return backTo ?? LIBRARY_VIEW;
 			case "system": return listView.id === "library" ? null : backTo ?? LIBRARY_VIEW;
 			default: return LIBRARY_VIEW;
 		}
@@ -1592,7 +1595,7 @@ function App() {
 	// Pages of tracks (with the toolbar's search) and pages of cards (grid or list).
 	const cardPage = listView.kind === "playlists" || listView.kind === "tags"
 		|| listView.kind === "artists" || listView.kind === "albums" ? listView.kind : null;
-	const hasTrackList = !cardPage && listView.kind !== "settings";
+	const hasTrackList = !cardPage && listView.kind !== "settings" && listView.kind !== "stats";
 	const cardLayout = cardPage
 		? { value: layouts[cardPage], onChange: (layout: PlaylistsLayout) => setLayout(cardPage, layout) }
 		: null;
@@ -1746,6 +1749,18 @@ function App() {
 							onRescan={rescan}
 							onClearRecent={clearRecent}
 							onCheckConflicts={checkConflicts}
+						/>
+					) : listView.kind === "stats" ? (
+						<StatsPage
+							files={files}
+							stats={trackStats.stats}
+							artistCover={(key) => {
+								const group = artistsByKey.get(key);
+								return group ? groupCovers(group, 1)[0] : null;
+							}}
+							onPlayTrack={(track, queue) => playFrom("stats", track, queue)}
+							onOpenArtist={(key) => showView({ kind: "artist", id: key }, { kind: "stats" })}
+							onOpenView={(view) => showView(view)}
 						/>
 					) : listView.kind === "artists" ? (
 						<CollectionPage
