@@ -106,8 +106,16 @@ jobs:
       - name: Build Android APK
         run: npx tauri android build --apk
 
+      - name: Name the APK like the Windows installer
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          src="src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk"
+          dest="src-tauri/gen/android/app/build/outputs/apk/universal/release/Aivys_${version}.apk"
+          mv "$src" "$dest"
+          echo "APK_PATH=$dest" >> "$GITHUB_ENV"
+
       - name: Upload APK to the release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+          files: ${{ env.APK_PATH }}
