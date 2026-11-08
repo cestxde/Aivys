@@ -371,6 +371,7 @@ journals (`tag`/`untag`, §8.2).
       "name": "Chill",
       "color": "#4f9dff",
       "categoryIds": ["2b7e...uuid"],
+      "implies": ["9a2d...uuid"],
       "createdAt": 1730000000,
       "updatedAt": 1730000000,
       "deletedAt": null
@@ -394,6 +395,11 @@ journals (`tag`/`untag`, §8.2).
 - `color` is a CSS hex string (`#RRGGBB`).
 - Deleting a tag sets `deletedAt` (tombstone) and `updatedAt`. Assignments to a
   deleted tag are ignored when deriving state; the journal is not touched.
+- **`implies`** (optional): ids of other tags also assigned when this tag is
+  assigned (`tag` events). Removing the tag does **not** remove the implied
+  ones. Unknown or deleted ids are ignored; a tag must not list itself.
+  Implication is followed transitively (cycles are skipped). Merging a tag
+  retargets other tags' `implies` that named it.
 - **Categories** group tags for display ("Genre", "Mood"). `categories` and a
   tag's `categoryIds` are optional (a file without them has no categories, a
   tag without `categoryIds` is in none). A tag may be in several categories;

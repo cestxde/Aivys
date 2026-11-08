@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { EMPTY_STATS, type Track, type TrackStats } from "../types";
+import { EMPTY_STATS, type Track, type TrackStats, type UserTag } from "../types";
+import { impliedTagIds } from "../utils/tags";
 import { notifyError } from "../utils/notify";
 import { t, type MessageKey } from "../i18n";
 
@@ -23,14 +24,21 @@ const NO_STATS: StatsMap = {};
  * Per-track favorites, ratings, tags and play statistics from the library's
  * `.aivys/` journals, keyed by `Track.relPath`. Reloaded after every scan;
  * user actions update the local copy immediately and are then persisted.
+ *
+ * `tagById` is used so assigning a tag also shows the ones it implies, before
+ * the backend writes them.
  */
-export const useTrackStats = (files: Track[]) => {
+export const useTrackStats = (files: Track[], tagById: Map<string, UserTag> = new Map()) => {
     const [stats, setStats] = useState<StatsMap>({});
     // Latest state for callbacks that toggle a value.
     const statsRef = useRef(stats);
     useEffect(() => {
         statsRef.current = stats;
     }, [stats]);
+    const tagByIdRef = useRef(tagById);
+    useEffect(() => {
+        tagByIdRef.current = tagById;
+    }, [tagById]);
 
     const reload = useCallback(async () => {
         try {
@@ -92,12 +100,18 @@ export const useTrackStats = (files: Track[]) => {
 
     /** Assign or remove a tag on tracks (those already in that state are skipped). */
     const setTrackTag = useCallback((tracks: Track[], tagId: string, assigned: boolean) => {
+        // Assigning also adds implied tags locally; the backend writes them too.
+        const extra = assigned ? impliedTagIds(tagId, tagByIdRef.current) : [];
         for (const track of tracks) {
             const current = statsRef.current[track.relPath]?.tags ?? [];
             if (current.includes(tagId) === assigned) continue;
-            patch(track.relPath, ({ tags }) => ({
-                tags: assigned ? [...tags, tagId] : tags.filter(id => id !== tagId),
-            }));
+            patch(track.relPath, ({ tags }) => {
+                if (!assigned) return { tags: tags.filter(id => id !== tagId) };
+                const next = new Set(tags);
+                next.add(tagId);
+                for (const id of extra) next.add(id);
+                return { tags: [...next] };
+            });
             persist("set_track_tag", { path: track.relPath, tagId, assigned });
         }
     }, [patch, persist]);

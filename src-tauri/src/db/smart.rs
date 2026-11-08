@@ -327,7 +327,7 @@ mod tests {
         .unwrap();
 
         let mood = tags::create_category(&store, "Mood").unwrap();
-        let tag = tags::create(&store, "Chill", "#000000", &[mood.id]).unwrap();
+        let tag = tags::create(&store, "Chill", "#000000", &[mood.id], &[]).unwrap();
         append(&store, "b.flac", EventKind::Rating, Some(5), None).unwrap();
         append(&store, "b.flac", EventKind::Play, None, None).unwrap();
         append(&store, "a.flac", EventKind::Favorite, None, None).unwrap();

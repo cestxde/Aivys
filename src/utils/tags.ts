@@ -15,6 +15,26 @@ export const nextTagColor = (tags: UserTag[]): string =>
 export const tagsOf = (ids: string[] | undefined, byId: Map<string, UserTag>): UserTag[] =>
     (ids ?? []).flatMap(id => byId.get(id) ?? []);
 
+/**
+ * Tag ids also assigned when `tagId` is, following each tag's `implies`
+ * (the root id itself is omitted; cycles are skipped).
+ */
+export const impliedTagIds = (tagId: string, byId: Map<string, UserTag>): string[] => {
+    const out: string[] = [];
+    const seen = new Set<string>([tagId]);
+    const stack = [...(byId.get(tagId)?.implies ?? [])];
+    while (stack.length > 0) {
+        const id = stack.pop()!;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const tag = byId.get(id);
+        if (!tag) continue;
+        out.push(id);
+        stack.push(...(tag.implies ?? []));
+    }
+    return out;
+};
+
 /** How tags are ordered within a category: most tracks first, or by name. */
 export type TagSort = "count" | "name";
 

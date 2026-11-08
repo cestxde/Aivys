@@ -45,6 +45,9 @@ pub(crate) struct TagDef {
     /// Categories the tag is shown in; none for "no category".
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) category_ids: Vec<String>,
+    /// Other tags also assigned when this one is (ids); not removed with it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) implies: Vec<String>,
     #[serde(default)]
     pub(crate) created_at: u64,
     #[serde(default)]
@@ -86,16 +89,26 @@ fn live_category_ids(doc: &TagsDoc) -> HashSet<String> {
         .collect()
 }
 
-/// Tags that are not deleted, with only the categories that are not either.
+fn live_tag_ids(doc: &TagsDoc) -> HashSet<String> {
+    doc.tags
+        .iter()
+        .filter(|tag| tag.deleted_at.is_none())
+        .map(|tag| tag.id.clone())
+        .collect()
+}
+
+/// Tags that are not deleted, with only live categories and implies kept.
 pub(crate) fn list(store: &Store) -> Result<Vec<TagDef>, StoreError> {
     let doc = load(store)?;
     let categories = live_category_ids(&doc);
+    let tags = live_tag_ids(&doc);
     Ok(doc
         .tags
         .into_iter()
         .filter(|tag| tag.deleted_at.is_none())
         .map(|mut tag| {
             tag.category_ids.retain(|id| categories.contains(id));
+            tag.implies.retain(|id| tags.contains(id) && *id != tag.id);
             tag
         })
         .collect())
@@ -184,15 +197,65 @@ fn clean_category_ids(doc: &TagsDoc, ids: &[String]) -> Result<Vec<String>, Stor
     Ok(clean)
 }
 
-pub(crate) fn create(store: &Store, name: &str, color: &str, category_ids: &[String]) -> Result<TagDef, StoreError> {
+/// `ids` without repeats or `self_id`, each a live tag.
+fn clean_implies(doc: &TagsDoc, ids: &[String], self_id: &str) -> Result<Vec<String>, StoreError> {
+    let live = live_tag_ids(doc);
+    let mut seen = HashSet::new();
+    let mut clean = Vec::new();
+    for id in ids {
+        if id == self_id {
+            continue;
+        }
+        if !live.contains(id) {
+            return Err(StoreError::NotFound(format!("tag {id}")));
+        }
+        if seen.insert(id) {
+            clean.push(id.clone());
+        }
+    }
+    Ok(clean)
+}
+
+/// Live tag ids also assigned when `tag_id` is, following `implies` (cycles skipped).
+pub(crate) fn implied_by(store: &Store, tag_id: &str) -> Result<Vec<String>, StoreError> {
+    let tags = list(store)?;
+    let by_id: std::collections::HashMap<&str, &TagDef> =
+        tags.iter().map(|tag| (tag.id.as_str(), tag)).collect();
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    seen.insert(tag_id.to_owned());
+    let mut stack: Vec<String> = by_id
+        .get(tag_id)
+        .map(|tag| tag.implies.clone())
+        .unwrap_or_default();
+    while let Some(id) = stack.pop() {
+        if !seen.insert(id.clone()) {
+            continue;
+        }
+        let Some(tag) = by_id.get(id.as_str()) else { continue };
+        out.push(id);
+        stack.extend(tag.implies.iter().cloned());
+    }
+    Ok(out)
+}
+
+pub(crate) fn create(
+    store: &Store,
+    name: &str,
+    color: &str,
+    category_ids: &[String],
+    implies: &[String],
+) -> Result<TagDef, StoreError> {
     let name = clean_name(name)?;
     let color = clean_color(color)?;
     modify(store, |doc, now| {
+        let id = new_uuid();
         let tag = TagDef {
-            id: new_uuid(),
+            id: id.clone(),
             name,
             color,
             category_ids: clean_category_ids(doc, category_ids)?,
+            implies: clean_implies(doc, implies, &id)?,
             created_at: now,
             updated_at: now,
             deleted_at: None,
@@ -209,11 +272,13 @@ pub(crate) fn update(
     name: Option<&str>,
     color: Option<&str>,
     category_ids: Option<&[String]>,
+    implies: Option<&[String]>,
 ) -> Result<TagDef, StoreError> {
     let name = name.map(clean_name).transpose()?;
     let color = color.map(clean_color).transpose()?;
     modify(store, |doc, now| {
         let category_ids = category_ids.map(|ids| clean_category_ids(doc, ids)).transpose()?;
+        let implies = implies.map(|ids| clean_implies(doc, ids, id)).transpose()?;
         let tag = live_tag(doc, id)?;
         if let Some(name) = name {
             tag.name = name;
@@ -223,6 +288,9 @@ pub(crate) fn update(
         }
         if let Some(ids) = category_ids {
             tag.category_ids = ids;
+        }
+        if let Some(ids) = implies {
+            tag.implies = ids;
         }
         tag.updated_at = now;
         Ok(tag.clone())
@@ -341,7 +409,30 @@ pub(crate) fn merge_into(store: &Store, from: &str, into: &str) -> Result<TagDef
 
     let mut category_ids = target.category_ids.clone();
     category_ids.extend(source.category_ids.iter().filter(|id| !target.category_ids.contains(id)).cloned());
-    let merged = update(store, into, None, None, Some(&category_ids))?;
+    // `from`'s implies move onto `into` (except `into` / `from` themselves).
+    let mut implies = target.implies.clone();
+    for id in &source.implies {
+        if id != into && id != from && !implies.contains(id) {
+            implies.push(id.clone());
+        }
+    }
+    let merged = update(store, into, None, None, Some(&category_ids), Some(&implies))?;
+
+    // Other tags that implied `from` now imply `into` instead.
+    let retarget_implies: Vec<(String, Vec<String>)> = list(store)?
+        .into_iter()
+        .filter(|tag| tag.id != into && tag.implies.iter().any(|id| id == from))
+        .map(|mut tag| {
+            tag.implies.retain(|id| id != from);
+            if !tag.implies.iter().any(|id| id == into) {
+                tag.implies.push(into.to_owned());
+            }
+            (tag.id, tag.implies)
+        })
+        .collect();
+    for (id, next) in retarget_implies {
+        update(store, &id, None, None, None, Some(&next))?;
+    }
 
     if pins::list(store)?.iter().any(|pin| pin.kind == "tag" && pin.key == from) {
         pins::set(store, "tag", into, true)?;
@@ -364,7 +455,7 @@ pub(crate) fn merge_into(store: &Store, from: &str, into: &str) -> Result<TagDef
     }
 
     delete(store, from)?;
-    Ok(merged)
+    Ok(list(store)?.into_iter().find(|tag| tag.id == into).unwrap_or(merged))
 }
 
 /// Merge strategy: union by id; for a tag (or category) on both sides the
@@ -402,6 +493,7 @@ mod tests {
             name: name.to_owned(),
             color: "#ffffff".to_owned(),
             category_ids: Vec::new(),
+            implies: Vec::new(),
             created_at: 1,
             updated_at,
             deleted_at,
@@ -464,10 +556,10 @@ mod tests {
         let mood = create_category(&store, "Mood").unwrap();
         assert_eq!((genre.position, mood.position), (0, 1));
 
-        let rock = create(&store, "Rock", "#ff0000", &[genre.id.clone(), genre.id.clone()]).unwrap();
+        let rock = create(&store, "Rock", "#ff0000", &[genre.id.clone(), genre.id.clone()], &[]).unwrap();
         assert_eq!(rock.category_ids, vec![genre.id.clone()], "repeats are dropped");
-        assert!(create(&store, "Bad", "#ff0000", &["nope".to_owned()]).is_err());
-        update(&store, &rock.id, None, None, Some(&[genre.id.clone(), mood.id.clone()])).unwrap();
+        assert!(create(&store, "Bad", "#ff0000", &["nope".to_owned()], &[]).is_err());
+        update(&store, &rock.id, None, None, Some(&[genre.id.clone(), mood.id.clone()]), None).unwrap();
 
         let order = reorder_categories(&store, &[mood.id.clone(), genre.id.clone()]).unwrap();
         assert_eq!(order.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["Mood", "Genre"]);
@@ -484,10 +576,32 @@ mod tests {
     fn a_file_without_categories_reads_and_stays_without() {
         let lib = TempLibrary::new();
         let store = lib.open();
-        create(&store, "Chill", "#00ff00", &[]).unwrap();
+        create(&store, "Chill", "#00ff00", &[], &[]).unwrap();
         let text = std::fs::read_to_string(store.path(FILE)).unwrap();
         assert!(!text.contains("categor"), "{text}");
+        assert!(!text.contains("implies"), "{text}");
         assert!(list(&store).unwrap()[0].category_ids.is_empty());
+    }
+
+    #[test]
+    fn implies_are_followed_and_cycles_stop() {
+        let lib = TempLibrary::new();
+        let store = lib.open();
+        let electronic = create(&store, "Electronic", "#00ff00", &[], &[]).unwrap();
+        let breakcore = create(&store, "Breakcore", "#ff0000", &[], &[electronic.id.clone()]).unwrap();
+        let hard = create(&store, "Hard", "#0000ff", &[], &[breakcore.id.clone()]).unwrap();
+        // A cycle back to Hard must not loop forever.
+        update(&store, &electronic.id, None, None, None, Some(&[hard.id.clone()])).unwrap();
+
+        let from_breakcore = implied_by(&store, &breakcore.id).unwrap();
+        assert!(from_breakcore.contains(&electronic.id));
+        assert!(from_breakcore.contains(&hard.id));
+        assert!(!from_breakcore.contains(&breakcore.id));
+
+        assert_eq!(
+            implied_by(&store, &hard.id).unwrap().into_iter().collect::<HashSet<_>>(),
+            HashSet::from([breakcore.id.clone(), electronic.id.clone()]),
+        );
     }
 
     #[test]
@@ -496,8 +610,8 @@ mod tests {
         let store = lib.open();
         let mood = create_category(&store, "Mood").unwrap();
         let genre = create_category(&store, "Genre").unwrap();
-        let from = create(&store, "Rock music", "#ff0000", &[mood.id.clone()]).unwrap();
-        let into = create(&store, "Rock", "#00ff00", &[genre.id.clone()]).unwrap();
+        let from = create(&store, "Rock music", "#ff0000", &[mood.id.clone()], &[]).unwrap();
+        let into = create(&store, "Rock", "#00ff00", &[genre.id.clone()], &[]).unwrap();
         for path in ["a.mp3", "b.mp3"] {
             events::append(&store, path, EventKind::Tag, None, Some(from.id.clone())).unwrap();
         }

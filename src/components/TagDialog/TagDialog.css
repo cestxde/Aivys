@@ -30,6 +30,80 @@
     color: var(--danger);
 }
 
+.tag-dialog-hint {
+    display: block;
+    margin: 0.15rem 0 0.35rem;
+    font-size: 0.75rem;
+    color: var(--text);
+    opacity: 0.8;
+}
+
+.tag-implies-search {
+    margin-top: 0.25rem;
+}
+
+.tag-implies-list {
+    display: flex;
+    flex-direction: column;
+    max-height: 11rem;
+    margin-top: 6px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+
+.tag-implies-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 0;
+    background: none;
+    color: var(--text-h);
+    font: inherit;
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tag-implies-row:hover {
+    background: color-mix(in srgb, var(--text-h) 6%, transparent);
+}
+
+.tag-implies-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--accent-text);
+}
+
+.tag-implies-row.on .tag-implies-check {
+    border-color: var(--accent);
+    background: var(--accent);
+}
+
+.tag-implies-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tag-implies-empty {
+    padding: 12px 10px;
+    font-size: 0.8rem;
+    color: var(--text);
+    opacity: 0.75;
+}
+
 .tag-swatches {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));

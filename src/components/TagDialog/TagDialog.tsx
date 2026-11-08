@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Check, Pipette, Plus, X } from "lucide-react";
 import type { TagCategory, UserTag } from "../../types";
 import { TAG_COLORS } from "../../utils/tags";
-import { TagChip } from "../TagChip/TagChip";
+import { TagChip, TagDot } from "../TagChip/TagChip";
+import { SearchInput } from "../SearchInput/SearchInput";
 import { t } from "../../i18n";
 import "./TagDialog.css";
 import { useBackLayer } from "../../hooks/useBackLayer";
@@ -18,7 +19,7 @@ interface TagDialogProps {
     /** All tags, to reject a name another tag already has. */
     tags: UserTag[];
     categories: TagCategory[];
-    onSave: (name: string, color: string, categoryIds: string[]) => void;
+    onSave: (name: string, color: string, categoryIds: string[], implies: string[]) => void;
     /** Create a category from the dialog (it is then selected). */
     onCreateCategory: (name: string) => Promise<TagCategory | null>;
     onClose: () => void;
@@ -30,6 +31,8 @@ export const TagDialog = ({ tag, initialColor, initialCategoryIds = [], initialN
     const [name, setName] = useState(tag?.name ?? initialName);
     const [color, setColor] = useState(tag?.color ?? initialColor);
     const [categoryIds, setCategoryIds] = useState(tag?.categoryIds ?? initialCategoryIds);
+    const [implies, setImplies] = useState(tag?.implies ?? []);
+    const [impliesFilter, setImpliesFilter] = useState("");
     // The name of a category being created here, or null.
     const [newCategory, setNewCategory] = useState<string | null>(null);
     // Escape leaves the new category's field without creating it.
@@ -50,11 +53,37 @@ export const TagDialog = ({ tag, initialColor, initialCategoryIds = [], initialN
     const custom = !TAG_COLORS.includes(color);
 
     const save = () => {
-        if (valid) onSave(trimmed, color, categories.flatMap(c => (categoryIds.includes(c.id) ? [c.id] : [])));
+        if (!valid) return;
+        onSave(
+            trimmed,
+            color,
+            categories.flatMap(c => (categoryIds.includes(c.id) ? [c.id] : [])),
+            // Keep the chosen order; drop anything that no longer exists.
+            implies.filter(id => tags.some(other => other.id === id && other.id !== tag?.id)),
+        );
     };
 
     const toggleCategory = (id: string) =>
         setCategoryIds(ids => (ids.includes(id) ? ids.filter(other => other !== id) : [...ids, id]));
+
+    const toggleImplies = (id: string) =>
+        setImplies(ids => (ids.includes(id) ? ids.filter(other => other !== id) : [...ids, id]));
+
+    const otherTags = useMemo(
+        () => tags.filter(other => other.id !== tag?.id),
+        [tags, tag?.id],
+    );
+    const impliesQuery = impliesFilter.trim().toLowerCase();
+    const shownImplies = useMemo(() => {
+        const matched = otherTags.filter(other =>
+            !impliesQuery || other.name.toLowerCase().includes(impliesQuery));
+        // Selected first, then by name — easier to see what will be added.
+        return [...matched].sort((a, b) => {
+            const aOn = implies.includes(a.id) ? 0 : 1;
+            const bOn = implies.includes(b.id) ? 0 : 1;
+            return aOn - bOn || a.name.localeCompare(b.name);
+        });
+    }, [otherTags, impliesQuery, implies]);
 
     // Leaving the field creates the category (Enter leaves it too).
     const createCategory = async () => {
@@ -164,6 +193,47 @@ export const TagDialog = ({ tag, initialColor, initialCategoryIds = [], initialN
                         )}
                     </div>
                 </div>
+
+                {otherTags.length > 0 && (
+                    <div className="editor-field">
+                        {t("tagDialog.implies")}
+                        <span className="tag-dialog-hint">{t("tagDialog.impliesHint")}</span>
+                        <SearchInput
+                            className="tag-implies-search"
+                            placeholder={t("tagDialog.impliesFind")}
+                            value={impliesFilter}
+                            onChange={setImpliesFilter}
+                            onKeyDown={(e) => {
+                                // Don't save the dialog from this box.
+                                if (e.key === "Enter") e.preventDefault();
+                                e.stopPropagation();
+                            }}
+                        />
+                        <div className="tag-implies-list" role="group" aria-label={t("tagDialog.implies")}>
+                            {shownImplies.map(other => {
+                                const on = implies.includes(other.id);
+                                return (
+                                    <button
+                                        key={other.id}
+                                        className={`tag-implies-row${on ? " on" : ""}`}
+                                        role="checkbox"
+                                        aria-checked={on}
+                                        onClick={() => toggleImplies(other.id)}
+                                    >
+                                        <span className="tag-implies-check">
+                                            {on && <Check size={12} />}
+                                        </span>
+                                        <TagDot color={other.color} size={10} />
+                                        <span className="tag-implies-name">{other.name}</span>
+                                    </button>
+                                );
+                            })}
+                            {shownImplies.length === 0 && (
+                                <div className="tag-implies-empty">{t("tagPicker.noMatch")}</div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 <div className="tag-dialog-preview">
                     <TagChip tag={{ id: "", name: trimmed || t("tagDialog.previewName"), color, createdAt: 0, updatedAt: 0 }} />

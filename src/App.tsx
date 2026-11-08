@@ -291,7 +291,8 @@ function App() {
 
 	const tracksByPath = useMemo(() => new Map(files.map(f => [f.relPath, f])), [files]);
 
-	const trackStats = useTrackStats(files);
+	const tags = useTags(files);
+	const trackStats = useTrackStats(files, tags.byId);
 	const tagClipboard = useTagClipboard();
 	usePlayTracking(element, currentTrack ?? null, trackStats.recordPlay, trackStats.recordComplete);
 
@@ -316,7 +317,6 @@ function App() {
 	});
 
 	const playlists = usePlaylists(files);
-	const tags = useTags(files);
 	const pins = usePins(files);
 
 	/** Known tag ids from the clipboard (deleted tags are dropped). */
@@ -892,12 +892,12 @@ function App() {
 	const playPlaylist = async (target: Playlist) =>
 		playTracks(await tracksOf(target), { kind: "playlist", id: target.id });
 
-	const saveTag = async (name: string, color: string, categoryIds: string[]) => {
+	const saveTag = async (name: string, color: string, categoryIds: string[], implies: string[]) => {
 		const edited = tagDialog?.tag;
 		const assignTo = tagDialog?.assignTo;
 		setTagDialog(null);
 		if (!edited) {
-			const created = await tags.create(name, color, categoryIds);
+			const created = await tags.create(name, color, categoryIds, implies);
 			if (created && assignTo) trackStats.setTrackTag(assignTo, created.id, true);
 			return;
 		}
@@ -906,6 +906,8 @@ function App() {
 		if (color !== edited.color) change.color = color;
 		const before = edited.categoryIds ?? [];
 		if (categoryIds.length !== before.length || categoryIds.some(id => !before.includes(id))) change.categoryIds = categoryIds;
+		const beforeImplies = edited.implies ?? [];
+		if (implies.length !== beforeImplies.length || implies.some(id => !beforeImplies.includes(id))) change.implies = implies;
 		if (Object.keys(change).length > 0) await tags.update(edited.id, change);
 	};
 

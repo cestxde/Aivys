@@ -79,6 +79,8 @@ export interface UserTag {
     color: string;
     /** Categories the tag is shown in; none (or missing) for "no category". */
     categoryIds?: string[];
+    /** Other tags also assigned when this one is; not removed with it. */
+    implies?: string[];
     createdAt: number;
     updatedAt: number;
 }

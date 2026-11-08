@@ -188,12 +188,28 @@ pub(crate) async fn set_track_tag(
     assigned: bool,
 ) -> Result<(), StoreError> {
     with_store(&state, |store| {
-        if assigned && !tags::list(store)?.iter().any(|tag| tag.id == tag_id) {
+        let key = store.track_key(&path)?;
+        if !assigned {
+            return events::append(store, &key, EventKind::Untag, None, Some(tag_id));
+        }
+        let live = tags::list(store)?;
+        if !live.iter().any(|tag| tag.id == tag_id) {
             return Err(StoreError::NotFound(format!("tag {tag_id}")));
         }
-        let key = store.track_key(&path)?;
-        let kind = if assigned { EventKind::Tag } else { EventKind::Untag };
-        events::append(store, &key, kind, None, Some(tag_id))
+        // Also assign every tag this one implies (and those imply, …).
+        let mut ids = vec![tag_id.clone()];
+        ids.extend(tags::implied_by(store, &tag_id)?);
+        let current = events::derive(&events::read_all(store)?, &tags::deleted_ids(store)?)
+            .remove(&key)
+            .map(|stats| stats.tags)
+            .unwrap_or_default();
+        for id in ids {
+            if current.iter().any(|have| have == &id) {
+                continue;
+            }
+            events::append(store, &key, EventKind::Tag, None, Some(id))?;
+        }
+        Ok(())
     })
 }
 
@@ -462,8 +478,17 @@ pub(crate) async fn create_tag(
     name: String,
     color: String,
     category_ids: Option<Vec<String>>,
+    implies: Option<Vec<String>>,
 ) -> Result<TagDef, StoreError> {
-    with_store(&state, |store| tags::create(store, &name, &color, category_ids.as_deref().unwrap_or_default()))
+    with_store(&state, |store| {
+        tags::create(
+            store,
+            &name,
+            &color,
+            category_ids.as_deref().unwrap_or_default(),
+            implies.as_deref().unwrap_or_default(),
+        )
+    })
 }
 
 #[tauri::command]
@@ -473,8 +498,18 @@ pub(crate) async fn update_tag(
     name: Option<String>,
     color: Option<String>,
     category_ids: Option<Vec<String>>,
+    implies: Option<Vec<String>>,
 ) -> Result<TagDef, StoreError> {
-    with_store(&state, |store| tags::update(store, &id, name.as_deref(), color.as_deref(), category_ids.as_deref()))
+    with_store(&state, |store| {
+        tags::update(
+            store,
+            &id,
+            name.as_deref(),
+            color.as_deref(),
+            category_ids.as_deref(),
+            implies.as_deref(),
+        )
+    })
 }
 
 #[tauri::command]

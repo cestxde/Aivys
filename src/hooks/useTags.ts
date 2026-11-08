@@ -14,6 +14,7 @@ export interface TagChange {
     name?: string;
     color?: string;
     categoryIds?: string[];
+    implies?: string[];
 }
 
 /**
@@ -53,9 +54,14 @@ export const useTags = (files: Track[]) => {
             : [...prev, tag]);
     }, []);
 
-    const create = useCallback(async (name: string, color: string, categoryIds: string[] = []): Promise<UserTag | null> => {
+    const create = useCallback(async (
+        name: string,
+        color: string,
+        categoryIds: string[] = [],
+        implies: string[] = [],
+    ): Promise<UserTag | null> => {
         try {
-            const tag = await invoke<UserTag>("create_tag", { name, color, categoryIds });
+            const tag = await invoke<UserTag>("create_tag", { name, color, categoryIds, implies });
             upsert(tag);
             return tag;
         } catch (e) {
