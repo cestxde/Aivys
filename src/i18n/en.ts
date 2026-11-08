@@ -117,6 +117,16 @@ export const en = {
 
     // Toolbar and sorting
     "search.clear": "Clear",
+    "scripts.filter": "Writing system",
+    "scripts.clear": "Clear filter",
+    "scripts.japanese": "Japanese",
+    "scripts.han": "Chinese / Kanji",
+    "scripts.korean": "Korean",
+    "scripts.cyrillic": "Cyrillic",
+    "scripts.arabic": "Arabic",
+    "scripts.thai": "Thai",
+    "scripts.greek": "Greek",
+    "scripts.other": "Other scripts",
     "toolbar.search": "Search tracks...",
     "toolbar.shuffleAll": "Shuffle all",
     "toolbar.sortBy": "Sort by",

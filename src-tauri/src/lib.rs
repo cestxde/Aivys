@@ -4,6 +4,7 @@ mod db;
 mod library;
 mod media_controls;
 mod metadata;
+mod scripts;
 mod store;
 mod taskbar;
 mod text;

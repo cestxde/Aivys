@@ -38,6 +38,8 @@ export interface Track {
     artistLine: string;
     // Artists of this track left out of the artist list (met too rarely).
     unlistedArtists: string[];
+    // Writing systems in title/artists/album (bitmask; see utils/scripts.ts).
+    scripts: number;
 }
 
 /** Per-track state derived from the .aivys event journals (get_track_stats). */

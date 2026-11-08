@@ -135,6 +135,10 @@
         cursor: pointer;
     }
 
+    .mobile-header-menu.active {
+        color: var(--accent);
+    }
+
     .mobile-header-text {
         display: flex;
         flex: 1;

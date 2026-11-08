@@ -1,18 +1,23 @@
 import "./ToolBar.css"
 import { useCallback, useState } from "react";
 import {
-    ArrowDown, ArrowDown01, ArrowDown10, ArrowDownAZ, ArrowDownZA, ArrowUp, ArrowUpDown, Check, ChevronDown, Play, Shuffle,
+    ArrowDown, ArrowDown01, ArrowDown10, ArrowDownAZ, ArrowDownZA, ArrowUp, ArrowUpDown, Check, ChevronDown, Languages, Play, Shuffle,
 } from "lucide-react";
 import { ContextMenu, type MenuEntry } from "../ContextMenu/ContextMenu";
 import {
     SORT_FIELDS, directionLabel, sortBy, sortLabel, type ListDisplay, type SortField, type ViewSort,
 } from "../../utils/sort";
+import { FILTER_SCRIPTS } from "../../utils/scripts";
 import { t } from "../../i18n";
 import { SearchInput } from "../SearchInput/SearchInput";
 
 interface ToolbarProps {
     searchQuery: string;
     onSearchChange: (value: string) => void;
+    scriptMask: number;
+    availableScripts: number;
+    onToggleScript: (bit: number) => void;
+    onClearScripts: () => void;
     sort: ViewSort;
     /** Name of the view's own order ("Playlist order", ...); null if it has none. */
     defaultLabel: string | null;
@@ -42,6 +47,10 @@ const DirectionIcon = ({ sort }: { sort: ViewSort }) => {
 export const Toolbar = ({
     searchQuery,
     onSearchChange,
+    scriptMask,
+    availableScripts,
+    onToggleScript,
+    onClearScripts,
     sort,
     defaultLabel,
     onSortChange,
@@ -53,7 +62,9 @@ export const Toolbar = ({
     onPlayAll
 }: ToolbarProps) => {
     const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
+    const [scriptsAt, setScriptsAt] = useState<{ x: number; y: number } | null>(null);
     const closeMenu = useCallback(() => setMenuAt(null), []);
+    const closeScripts = useCallback(() => setScriptsAt(null), []);
 
     const reverse = () => onSortChange({ ...sort, dir: sort.dir === "asc" ? "desc" : "asc" });
 
@@ -83,6 +94,27 @@ export const Toolbar = ({
         },
     ];
     const direction = directionLabel(sort, defaultLabel ?? "");
+
+    const scriptOptions = FILTER_SCRIPTS.filter(({ bit }) => (availableScripts & bit) !== 0);
+    const scriptEntries: MenuEntry[] = [
+        { kind: "label", label: t("scripts.filter") },
+        ...scriptOptions.map(({ bit, label }) => ({
+            kind: "item" as const,
+            label: t(label),
+            icon: check((scriptMask & bit) !== 0),
+            onSelect: () => onToggleScript(bit),
+        })),
+        ...(scriptMask !== 0
+            ? [
+                { kind: "separator" as const },
+                {
+                    kind: "item" as const,
+                    label: t("scripts.clear"),
+                    onSelect: onClearScripts,
+                },
+            ]
+            : []),
+    ];
 
     return (
         <div className="toolbar">
@@ -117,6 +149,22 @@ export const Toolbar = ({
             </div>
 
             <div className="toolbar-section center">
+                {scriptOptions.length > 0 && (
+                    <button
+                        className={`sort-button scripts-button${scriptMask ? " active" : ""}`}
+                        aria-haspopup="menu"
+                        aria-pressed={scriptMask !== 0}
+                        title={t("scripts.filter")}
+                        aria-label={t("scripts.filter")}
+                        onPointerDown={(e) => scriptsAt && e.stopPropagation()}
+                        onClick={(e) => {
+                            const box = e.currentTarget.getBoundingClientRect();
+                            setScriptsAt(scriptsAt ? null : { x: box.left, y: box.bottom + 4 });
+                        }}
+                    >
+                        <Languages size={16} />
+                    </button>
+                )}
                 <SearchInput
                     placeholder={t("toolbar.search")}
                     className="track-search"
@@ -124,9 +172,10 @@ export const Toolbar = ({
                     onChange={onSearchChange}
                     onKeyDown={(e) => {
                         // Esc clears the search; in an empty box it goes back (App).
-                        if (e.key === "Escape" && searchQuery) {
+                        if (e.key === "Escape" && (searchQuery || scriptMask)) {
                             e.stopPropagation();
                             onSearchChange("");
+                            onClearScripts();
                         }
                     }}
                 />
@@ -152,6 +201,7 @@ export const Toolbar = ({
             </div>
 
             {menuAt && <ContextMenu x={menuAt.x} y={menuAt.y} entries={entries} onClose={closeMenu} />}
+            {scriptsAt && <ContextMenu x={scriptsAt.x} y={scriptsAt.y} entries={scriptEntries} onClose={closeScripts} />}
         </div>
     );
 };

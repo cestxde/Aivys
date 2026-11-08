@@ -1,5 +1,5 @@
-import { Fragment, useRef, useState, type ReactNode } from "react";
-import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Search, Settings, X, CheckCheck } from "lucide-react";
+import { Fragment, useCallback, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Search, Settings, X, CheckCheck, Languages, Check } from "lucide-react";
 import { ThemedLogo } from "../ThemedLogo";
 import { PlayingMark } from "../CardPlayButton/CardPlayButton";
 import type { View } from "../../types";
@@ -7,6 +7,8 @@ import { t, type MessageKey } from "../../i18n";
 import { useDrawerSwipe } from "../../hooks/useDrawerSwipe";
 import { useBackLayer } from "../../hooks/useBackLayer";
 import { SearchInput } from "../SearchInput/SearchInput";
+import { ContextMenu, type MenuEntry } from "../ContextMenu/ContextMenu";
+import { FILTER_SCRIPTS } from "../../utils/scripts";
 import { LayoutToggle, type PlaylistsLayout } from "../PlaylistsPage/PlaylistsPage";
 import "./Sidebar.css";
 
@@ -166,6 +168,19 @@ export const Sidebar = ({
     );
 };
 
+interface MobileSearch {
+    query: string;
+    placeholder: string;
+    onChange: (query: string) => void;
+    /** Writing-system filter for the track list; omitted on card pages. */
+    scripts?: {
+        mask: number;
+        available: number;
+        onToggle: (bit: number) => void;
+        onClear: () => void;
+    };
+}
+
 interface MobileHeaderProps {
     onOpenDrawer: () => void;
     /** The section on screen ("Library", "Artists", ...). */
@@ -173,7 +188,7 @@ interface MobileHeaderProps {
     /** Under it: the list's size ("120 tracks · 7 h"), where the page has no heading of its own. */
     summary: string | null;
     /** The page's search (tracks) or filter (cards), opened from the bar. */
-    search: { query: string; placeholder: string; onChange: (query: string) => void } | null;
+    search: MobileSearch | null;
     /** Pages of cards: grid or list. */
     layout: { value: PlaylistsLayout; onChange: (layout: PlaylistsLayout) => void } | null;
     /** Tracks selected: the bar says how many, with ways to let them go or take them all. */
@@ -187,13 +202,62 @@ interface MobileHeaderProps {
  */
 export const MobileHeader = ({ onOpenDrawer, title, summary, search, layout, selection }: MobileHeaderProps) => {
     const [searchOpen, setSearchOpen] = useState(false);
-    // Open while asked to, or while there is something searched for.
-    const searching = search !== null && (searchOpen || search.query !== "");
+    const [scriptsAt, setScriptsAt] = useState<{ x: number; y: number } | null>(null);
+    const closeScripts = useCallback(() => setScriptsAt(null), []);
+    const scriptMask = search?.scripts?.mask ?? 0;
+    const scriptOptions = FILTER_SCRIPTS.filter(
+        ({ bit }) => search?.scripts && (search.scripts.available & bit) !== 0,
+    );
+    // Open while asked to, or while there is something searched / filtered for.
+    const searching = search !== null && (searchOpen || search.query !== "" || scriptMask !== 0);
     const closeSearch = () => {
         setSearchOpen(false);
+        setScriptsAt(null);
         search?.onChange("");
+        search?.scripts?.onClear();
     };
     useBackLayer(searching, closeSearch);
+
+    const openScriptsMenu = (e: MouseEvent<HTMLButtonElement>) => {
+        const box = e.currentTarget.getBoundingClientRect();
+        setScriptsAt(scriptsAt ? null : { x: box.left, y: box.bottom + 4 });
+    };
+
+    const scriptEntries: MenuEntry[] | null = search?.scripts && scriptOptions.length > 0
+        ? [
+            { kind: "label", label: t("scripts.filter") },
+            ...scriptOptions.map(({ bit, label }) => ({
+                kind: "item" as const,
+                label: t(label),
+                icon: (scriptMask & bit) !== 0 ? <Check size={16} /> : undefined,
+                onSelect: () => search.scripts!.onToggle(bit),
+            })),
+            ...(scriptMask !== 0
+                ? [
+                    { kind: "separator" as const },
+                    {
+                        kind: "item" as const,
+                        label: t("scripts.clear"),
+                        onSelect: search.scripts.onClear,
+                    },
+                ]
+                : []),
+        ]
+        : null;
+
+    const scriptsButton = scriptEntries && (
+        <button
+            className={`mobile-header-menu${scriptMask ? " active" : ""}`}
+            aria-haspopup="menu"
+            aria-pressed={scriptMask !== 0}
+            title={t("scripts.filter")}
+            aria-label={t("scripts.filter")}
+            onPointerDown={(e) => scriptsAt && e.stopPropagation()}
+            onClick={openScriptsMenu}
+        >
+            <Languages size={20} />
+        </button>
+    );
 
     if (selection) {
         return (
@@ -223,13 +287,14 @@ export const MobileHeader = ({ onOpenDrawer, title, summary, search, layout, sel
             <button className="mobile-header-menu" title={t("nav.menu")} aria-label={t("nav.menu")} onClick={onOpenDrawer}>
                 <Menu size={22} />
             </button>
-            {searching ? (
+            {searching && search ? (
                 <>
+                    {scriptsButton}
                     <SearchInput
                         className="mobile-header-search"
                         value={search.query}
                         placeholder={search.placeholder}
-                        autoFocus
+                        autoFocus={searchOpen || search.query !== ""}
                         onChange={search.onChange}
                     />
                     <button className="mobile-header-menu" title={t("common.close")} aria-label={t("common.close")} onClick={closeSearch}>
@@ -242,6 +307,7 @@ export const MobileHeader = ({ onOpenDrawer, title, summary, search, layout, sel
                         <span className="mobile-header-title">{title}</span>
                         {summary && <span className="mobile-header-summary">{summary}</span>}
                     </div>
+                    {scriptsButton}
                     {search && (
                         <button
                             className="mobile-header-menu"
@@ -254,6 +320,9 @@ export const MobileHeader = ({ onOpenDrawer, title, summary, search, layout, sel
                     )}
                     {layout && <LayoutToggle layout={layout.value} onChange={layout.onChange} />}
                 </>
+            )}
+            {scriptsAt && scriptEntries && (
+                <ContextMenu x={scriptsAt.x} y={scriptsAt.y} entries={scriptEntries} onClose={closeScripts} />
             )}
         </header>
     );

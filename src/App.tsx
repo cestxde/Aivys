@@ -617,13 +617,17 @@ function App() {
 
 	const {
 		searchQuery, setSearchQuery,
-		displayRows, displayFiles, looseFromIndex, isSearching, handleShuffleAll
+		scriptMask, setScriptMask, toggleScript, clearSearch, availableScripts,
+		displayRows, displayFiles, looseFromIndex, isSearching, isFiltering, handleShuffleAll
 	} = useTrackListLogic(viewRows, playTrack);
-	const { ref: listRef, onScroll: onListScroll } = useSearchScroll(searchQuery, viewKey);
+	const { ref: listRef, onScroll: onListScroll } = useSearchScroll(
+		isFiltering ? `${searchQuery}\0${scriptMask}` : "",
+		viewKey,
+	);
 
 	// Selection lasts as long as the list it was made in (view and search).
 	const [selection, setSelection] = useState<Selection>(NO_SELECTION);
-	const selectionScope = `${viewKey}|${searchQuery}`;
+	const selectionScope = `${viewKey}|${searchQuery}|${scriptMask}`;
 	const selectedKeys = selection.scope === selectionScope ? selection.keys : NO_SELECTION.keys;
 	const selectedRows = useMemo(() => displayRows.filter(row => selectedKeys.has(row.key)), [displayRows, selectedKeys]);
 	const selectedTracks = useMemo(() => selectedRows.map(row => row.track), [selectedRows]);
@@ -697,7 +701,7 @@ function App() {
 			setBackTo(from ?? null);
 		}
 		setRenamingId(null);
-		setSearchQuery("");
+		clearSearch();
 		setListView(next);
 	};
 
@@ -732,7 +736,7 @@ function App() {
 		if (!entry) return;
 		setForwardViews(views => views.slice(0, -1));
 		setRenamingId(null);
-		setSearchQuery("");
+		clearSearch();
 		setListView(entry.view);
 		setBackTo(entry.backTo);
 	};
@@ -1505,7 +1509,7 @@ function App() {
 		{ kind: "item", label: t("common.delete"), icon: <Trash2 size={16} />, danger: true, onSelect: () => deleteTag(target) },
 	];
 
-	const emptyText = t(isSearching
+	const emptyText = t(isFiltering
 		? "empty.search"
 		: listView.kind === "system"
 			? EMPTY_TEXT[listView.id]
@@ -1653,7 +1657,17 @@ function App() {
 				title={t(SECTION_TITLES[listView.kind === "system" ? listView.id : listView.kind])}
 				summary={listView.kind === "system" ? viewSummary : null}
 				// Phones only: open, it takes Back (the desktop's bar is hidden).
-				search={isPhone ? (hasTrackList ? { query: searchQuery, placeholder: t("toolbar.search"), onChange: setSearchQuery } : cardFilter) : null}
+				search={isPhone ? (hasTrackList ? {
+					query: searchQuery,
+					placeholder: t("toolbar.search"),
+					onChange: setSearchQuery,
+					scripts: {
+						mask: scriptMask,
+						available: availableScripts,
+						onToggle: toggleScript,
+						onClear: () => setScriptMask(0),
+					},
+				} : cardFilter) : null}
 				layout={cardLayout}
 				selection={phoneSelecting ? {
 					count: selectedRows.length,
@@ -1888,6 +1902,10 @@ function App() {
 								<Toolbar
 									searchQuery={searchQuery}
 									onSearchChange={setSearchQuery}
+									scriptMask={scriptMask}
+									availableScripts={availableScripts}
+									onToggleScript={toggleScript}
+									onClearScripts={() => setScriptMask(0)}
 									sort={viewSort}
 									defaultLabel={defaultLabel}
 									onSortChange={handleSortChange}
@@ -1901,7 +1919,7 @@ function App() {
 							)}
 
 							<div className="track-list-wrapper" ref={listRef} onScroll={onListScroll}>
-								{!isSearching && artistAlbums.length > 0 && (
+								{!isFiltering && artistAlbums.length > 0 && (
 									<AlbumStrip
 										albums={artistAlbums}
 										playingKey={playingIn("album")}
@@ -1911,7 +1929,7 @@ function App() {
 											setMenu({ x, y, entries: groupMenu(album, { kind: "album", id: album.key }) })}
 									/>
 								)}
-								{!isSearching && currentSubfolders.length > 0 && (
+								{!isFiltering && currentSubfolders.length > 0 && (
 									<FolderGrid
 										folders={currentSubfolders}
 										onOpen={(folder) => showView({ kind: "folder", id: folder.key })}
@@ -1952,7 +1970,7 @@ function App() {
 										clearSelection();
 										setMenu({ x, y, entries: trackMenu(row) });
 									}}
-									onReorder={manualPlaylist && viewSort.field === "default" && !isSearching
+									onReorder={manualPlaylist && viewSort.field === "default" && !isFiltering
 										? (itemIds) => playlists.reorder(
 											manualPlaylist.id,
 											// Shown reversed: store the order back the right way round.

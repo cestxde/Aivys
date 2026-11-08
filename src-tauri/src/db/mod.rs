@@ -38,10 +38,11 @@ const USER_TAG_CATEGORIES: &str = "CREATE TABLE IF NOT EXISTS user_tag_categorie
 /// Bump on any schema change. A database with another version is deleted and
 /// rebuilt from scratch: it only holds rebuildable data, so no migrations.
 /// Also bump when the event vocabulary changes, so journals are re-ingested,
-/// or when reading tags changes, so files are read again (7: the album's track
-/// total; 6: raw artist tags kept, artists derived from them by the library's
-/// rules; 4 and 5 were development builds).
-const SCHEMA_VERSION: i32 = 7;
+/// or when reading tags changes, so files are read again (8: writing-system
+/// bitmask on tracks; 7: the album's track total; 6: raw artist tags kept,
+/// artists derived from them by the library's rules; 4 and 5 were development
+/// builds).
+const SCHEMA_VERSION: i32 = 8;
 
 const SCHEMA: &str = "
 CREATE TABLE meta (
@@ -70,7 +71,9 @@ CREATE TABLE tracks (
     format TEXT,
     cover_path TEXT,
     added_at INTEGER NOT NULL,
-    file_mtime INTEGER NOT NULL
+    file_mtime INTEGER NOT NULL,
+    -- Writing systems in title/artists/album (see scripts::of_track).
+    scripts INTEGER NOT NULL DEFAULT 0
 );
 
 -- Artist tag values as read; `track_artists` is derived from them by the
@@ -380,7 +383,7 @@ impl LibraryDb {
         let mut stmt = self.conn.prepare(
             "SELECT id, rel_path, name, duration, title, album, album_artist, track_number,
                     disc_number, year, bitrate, sample_rate, format, cover_path, added_at,
-                    file_mtime, size, track_total
+                    file_mtime, size, track_total, scripts
              FROM tracks
              ORDER BY rel_path COLLATE NOCASE",
         )?;
@@ -420,6 +423,7 @@ impl LibraryDb {
                 file_size: row.get::<_, i64>(16)?.max(0) as u64,
                 artist_line: artist_tags.get(&id).map(|values| display_line(values)).unwrap_or_default(),
                 unlisted_artists,
+                scripts: row.get::<_, i64>(18)?.max(0) as u32,
                 // Only the index needs the tag values.
                 artist_tags: Vec::new(),
             })
@@ -443,12 +447,14 @@ impl LibraryDb {
 
 fn upsert_track(tx: &Transaction, scanned: &ScannedTrack) -> rusqlite::Result<()> {
     let track = &scanned.track;
+    let scripts = crate::scripts::of_track(track) as i64;
     let id: i64 = tx
         .query_row(
             "INSERT INTO tracks (rel_path, mtime_ns, size, name, duration, title, album,
                                  album_artist, track_number, disc_number, year, bitrate,
-                                 sample_rate, format, cover_path, added_at, file_mtime, track_total)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
+                                 sample_rate, format, cover_path, added_at, file_mtime, track_total,
+                                 scripts)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
              ON CONFLICT (rel_path) DO UPDATE SET
                  mtime_ns = excluded.mtime_ns, size = excluded.size, name = excluded.name,
                  duration = excluded.duration, title = excluded.title, album = excluded.album,
@@ -457,7 +463,7 @@ fn upsert_track(tx: &Transaction, scanned: &ScannedTrack) -> rusqlite::Result<()
                  bitrate = excluded.bitrate, sample_rate = excluded.sample_rate,
                  format = excluded.format, cover_path = excluded.cover_path,
                  added_at = excluded.added_at, file_mtime = excluded.file_mtime,
-                 track_total = excluded.track_total
+                 track_total = excluded.track_total, scripts = excluded.scripts
              RETURNING id",
             params![
                 track.rel_path,
@@ -478,6 +484,7 @@ fn upsert_track(tx: &Transaction, scanned: &ScannedTrack) -> rusqlite::Result<()
                 track.date_created,
                 track.file_mtime,
                 track.track_total,
+                scripts,
             ],
             |row| row.get(0),
         )?;
@@ -529,6 +536,7 @@ mod tests {
                 file_size: 0,
                 artist_line: String::new(),
                 unlisted_artists: Vec::new(),
+                scripts: 0,
                 artist_tags: vec!["A".into(), "B".into()],
             },
             mtime_ns: 1,

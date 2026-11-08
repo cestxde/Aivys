@@ -512,6 +512,7 @@ mod tests {
                 file_size: 0,
                 artist_line: String::new(),
                 unlisted_artists: Vec::new(),
+                scripts: 0,
                 artist_tags: vec![artist.to_owned()],
             },
             mtime_ns: 0,

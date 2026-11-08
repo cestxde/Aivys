@@ -17,6 +17,25 @@
 
 .center {
     flex: 1;
+    align-items: center;
+    min-width: 0;
+}
+
+.center .track-search {
+    flex: 1;
+    min-width: 0;
+}
+
+.scripts-button {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.scripts-button.active {
+    border-color: var(--accent);
+    color: var(--accent);
 }
 
 .right {

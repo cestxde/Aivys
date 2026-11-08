@@ -118,6 +118,16 @@ export const ru: Record<MessageKey, Message> = {
 
     // Toolbar and sorting
     "search.clear": "Очистить",
+    "scripts.filter": "Письменность",
+    "scripts.clear": "Сбросить фильтр",
+    "scripts.japanese": "Японская",
+    "scripts.han": "Китайская / кандзи",
+    "scripts.korean": "Корейская",
+    "scripts.cyrillic": "Кириллица",
+    "scripts.arabic": "Арабская",
+    "scripts.thai": "Тайская",
+    "scripts.greek": "Греческая",
+    "scripts.other": "Другие письменности",
     "toolbar.search": "Поиск треков...",
     "toolbar.shuffleAll": "Перемешать всё",
     "toolbar.sortBy": "Сортировка",
