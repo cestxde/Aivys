@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { asNativeAudio } from "../utils/nativeAudio";
+import { toElementVolume } from "../utils/volume";
 
 /** When the music stops: at a time (ms since the epoch), or at the end of the track. */
-export type SleepTimer = { kind: "time"; endsAt: number } | { kind: "track" } | null;
+export type SleepTimer =
+    | { kind: "time"; endsAt: number; /** Preset chosen in the menu (for the check mark). */ minutes: number }
+    | { kind: "track" }
+    | null;
 
 /** How long the music fades out before it stops (the desktop's; Android's in PlayerHub.kt). */
 const FADE_MS = 15_000;
@@ -19,7 +23,7 @@ export const useSleepTimer = (
     setStopAfterTrack: (done: (() => void) | null) => void,
 ) => {
     const [timer, setTimer] = useState<SleepTimer>(null);
-    // The volume to fade from and to come back to, as it is now.
+    // UI slider volume (linear); the element uses `toElementVolume` of it.
     const volumeNow = useRef(volume);
     useEffect(() => {
         volumeNow.current = volume;
@@ -37,12 +41,15 @@ export const useSleepTimer = (
                 native.cancelSleep();
             };
         }
+        // Same curve as useAudioController — writing the linear slider value
+        // here made canceling the timer jump the loudness up.
+        const level = () => toElementVolume(volumeNow.current);
         let fading = 0;
         const fadeIn = setTimeout(() => {
             fading = window.setInterval(() => {
                 const left = timer.endsAt - Date.now();
                 if (left > 0) {
-                    element.volume = volumeNow.current * Math.min(1, left / FADE_MS);
+                    element.volume = level() * Math.min(1, left / FADE_MS);
                     return;
                 }
                 element.pause();
@@ -52,7 +59,7 @@ export const useSleepTimer = (
         return () => {
             clearTimeout(fadeIn);
             clearInterval(fading);
-            element.volume = volumeNow.current;
+            element.volume = level();
         };
     }, [timer, element]);
 

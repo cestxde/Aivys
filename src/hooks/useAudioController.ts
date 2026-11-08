@@ -2,6 +2,7 @@ import { useCallback, useState, useRef, useEffect, useSyncExternalStore } from "
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { notifyError } from "../utils/notify";
 import { createPlayer } from "../utils/nativeAudio";
+import { toElementVolume } from "../utils/volume";
 import { t } from "../i18n";
 
 // An AbortError only means a newer load interrupted play(): not worth a notice.
@@ -69,7 +70,7 @@ export const useAudioController = (
     // Sync volume
     useEffect(() => {
         if (audioRef.current) {
-            audioRef.current.volume = Math.pow(initialVolume, 2);
+            audioRef.current.volume = toElementVolume(initialVolume);
         }
     }, [initialVolume]);
 
@@ -87,7 +88,7 @@ export const useAudioController = (
             audioRef.current.load();
         }
 
-        audioRef.current.volume = Math.pow(initialVolume, 2);
+        audioRef.current.volume = toElementVolume(initialVolume);
         audioRef.current.currentTime = 0;
         if (startAt > 0) {
             const audio = audioRef.current;
