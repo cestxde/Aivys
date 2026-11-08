@@ -132,7 +132,8 @@ pub fn run() {
             search_tracks,
             delete_tracks,
             edit_tracks,
-            undo_track_edit
+            undo_track_edit,
+            rename_tracks
         ])
         .setup(|app| {
             #[cfg(target_os = "android")]

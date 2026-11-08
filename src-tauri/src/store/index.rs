@@ -42,3 +42,25 @@ pub(crate) fn save_added_at(path: &Path, map: &HashMap<String, u64>) -> bool {
     };
     atomic_write(path, json.as_bytes()).is_ok()
 }
+
+/// Move an added-at entry from `old_key` to `new_key`, keeping the earlier
+/// timestamp if both keys already exist. Writes the full map so the old key
+/// does not come back through a merge.
+pub(crate) fn rename_added_at(path: &Path, old_key: &str, new_key: &str) -> bool {
+    if old_key == new_key {
+        return true;
+    }
+    let mut map = load_added_at(path);
+    let Some(ts) = map.remove(old_key) else {
+        return true;
+    };
+    map.entry(new_key.to_owned())
+        .and_modify(|existing| *existing = (*existing).min(ts))
+        .or_insert(ts);
+
+    let sorted: BTreeMap<_, _> = map.into_iter().collect();
+    let Ok(json) = serde_json::to_string_pretty(&sorted) else {
+        return false;
+    };
+    atomic_write(path, json.as_bytes()).is_ok()
+}

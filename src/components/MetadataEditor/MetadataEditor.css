@@ -14,7 +14,14 @@
     box-shadow: var(--shadow-dialog);
 }
 
-/* The edited file's name, selectable. */
+/* The edited file's name, selectable, plus rename / fill-from-name. */
+.metadata-file-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
 .metadata-file {
     display: flex;
     align-items: center;
@@ -24,6 +31,73 @@
     border-radius: 6px;
     background: var(--surface);
     font-size: 0.8rem;
+}
+
+.metadata-file-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.metadata-file-actions .editor-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    font-size: 0.8rem;
+}
+
+.metadata-file-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    background: var(--surface);
+}
+
+.metadata-file-panel-hint {
+    font-size: 0.8rem;
+    color: var(--text);
+    opacity: 0.85;
+}
+
+.metadata-file-panel-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.metadata-name-variants {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 10rem;
+    overflow-y: auto;
+}
+
+.metadata-name-variant {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--text-h);
+    cursor: pointer;
+}
+
+.metadata-name-variant:hover {
+    background: var(--border);
+}
+
+.metadata-name-variant input {
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+
+.metadata-name-variant-num {
+    opacity: 0.7;
 }
 
 .metadata-file-label {

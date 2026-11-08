@@ -240,8 +240,14 @@ export const useAudioPlayer = (
      * is loaded, it is let go meanwhile (Windows may refuse to replace an open
      * file) and loaded again where it was, playing if it was. The files are
      * loaded from new URLs afterwards, past what the webview cached of them.
+     * `resumeAs` may point the reload at a new path (a rename); omit or return
+     * undefined to keep the original.
      */
-    const releaseWhile = async <T,>(paths: string[], work: () => Promise<T>): Promise<T> => {
+    const releaseWhile = async <T,>(
+        paths: string[],
+        work: () => Promise<T>,
+        resumeAs?: (result: T) => string | undefined,
+    ): Promise<T> => {
         const element = audio.element;
         // By the element, not the render: this may run from an older closure (a notice's button).
         const path = paths.find(p => element.src === trackUrl(p));
@@ -256,11 +262,14 @@ export const useAudioPlayer = (
         const playing = !element.paused;
         const volume = element.volume;
         audio.unload();
+        let resume = path;
         try {
-            return await work();
+            const result = await work();
+            resume = resumeAs?.(result) ?? path;
+            return result;
         } finally {
-            markRewritten(paths);
-            audio.loadFilePaused(path, time);
+            markRewritten(resume === path ? paths : [...paths, resume]);
+            audio.loadFilePaused(resume, time);
             element.volume = volume;
             if (playing) element.play().catch(console.error);
         }
@@ -287,7 +296,7 @@ export const useAudioPlayer = (
         playTrack, onNext, onPrev, previousTrack, resume, setStopAfterTrack,
         playNext, addToQueue, forgetTracks,
         queue: { order: q.order, index: q.index },
-        playAt, removeFromQueue: q.removeAt, setUpcoming, releaseWhile,
+        playAt, removeFromQueue: q.removeAt, setUpcoming, replacePath: q.replacePath, releaseWhile,
         toggleShuffle, isShuffle,
         repeatMode, toggleRepeatMode,
         ...audio

@@ -355,6 +355,61 @@ pub(crate) fn reorder(store: &Store, id: &str, item_ids: Vec<String>) -> Result<
     })
 }
 
+/// Rewrite `item.path` in every writable manual playlist for each
+/// `(old_key, new_key)` pair. Read-only (newer-schema) playlists are skipped.
+pub(crate) fn rename_paths(store: &Store, renames: &[(String, String)]) -> Result<(), StoreError> {
+    if renames.is_empty() || renames.iter().all(|(old, new)| old == new) {
+        return Ok(());
+    }
+    let map: HashMap<&str, &str> = renames
+        .iter()
+        .filter(|(old, new)| old != new)
+        .map(|(old, new)| (old.as_str(), new.as_str()))
+        .collect();
+
+    let entries = match std::fs::read_dir(store.path(PLAYLISTS_DIR)) {
+        Ok(entries) => entries,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(err) => return Err(err.into()),
+    };
+
+    for path in entries.filter_map(|entry| entry.ok()).map(|entry| entry.path()) {
+        let is_playlist = path.extension().is_some_and(|ext| ext == "json")
+            && path
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .is_some_and(|stem| uuid::Uuid::parse_str(stem).is_ok());
+        if !is_playlist {
+            continue;
+        }
+
+        let Some(loaded) = read_json::<Playlist>(&path)? else {
+            continue;
+        };
+        if loaded.read_only || loaded.doc.deleted_at.is_some() {
+            continue;
+        }
+        let mut playlist = loaded.doc;
+        let Some(items) = playlist.items.as_mut() else {
+            continue;
+        };
+
+        let mut changed = false;
+        for item in items {
+            if let Some(new_key) = map.get(item.path.as_str()) {
+                item.path = (*new_key).to_owned();
+                changed = true;
+            }
+        }
+        if changed {
+            playlist.schema_version = SCHEMA_VERSION;
+            playlist.updated_at = now_unix();
+            write_json(&path, &playlist)?;
+        }
+    }
+    Ok(())
+}
+
 /// Tombstone the playlist and drop its cover image.
 pub(crate) fn delete(store: &Store, id: &str) -> Result<(), StoreError> {
     modify(store, id, |playlist, now| {

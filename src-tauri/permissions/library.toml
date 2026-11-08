@@ -45,4 +45,5 @@ commands.allow = [
   "delete_tracks",
   "edit_tracks",
   "undo_track_edit",
+  "rename_tracks",
 ]

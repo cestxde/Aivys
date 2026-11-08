@@ -277,7 +277,7 @@ function App() {
 		seek, stop,
 		onNext, onPrev, previousTrack, resume, setStopAfterTrack,
 		playNext, addToQueue, forgetTracks,
-		queue, playAt, removeFromQueue, setUpcoming, releaseWhile,
+		queue, playAt, removeFromQueue, setUpcoming, replacePath, releaseWhile,
 		toggleShuffle, isShuffle,
 		repeatMode, toggleRepeatMode,
 		element
@@ -1091,6 +1091,41 @@ function App() {
 			t("edit.undo"),
 			() => undoEdit(paths),
 		);
+	};
+
+	/** The renamed track in `tracks`, or null if the rename did not land. */
+	const renamedTrack = (track: Track, name: string, tracks: Track[]): Track | null => {
+		const parent = track.relPath.includes("/") ? track.relPath.slice(0, track.relPath.lastIndexOf("/") + 1) : "";
+		const newRel = parent + name;
+		return tracks.find(item => item.relPath === newRel)
+			?? tracks.find(item => item.name === name)
+			?? null;
+	};
+
+	/** Rename one track's file from the details dialog; keep the dialog on the new path. */
+	const renameTrack = async (track: Track, name: string) => {
+		let result: EditResult;
+		try {
+			result = await releaseWhile(
+				[track.path],
+				() => invoke<EditResult>("rename_tracks", { renames: [{ path: track.path, name }] }),
+				(outcome) => outcome.failed.length > 0 ? undefined : renamedTrack(track, name, outcome.tracks)?.path,
+			);
+		} catch (e) {
+			notifyError(t("edit.renameFailed"), e);
+			return;
+		}
+		if (result.failed.length > 0) {
+			library.setFiles(result.tracks);
+			notifyError(t("edit.renameFailed"), result.failed.join("; "));
+			return;
+		}
+		const next = renamedTrack(track, name, result.tracks);
+		// Before setFiles: refresh matches by path and would drop the old one.
+		if (next) replacePath(track.path, next);
+		library.setFiles(result.tracks);
+		if (next) setEditing([next]);
+		notifyInfo(t("edit.renamed", { name: next?.name ?? name }));
 	};
 
 	/** Put back the tags the last edit (of the files at `paths`) replaced. */
@@ -2019,6 +2054,7 @@ function App() {
 				<MetadataEditor
 					tracks={editing}
 					onSave={(edit) => saveMetadata(editing, edit)}
+					onRename={editing.length === 1 ? (name) => renameTrack(editing[0], name) : undefined}
 					onClose={() => setEditing(null)}
 				/>
 			)}

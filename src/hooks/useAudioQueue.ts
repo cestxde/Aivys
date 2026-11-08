@@ -135,6 +135,15 @@ export const useAudioQueue = () => {
         });
     }, []);
 
+    /** Swap every queue slot that still points at `from` for the renamed `to`. */
+    const replacePath = useCallback((from: string, to: Track) => {
+        if (from === to.path) return;
+        setQueue(prev => {
+            const swap = (list: Track[]) => list.map(track => (track.path === from ? to : track));
+            return { source: swap(prev.source), order: swap(prev.order), index: prev.index };
+        });
+    }, []);
+
     /** Remove tracks (deleted files) from the queue. */
     const remove = useCallback((paths: Set<string>) => {
         setQueue(prev => {
@@ -155,7 +164,7 @@ export const useAudioQueue = () => {
         isLast: queue.index === queue.order.length - 1,
         first: queue.order[0] ?? null,
         source: queue.source,
-        start, setShuffled, move, peek, jumpTo, removeAt, setUpcoming, insertNext, append, refresh, remove,
+        start, setShuffled, move, peek, jumpTo, removeAt, setUpcoming, insertNext, append, refresh, replacePath, remove,
         /** Take over a saved queue (the last session's). */
         restore: useCallback((saved: Queue) => setQueue(saved), []),
         /** Jump to the first track (end of the queue without repeat). */

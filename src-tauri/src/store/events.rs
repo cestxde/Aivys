@@ -376,6 +376,52 @@ pub(crate) fn merge_journal_files(canonical: &Path, conflict: &Path) -> Result<(
     Ok(())
 }
 
+/// Rewrite every journal so lines that pointed at `old_key` now point at
+/// `new_key`. Unparseable lines are kept as-is. The index notices the rewrite
+/// by the journal fingerprint and re-ingests.
+pub(crate) fn rename_path(store: &Store, old_key: &str, new_key: &str) -> Result<(), StoreError> {
+    if old_key == new_key {
+        return Ok(());
+    }
+
+    for file in journal_files(store)? {
+        let lines = match read_complete_lines(&file) {
+            Ok(lines) => lines,
+            Err(err) => {
+                log::warn!("cannot read {}: {err}", file.display());
+                continue;
+            }
+        };
+
+        let mut changed = false;
+        let mut text = String::new();
+        for raw in lines {
+            let out = match serde_json::from_str::<Value>(&raw) {
+                Ok(mut value) if value.get("path").and_then(Value::as_str) == Some(old_key) => {
+                    if let Some(obj) = value.as_object_mut() {
+                        obj.insert("path".into(), Value::String(new_key.to_owned()));
+                    }
+                    match serde_json::to_string(&value) {
+                        Ok(rewritten) => {
+                            changed = true;
+                            rewritten
+                        }
+                        Err(_) => raw,
+                    }
+                }
+                _ => raw,
+            };
+            text.push_str(&out);
+            text.push('\n');
+        }
+
+        if changed {
+            super::fsio::atomic_write(&file, text.as_bytes())?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
