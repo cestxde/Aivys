@@ -1,49 +1,15 @@
-/* The category sidebar beside the tags, each scrolling on its own. */
 .tags-page {
-    display: flex;
-    gap: 1rem;
-    min-height: 0;
-}
-
-.tags-sidebar {
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    width: 210px;
-    min-height: 0;
-    padding-right: 0.75rem;
-    border-right: 1px solid var(--border);
-}
-
-.tags-main {
     display: flex;
     flex-direction: column;
     flex: 1;
     gap: 1rem;
-    min-width: 0;
     min-height: 0;
     overflow-y: auto;
 }
 
-/* The tags scroll; their sections keep their full height. */
-.tags-main>* {
+/* The page scrolls; its sections keep their full height. */
+.tags-page > * {
     flex-shrink: 0;
-}
-
-/* A narrow page (phones, a narrow window beside the side panel): the
-   categories above the tags. */
-@container page (max-width: 560px) {
-    .tags-page {
-        flex-direction: column;
-    }
-
-    .tags-sidebar {
-        width: auto;
-        max-height: 30%;
-        padding: 0 0 0.5rem;
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-    }
 }
 
 .tags-toolbar {
@@ -73,10 +39,16 @@
     width: auto;
 }
 
-.tags-create {
+.tags-create,
+.tags-create-category {
     display: flex;
     align-items: center;
     gap: 6px;
+}
+
+.tags-create-category {
+    background: var(--border);
+    color: var(--text-h);
 }
 
 .tags-empty {

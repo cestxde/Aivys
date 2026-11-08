@@ -1,16 +1,15 @@
 import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
-import { ChevronDown, ChevronRight, MoreVertical, Pin, Plus, Tag } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderPlus, MoreVertical, Pin, Plus, Tag } from "lucide-react";
 import type { TagCategory, UserTag } from "../../types";
-import { groupTags, sortTags } from "../../utils/tags";
+import { groupTags, PINNED, sortTags } from "../../utils/tags";
 import { useTagSort } from "../../hooks/useTags";
 import { TagDot } from "../TagChip/TagChip";
 import { TagSortButton } from "../TagSortButton/TagSortButton";
-import { CategorySidebar, PINNED, type CategoryFilter } from "../CategorySidebar/CategorySidebar";
 import { LayoutToggle, type PlaylistsLayout } from "../PlaylistsPage/PlaylistsPage";
 import { CardPlayButton, PinnedMark, PlayingMark } from "../CardPlayButton/CardPlayButton";
 import { pinnedFirst } from "../../hooks/usePins";
 import { t } from "../../i18n";
-import { useRememberedScroll, useRememberedState, useStoredState } from "../../hooks/useRemembered";
+import { useRememberedScroll, useStoredState } from "../../hooks/useRemembered";
 import { SearchInput } from "../SearchInput/SearchInput";
 import { UNTAGGED_KEY } from "../../utils/views";
 import "./TagsPage.css";
@@ -42,8 +41,6 @@ interface TagsPageProps {
     onCreateCategory: () => void;
     onRenameCategory: (category: TagCategory) => void;
     onOpenCategoryMenu: (category: TagCategory, x: number, y: number) => void;
-    /** The categories in a new order (all their ids). */
-    onReorderCategories: (ids: string[]) => void;
     /**
      * A tag dragged from the section of `from` to that of `to` (null: no
      * category): moved, or with `copy` (Ctrl) added there as well.
@@ -68,33 +65,25 @@ interface TagDrag {
     started: boolean;
 }
 
-/** The section or sidebar item under the pointer: a category id, "" for "no category", or null. */
+/** The section under the pointer: a category id, "" for "no category", or null. */
 const sectionAt = (x: number, y: number): string | null =>
     document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-section]")?.dataset.section ?? null;
 
 /**
- * All user tags of the library with their track counts, by category: the
- * sidebar picks all of them or one category (and reorders the categories), a
- * tag is dragged to another category (in the list or the sidebar) to move it.
+ * All user tags of the library with their track counts, grouped by category.
+ * A tag is dragged to another section to move it; categories are managed from
+ * each section's menu and the toolbar's "New category".
  */
 export const TagsPage = ({
     tags, categories, counts, layout, onLayoutChange, filter, onFilterChange, onOpen, onPlay, untaggedCount, onOpenUntagged, onPlayUntagged, playingId, onOpenMenu, isPinned, onCreate,
-    onCreateCategory, onRenameCategory, onOpenCategoryMenu, onReorderCategories, onMoveTag,
+    onCreateCategory, onRenameCategory, onOpenCategoryMenu, onMoveTag,
 }: TagsPageProps) => {
-    const [picked, setPicked] = useRememberedState<CategoryFilter>("tags.category", null);
     const [sort, setSort] = useTagSort();
     const [collapsed, setCollapsed] = useStoredState<string[]>("tags.collapsed", [], isIdList);
     const { ref: scrollRef, onScroll: onPageScroll } = useRememberedScroll("tags");
     const query = filter.trim().toLowerCase();
     const shown = tags.filter(tag => !query || tag.name.toLowerCase().includes(query));
-    const pinned = tags.filter(isPinned);
-    // A picked category that was deleted meanwhile (or "Pinned" with nothing
-    // pinned) shows all again.
-    const selected = picked === null || categories.some(c => c.id === picked) || (picked === "" && categories.length > 0)
-        || (picked === PINNED && pinned.length > 0)
-        ? picked
-        : null;
-    const selectedCategory = categories.find(c => c.id === selected) ?? null;
+    const shownPinned = shown.filter(isPinned);
 
     // Dragging a tag to another section: a press becomes a drag once the
     // pointer moves a few pixels; the click that ends a drag opens nothing.
@@ -220,186 +209,169 @@ export const TagsPage = ({
         </div>
     );
 
-    // All tags: every category (a tag in several, in each), the tags in none
-    // last. While dragging a tag every category shows, to be dropped on.
-    const shownPinned = shown.filter(isPinned);
+    // Every category (a tag in several, in each), the tags in none last.
+    // While dragging a tag every category shows, to be dropped on.
     const groups = groupTags(shown, categories)
-        .filter(group => selected === null || (group.category?.id ?? "") === selected)
-        .filter(group => selected !== null || group.tags.length > 0
+        .filter(group => group.tags.length > 0
             || (group.category !== null && (!query || draggedTag !== null))
             || (group.category === null && draggedTag !== null));
 
     return (
-        <div className="tags-page">
-            <aside className="tags-sidebar">
-                <CategorySidebar
-                    tags={tags}
-                    categories={categories}
-                    pinnedCount={pinned.length}
-                    selected={selected}
-                    onSelect={setPicked}
-                    onReorder={onReorderCategories}
-                    onOpenMenu={onOpenCategoryMenu}
-                    onRename={onRenameCategory}
-                    onCreate={onCreateCategory}
-                    dropTarget={tagDropSection}
+        <div className="tags-page" ref={scrollRef} onScroll={onPageScroll}>
+            <div className="tags-toolbar">
+                <h1 className="tags-title">{t("nav.tags")}</h1>
+                <SearchInput
+                    className="tags-filter"
+                    placeholder={t("tags.filter")}
+                    value={filter}
+                    onChange={onFilterChange}
                 />
-            </aside>
-
-            <div className="tags-main" ref={scrollRef} onScroll={onPageScroll}>
-                <div className="tags-toolbar">
-                    <h1 className="tags-title">{t("nav.tags")}</h1>
-                    <SearchInput
-                        className="tags-filter"
-                        placeholder={t("tags.filter")}
-                        value={filter}
-                        onChange={onFilterChange}
-                    />
-                    <TagSortButton sort={sort} onChange={setSort} />
-                    <LayoutToggle layout={layout} onChange={onLayoutChange} />
-                    <button className="toolbar-button play-button tags-create" onClick={() => onCreate(selectedCategory)}>
-                        <Plus size={14} /> {t("tags.new")}
-                    </button>
-                </div>
-
-                {selected === null && !query && untaggedCount > 0 && (
-                    <section className="tag-section untagged-section">
-                        <div className="tag-section-header">
-                            <Tag size={14} className="tag-section-icon" />
-                            <h2 className="tag-section-name">{t("tags.untagged")}</h2>
-                            <span className="tag-section-count">{untaggedCount}</span>
-                        </div>
-                        <div className={layout === "grid" ? "tags-grid" : "tags-list"}>
-                            <div
-                                className={`${layout === "grid" ? "tag-card" : "tag-row"} card-hover ${playingId === UNTAGGED_KEY ? "is-playing" : ""}`}
-                                role="button"
-                                tabIndex={0}
-                                style={{ "--tag-color": "#94a3b8" } as CSSProperties}
-                                onClick={onOpenUntagged}
-                                onKeyDown={(e) => e.key === "Enter" && onOpenUntagged()}
-                            >
-                                <TagDot color="#94a3b8" size={layout === "grid" ? 14 : 12} />
-                                {layout === "grid" ? (
-                                    <div className="tag-card-text">
-                                        <span className="tag-card-name">
-                                            {playingId === UNTAGGED_KEY && <PlayingMark />}
-                                            {t("tags.untagged")}
-                                        </span>
-                                        <span className="tag-card-meta">{describe(untaggedCount)}</span>
-                                    </div>
-                                ) : (
-                                    <span className="tag-row-text">
-                                        <span className="tag-card-name">
-                                            {playingId === UNTAGGED_KEY && <PlayingMark />}
-                                            {t("tags.untagged")}
-                                        </span>
-                                        <span className="tag-row-count" title={describe(untaggedCount)}>({untaggedCount})</span>
-                                    </span>
-                                )}
-                                {untaggedCount > 0 && <CardPlayButton onPlay={onPlayUntagged} />}
-                            </div>
-                        </div>
-                    </section>
-                )}
-
-                {tags.length === 0 && categories.length === 0 ? (
-                    <div className="tags-empty">
-                        <Tag size={28} />
-                        <span>{t("tags.empty")}</span>
-                    </div>
-                ) : selected === PINNED ? (
-                    shownPinned.length > 0 ? items(shownPinned, null, PINNED) : <div className="tags-empty">{t("tags.noMatch")}</div>
-                ) : categories.length === 0 && pinned.length === 0 ? (
-                    shown.length > 0 ? items(shown, null) : <div className="tags-empty">{t("tags.noMatch")}</div>
-                ) : groups.length === 0 && shownPinned.length === 0 ? (
-                    <div className="tags-empty">{t("tags.noMatch")}</div>
-                ) : (
-                    <div className={`tag-sections ${draggedTag ? "is-reordering" : ""}`}>
-                        {selected === null && shownPinned.length > 0 && (() => {
-                            // Not a drop target: pinning is not a category.
-                            const isCollapsed = collapsed.includes(PINNED) && !query;
-                            return (
-                                <section className="tag-section">
-                                    <div className="tag-section-header">
-                                        <button
-                                            className="tag-section-toggle"
-                                            title={isCollapsed ? t("tags.expand") : t("tags.collapse")}
-                                            aria-expanded={!isCollapsed}
-                                            onClick={() => toggleCollapsed(PINNED)}
-                                        >
-                                            {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                                        </button>
-                                        <Pin size={14} className="tag-section-icon" />
-                                        <h2 className="tag-section-name">{t("tags.pinned")}</h2>
-                                        <span className="tag-section-count">{shownPinned.length}</span>
-                                    </div>
-                                    {!isCollapsed && items(shownPinned, null, PINNED)}
-                                </section>
-                            );
-                        })()}
-                        {groups.map(({ category, tags: inGroup }) => {
-                            const id = category?.id ?? "";
-                            // One category picked, or a filter: what it holds is shown.
-                            const isCollapsed = selected === null && collapsed.includes(id) && !query;
-                            return (
-                                <section
-                                    key={id || "none"}
-                                    className={`tag-section ${tagDropSection === id ? "drop-into" : ""}`}
-                                    data-section={id}
-                                >
-                                    <div className="tag-section-header">
-                                        {selected === null && (
-                                            <button
-                                                className="tag-section-toggle"
-                                                title={isCollapsed ? t("tags.expand") : t("tags.collapse")}
-                                                aria-expanded={!isCollapsed}
-                                                onClick={() => toggleCollapsed(id)}
-                                            >
-                                                {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                                            </button>
-                                        )}
-                                        <h2
-                                            className="tag-section-name"
-                                            title={category ? t("tags.renameHint") : undefined}
-                                            onDoubleClick={() => category && onRenameCategory(category)}
-                                        >
-                                            {category?.name ?? t("tags.noCategory")}
-                                        </h2>
-                                        <span className="tag-section-count">{inGroup.length}</span>
-                                        {category && (
-                                            <>
-                                                <button
-                                                    className="tag-section-button"
-                                                    title={t("tags.newTagIn")}
-                                                    onClick={() => onCreate(category)}
-                                                >
-                                                    <Plus size={16} />
-                                                </button>
-                                                <button
-                                                    className="tag-section-button"
-                                                    title={t("common.more")}
-                                                    aria-haspopup="menu"
-                                                    onClick={(e) => {
-                                                        const box = e.currentTarget.getBoundingClientRect();
-                                                        onOpenCategoryMenu(category, box.right - 200, box.bottom + 2);
-                                                    }}
-                                                >
-                                                    <MoreVertical size={16} />
-                                                </button>
-                                            </>
-                                        )}
-                                    </div>
-                                    {isCollapsed ? null : inGroup.length > 0 ? items(inGroup, category) : (
-                                        <div className="tag-section-empty">
-                                            {category ? t("tags.categoryEmpty") : t("tags.dropToUncategorize")}
-                                        </div>
-                                    )}
-                                </section>
-                            );
-                        })}
-                    </div>
-                )}
+                <TagSortButton sort={sort} onChange={setSort} />
+                <LayoutToggle layout={layout} onChange={onLayoutChange} />
+                <button
+                    className="toolbar-button tags-create-category"
+                    title={t("tags.newCategory")}
+                    onClick={onCreateCategory}
+                >
+                    <FolderPlus size={14} /> {t("tags.newCategory")}
+                </button>
+                <button className="toolbar-button play-button tags-create" onClick={() => onCreate(null)}>
+                    <Plus size={14} /> {t("tags.new")}
+                </button>
             </div>
+
+            {!query && untaggedCount > 0 && (
+                <section className="tag-section untagged-section">
+                    <div className="tag-section-header">
+                        <Tag size={14} className="tag-section-icon" />
+                        <h2 className="tag-section-name">{t("tags.untagged")}</h2>
+                        <span className="tag-section-count">{untaggedCount}</span>
+                    </div>
+                    <div className={layout === "grid" ? "tags-grid" : "tags-list"}>
+                        <div
+                            className={`${layout === "grid" ? "tag-card" : "tag-row"} card-hover ${playingId === UNTAGGED_KEY ? "is-playing" : ""}`}
+                            role="button"
+                            tabIndex={0}
+                            style={{ "--tag-color": "#94a3b8" } as CSSProperties}
+                            onClick={onOpenUntagged}
+                            onKeyDown={(e) => e.key === "Enter" && onOpenUntagged()}
+                        >
+                            <TagDot color="#94a3b8" size={layout === "grid" ? 14 : 12} />
+                            {layout === "grid" ? (
+                                <div className="tag-card-text">
+                                    <span className="tag-card-name">
+                                        {playingId === UNTAGGED_KEY && <PlayingMark />}
+                                        {t("tags.untagged")}
+                                    </span>
+                                    <span className="tag-card-meta">{describe(untaggedCount)}</span>
+                                </div>
+                            ) : (
+                                <span className="tag-row-text">
+                                    <span className="tag-card-name">
+                                        {playingId === UNTAGGED_KEY && <PlayingMark />}
+                                        {t("tags.untagged")}
+                                    </span>
+                                    <span className="tag-row-count" title={describe(untaggedCount)}>({untaggedCount})</span>
+                                </span>
+                            )}
+                            {untaggedCount > 0 && <CardPlayButton onPlay={onPlayUntagged} />}
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            {tags.length === 0 && categories.length === 0 ? (
+                <div className="tags-empty">
+                    <Tag size={28} />
+                    <span>{t("tags.empty")}</span>
+                </div>
+            ) : categories.length === 0 && shownPinned.length === 0 ? (
+                shown.length > 0 ? items(shown, null) : <div className="tags-empty">{t("tags.noMatch")}</div>
+            ) : groups.length === 0 && shownPinned.length === 0 ? (
+                <div className="tags-empty">{t("tags.noMatch")}</div>
+            ) : (
+                <div className={`tag-sections ${draggedTag ? "is-reordering" : ""}`}>
+                    {shownPinned.length > 0 && (() => {
+                        // Not a drop target: pinning is not a category.
+                        const isCollapsed = collapsed.includes(PINNED) && !query;
+                        return (
+                            <section className="tag-section">
+                                <div className="tag-section-header">
+                                    <button
+                                        className="tag-section-toggle"
+                                        title={isCollapsed ? t("tags.expand") : t("tags.collapse")}
+                                        aria-expanded={!isCollapsed}
+                                        onClick={() => toggleCollapsed(PINNED)}
+                                    >
+                                        {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                                    </button>
+                                    <Pin size={14} className="tag-section-icon" />
+                                    <h2 className="tag-section-name">{t("tags.pinned")}</h2>
+                                    <span className="tag-section-count">{shownPinned.length}</span>
+                                </div>
+                                {!isCollapsed && items(shownPinned, null, PINNED)}
+                            </section>
+                        );
+                    })()}
+                    {groups.map(({ category, tags: inGroup }) => {
+                        const id = category?.id ?? "";
+                        const isCollapsed = collapsed.includes(id) && !query;
+                        return (
+                            <section
+                                key={id || "none"}
+                                className={`tag-section ${tagDropSection === id ? "drop-into" : ""}`}
+                                data-section={id}
+                            >
+                                <div className="tag-section-header">
+                                    <button
+                                        className="tag-section-toggle"
+                                        title={isCollapsed ? t("tags.expand") : t("tags.collapse")}
+                                        aria-expanded={!isCollapsed}
+                                        onClick={() => toggleCollapsed(id)}
+                                    >
+                                        {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                                    </button>
+                                    <h2
+                                        className="tag-section-name"
+                                        title={category ? t("tags.renameHint") : undefined}
+                                        onDoubleClick={() => category && onRenameCategory(category)}
+                                    >
+                                        {category?.name ?? t("tags.noCategory")}
+                                    </h2>
+                                    <span className="tag-section-count">{inGroup.length}</span>
+                                    {category && (
+                                        <>
+                                            <button
+                                                className="tag-section-button"
+                                                title={t("tags.newTagIn")}
+                                                onClick={() => onCreate(category)}
+                                            >
+                                                <Plus size={16} />
+                                            </button>
+                                            <button
+                                                className="tag-section-button"
+                                                title={t("common.more")}
+                                                aria-haspopup="menu"
+                                                onClick={(e) => {
+                                                    const box = e.currentTarget.getBoundingClientRect();
+                                                    onOpenCategoryMenu(category, box.right - 200, box.bottom + 2);
+                                                }}
+                                            >
+                                                <MoreVertical size={16} />
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                                {isCollapsed ? null : inGroup.length > 0 ? items(inGroup, category) : (
+                                    <div className="tag-section-empty">
+                                        {category ? t("tags.categoryEmpty") : t("tags.dropToUncategorize")}
+                                    </div>
+                                )}
+                            </section>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 };

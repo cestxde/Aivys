@@ -1735,7 +1735,6 @@ function App() {
 							onRenameCategory={(category) => setCategoryDialog({ category })}
 							onMoveTag={moveTag}
 							onOpenCategoryMenu={(target, x, y) => setMenu({ x, y, entries: categoryMenu(target) })}
-							onReorderCategories={tags.reorderCategories}
 						/>
 					) : listView.kind === "settings" ? (
 						<SettingsPage

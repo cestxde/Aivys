@@ -1,50 +1,8 @@
-/* With categories the dialog is wider: the sidebar beside the list. */
-.tag-picker.with-sidebar {
-    width: min(680px, 100%);
-}
-
 .tag-picker-header-actions {
     display: flex;
     align-items: center;
     gap: 2px;
     flex-shrink: 0;
-}
-
-.tag-picker-body {
-    display: flex;
-    gap: 12px;
-    min-height: 0;
-}
-
-.tag-picker-body .category-sidebar {
-    flex-shrink: 0;
-    width: 190px;
-    max-height: 380px;
-    padding-right: 12px;
-    border-right: 1px solid var(--border);
-}
-
-.tag-picker-main {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    gap: 0.6rem;
-    min-width: 0;
-}
-
-/* Narrow (phones): the categories above the list. */
-@media (max-width: 560px) {
-    .tag-picker-body {
-        flex-direction: column;
-    }
-
-    .tag-picker-body .category-sidebar {
-        width: auto;
-        max-height: 120px;
-        padding: 0 0 6px;
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-    }
 }
 
 .tag-picker-list {

@@ -1,5 +1,8 @@
 import type { TagCategory, UserTag } from "../types";
 
+/** Section id for pinned tags (not a real category). */
+export const PINNED = "\u0000pinned";
+
 /** Preset tag colors; readable as dots and tints in light and dark themes. */
 export const TAG_COLORS = [
     "#ef4444", "#f97316", "#f59e0b", "#84cc16", "#22c55e", "#14b8a6",
