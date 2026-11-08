@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { Heart, ListPlus, PencilLine, Star, Tag } from "lucide-react";
+import { useCallback, useState, type ReactNode } from "react";
+import { ChevronDown, ClipboardCopy, ClipboardPaste, Heart, ListPlus, PencilLine, Star, Tag } from "lucide-react";
 import type { Track, TrackStats, UserTag } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { formatDateTime, formatDuration, formatFileSize } from "../../utils/format";
@@ -9,6 +9,7 @@ import { CoverArt } from "../CoverArt";
 import { ArtistLinks } from "../ArtistLinks/ArtistLinks";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { TagChip } from "../TagChip/TagChip";
+import { ContextMenu, type MenuEntry } from "../ContextMenu/ContextMenu";
 import { t } from "../../i18n";
 import "./TrackDetailPanel.css";
 
@@ -24,6 +25,14 @@ interface TrackDetailPanelProps {
     tagsById: Map<string, UserTag>;
     /** Open the tag picker for the track. */
     onEditTags: (track: Track) => void;
+    /** Copy this track's custom tags into the in-app clipboard. */
+    onCopyTags: (track: Track) => void;
+    /** Replace this track's tags with the clipboard. */
+    onPasteTags: (track: Track) => void;
+    /** Assign clipboard tags that the track does not already have. */
+    onAddTags: (track: Track) => void;
+    /** True when the in-app tag clipboard has at least one still-known tag. */
+    hasTagClipboard: boolean;
     /** Open the metadata editor for the track. */
     onEditDetails: (track: Track) => void;
     onOpenTag: (tag: UserTag) => void;
@@ -88,6 +97,10 @@ export const TrackDetailPanel = ({
     onSetRating,
     tagsById,
     onEditTags,
+    onCopyTags,
+    onPasteTags,
+    onAddTags,
+    hasTagClipboard,
     onEditDetails,
     onOpenTag,
     onRemoveTag,
@@ -98,6 +111,8 @@ export const TrackDetailPanel = ({
     onOpenAlbum,
 }: TrackDetailPanelProps) => {
     const [showCover, setShowCover] = useState(false);
+    const [tagsMenuAt, setTagsMenuAt] = useState<{ x: number; y: number } | null>(null);
+    const closeTagsMenu = useCallback(() => setTagsMenuAt(null), []);
 
     if (!track) {
         return (
@@ -119,6 +134,16 @@ export const TrackDetailPanel = ({
         track.trackNumber != null ? t("detail.track", { number: track.trackNumber }) : null,
         track.discNumber != null ? t("detail.disc", { number: track.discNumber }) : null,
     ].filter(Boolean).join(" · ");
+
+    const tagsMenu: MenuEntry[] = [
+        { kind: "item", label: t("menu.editTags"), icon: <Tag size={16} />, onSelect: () => onEditTags(track) },
+        { kind: "item", label: t("menu.copyTags"), icon: <ClipboardCopy size={16} />, onSelect: () => onCopyTags(track) },
+        ...(hasTagClipboard ? [
+            { kind: "separator" as const },
+            { kind: "item" as const, label: t("menu.pasteTags"), icon: <ClipboardPaste size={16} />, onSelect: () => onPasteTags(track) },
+            { kind: "item" as const, label: t("menu.addTags"), icon: <ListPlus size={16} />, onSelect: () => onAddTags(track) },
+        ] : []),
+    ];
 
     return (
         <div className="detail-body">
@@ -174,8 +199,19 @@ export const TrackDetailPanel = ({
                         }}
                     />
                 ))}
-                <button className="detail-tags-edit" onClick={() => onEditTags(track)}>
-                    <Tag size={13} /> {tags.length > 0 ? t("detail.editTags") : t("detail.addTags")}
+                <button
+                    className="detail-tags-edit"
+                    aria-haspopup="menu"
+                    aria-expanded={tagsMenuAt !== null}
+                    onPointerDown={(e) => tagsMenuAt && e.stopPropagation()}
+                    onClick={(e) => {
+                        const box = e.currentTarget.getBoundingClientRect();
+                        setTagsMenuAt(tagsMenuAt ? null : { x: box.left, y: box.bottom + 4 });
+                    }}
+                >
+                    <Tag size={13} />
+                    {tags.length > 0 ? t("detail.editTags") : t("detail.addTags")}
+                    <ChevronDown size={12} />
                 </button>
             </div>
 
@@ -220,7 +256,10 @@ export const TrackDetailPanel = ({
                     onClose={() => setShowCover(false)}
                 />
             )}
+
+            {tagsMenuAt && (
+                <ContextMenu x={tagsMenuAt.x} y={tagsMenuAt.y} entries={tagsMenu} onClose={closeTagsMenu} />
+            )}
         </div>
     );
 };
-

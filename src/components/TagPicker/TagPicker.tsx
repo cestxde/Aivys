@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Minus, Plus, X } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Check, ChevronDown, ChevronRight, ClipboardCopy, ClipboardPaste, ListPlus, Minus, MoreVertical, Plus, X } from "lucide-react";
 import type { TagCategory, Track, TrackStats, UserTag } from "../../types";
 import { displayTitle } from "../../utils/track";
 import { groupTags, sortTags } from "../../utils/tags";
@@ -9,6 +9,7 @@ import { useRememberedState, useStoredState } from "../../hooks/useRemembered";
 import { TagDot } from "../TagChip/TagChip";
 import { TagSortButton } from "../TagSortButton/TagSortButton";
 import { CategorySidebar, PINNED, type CategoryFilter } from "../CategorySidebar/CategorySidebar";
+import { ContextMenu, type MenuEntry } from "../ContextMenu/ContextMenu";
 import { t } from "../../i18n";
 import "./TagPicker.css";
 import { useBackLayer } from "../../hooks/useBackLayer";
@@ -28,6 +29,12 @@ interface TagPickerProps {
     onToggle: (tag: UserTag, assigned: boolean) => void;
     /** Create a tag named `name` (in `categoryIds`) and assign it. */
     onCreate: (name: string, categoryIds: string[]) => void;
+    /** Copy / paste / add for a single track (clipboard is in-app). */
+    onCopyTags?: (track: Track) => void;
+    onPasteTags?: (track: Track) => void;
+    onAddTags?: (track: Track) => void;
+    /** True when the in-app tag clipboard has at least one still-known tag. */
+    hasTagClipboard?: boolean;
     onClose: () => void;
 }
 
@@ -56,7 +63,10 @@ type Entry =
  * the highlighted row and clears the field for the next name; the arrow keys
  * move the highlight.
  */
-export const TagPicker = ({ tracks, tags, categories, counts, isPinned, stats, onToggle, onCreate, onClose }: TagPickerProps) => {
+export const TagPicker = ({
+    tracks, tags, categories, counts, isPinned, stats, onToggle, onCreate,
+    onCopyTags, onPasteTags, onAddTags, hasTagClipboard = false, onClose,
+}: TagPickerProps) => {
     useBackLayer(true, onClose);
     const [filter, setFilter] = useState("");
     const [sort, setSort] = useTagSort();
@@ -65,7 +75,11 @@ export const TagPicker = ({ tracks, tags, categories, counts, isPinned, stats, o
     // The highlighted row, for the query it was chosen at: a new query
     // highlights its closest row again.
     const [highlight, setHighlight] = useState<{ query: string; index: number } | null>(null);
+    const [overflowAt, setOverflowAt] = useState<{ x: number; y: number } | null>(null);
+    const closeOverflow = useCallback(() => setOverflowAt(null), []);
     const list = useRef<HTMLDivElement>(null);
+    const single = tracks.length === 1 ? tracks[0] : null;
+    const canClipboard = !!single && !!onCopyTags;
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -181,9 +195,26 @@ export const TagPicker = ({ tracks, tags, categories, counts, isPinned, stats, o
                         <h2>{t("tagPicker.title")}</h2>
                         <span className="add-to-subject">{subject}</span>
                     </div>
-                    <button className="add-to-close" title={t("common.close")} onClick={onClose}>
-                        <X size={18} />
-                    </button>
+                    <div className="tag-picker-header-actions">
+                        {canClipboard && single && (
+                            <button
+                                className="add-to-close"
+                                title={t("common.tags")}
+                                aria-haspopup="menu"
+                                aria-expanded={overflowAt !== null}
+                                onPointerDown={(e) => overflowAt && e.stopPropagation()}
+                                onClick={(e) => {
+                                    const box = e.currentTarget.getBoundingClientRect();
+                                    setOverflowAt(overflowAt ? null : { x: box.right - 200, y: box.bottom + 4 });
+                                }}
+                            >
+                                <MoreVertical size={18} />
+                            </button>
+                        )}
+                        <button className="add-to-close" title={t("common.close")} onClick={onClose}>
+                            <X size={18} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="tag-picker-body">
@@ -290,6 +321,22 @@ export const TagPicker = ({ tracks, tags, categories, counts, isPinned, stats, o
                     </div>
                 </div>
             </div>
+
+            {overflowAt && canClipboard && single && onCopyTags && (
+                <ContextMenu
+                    x={overflowAt.x}
+                    y={overflowAt.y}
+                    entries={([
+                        { kind: "item", label: t("menu.copyTags"), icon: <ClipboardCopy size={16} />, onSelect: () => onCopyTags(single) },
+                        ...(hasTagClipboard && onPasteTags && onAddTags ? [
+                            { kind: "separator" as const },
+                            { kind: "item" as const, label: t("menu.pasteTags"), icon: <ClipboardPaste size={16} />, onSelect: () => onPasteTags(single) },
+                            { kind: "item" as const, label: t("menu.addTags"), icon: <ListPlus size={16} />, onSelect: () => onAddTags(single) },
+                        ] : []),
+                    ] satisfies MenuEntry[])}
+                    onClose={closeOverflow}
+                />
+            )}
         </div>
     );
 };

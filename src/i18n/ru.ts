@@ -158,6 +158,7 @@ export const ru: Record<MessageKey, Message> = {
 
     // Track menu and actions
     "menu.goTo": "Перейти",
+    "menu.tags": "Теги",
     "menu.openFolder": "Папка",
     "menu.revealWindows": "Показать в проводнике",
     "menu.revealMac": "Показать в Finder",
@@ -165,6 +166,10 @@ export const ru: Record<MessageKey, Message> = {
     "menu.removeTag": "Снять тег «{name}»",
     "menu.removeFromPlaylist": "Убрать из этого плейлиста",
     "menu.deleteFromDisk": "Удалить с диска…",
+    "menu.editTags": "Изменить теги…",
+    "menu.copyTags": "Копировать теги",
+    "menu.pasteTags": "Вставить теги",
+    "menu.addTags": "Добавить теги",
     "notice.playingNext": "Будет следующим",
     "notice.addedToQueue": "Добавлено в очередь",
     "notice.addedToFavorites": "Добавлено в избранное",
@@ -394,6 +399,9 @@ export const ru: Record<MessageKey, Message> = {
     "tags.collapse": "Свернуть",
     "tags.renameHint": "Двойной щелчок — переименовать",
     "tags.dropToUncategorize": "Перетащите сюда тег, чтобы убрать его из категории.",
+    "tags.copied": "Теги скопированы",
+    "tags.pasted": "Теги вставлены",
+    "tags.added": "Теги добавлены",
     "tag.kind": "Тег",
     "tag.all": "Все теги",
     "tag.edit": "Изменить тег",

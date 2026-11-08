@@ -3,6 +3,13 @@
     width: min(680px, 100%);
 }
 
+.tag-picker-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
 .tag-picker-body {
     display: flex;
     gap: 12px;

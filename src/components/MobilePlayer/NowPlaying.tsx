@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import {
-    ChevronDown, Disc3, Heart, Info, ListMusic, ListPlus, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Tag,
+    ChevronDown, ClipboardCopy, ClipboardPaste, Disc3, Heart, Info, ListMusic, ListPlus, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Tag,
 } from "lucide-react";
 import type { Track, TrackStats, UserTag } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
@@ -9,6 +9,7 @@ import { CoverArt } from "../CoverArt";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { ArtistLinks } from "../ArtistLinks/ArtistLinks";
 import { TagChip } from "../TagChip/TagChip";
+import { ContextMenu, type MenuEntry } from "../ContextMenu/ContextMenu";
 import { TrackSlider } from "../PlayerBar/TrackSlider";
 import { t } from "../../i18n";
 import { useBackLayer } from "../../hooks/useBackLayer";
@@ -44,6 +45,11 @@ interface NowPlayingProps {
     onToggleFavorite: (track: Track) => void;
     onAddTo: (track: Track) => void;
     onEditTags: (track: Track) => void;
+    onCopyTags: (track: Track) => void;
+    onPasteTags: (track: Track) => void;
+    onAddTags: (track: Track) => void;
+    /** True when the in-app tag clipboard has at least one still-known tag. */
+    hasTagClipboard: boolean;
     onOpenTag: (tag: UserTag) => void;
     onRemoveTag: (track: Track, tag: UserTag) => void;
     onOpenQueue: () => void;
@@ -204,10 +210,22 @@ const Neighbour = ({ track, side }: { track: Track | null; side: "previous" | "n
 export const NowPlaying = (props: NowPlayingProps) => {
     const { track, stats } = props;
     const [showCover, setShowCover] = useState(false);
+    const [tagsMenuAt, setTagsMenuAt] = useState<{ x: number; y: number } | null>(null);
+    const closeTagsMenu = useCallback(() => setTagsMenuAt(null), []);
     const artist = displayArtists(track);
     const tags = tagsOf(stats?.tags, props.tagsById);
     const favorite = stats?.favorite ?? false;
     const swipe = useSwipe(props.next ? props.onNext : null, props.previous ? props.onSwipePrevious : null);
+
+    const tagsMenu: MenuEntry[] = [
+        { kind: "item", label: t("menu.editTags"), icon: <Tag size={16} />, onSelect: () => props.onEditTags(track) },
+        { kind: "item", label: t("menu.copyTags"), icon: <ClipboardCopy size={16} />, onSelect: () => props.onCopyTags(track) },
+        ...(props.hasTagClipboard ? [
+            { kind: "separator" as const },
+            { kind: "item" as const, label: t("menu.pasteTags"), icon: <ClipboardPaste size={16} />, onSelect: () => props.onPasteTags(track) },
+            { kind: "item" as const, label: t("menu.addTags"), icon: <ListPlus size={16} />, onSelect: () => props.onAddTags(track) },
+        ] : []),
+    ];
 
     // Closed, the tags take one line: as many as fit whole, then "+N" that
     // opens them all over the buttons and the seek bar. A new track shows
@@ -295,8 +313,18 @@ export const NowPlaying = (props: NowPlayingProps) => {
                             +{tags.length - shownTags}
                         </button>
                     )}
-                    <button className="detail-tags-edit" onClick={() => props.onEditTags(track)}>
+                    <button
+                        className="detail-tags-edit"
+                        aria-haspopup="menu"
+                        aria-expanded={tagsMenuAt !== null}
+                        onPointerDown={(e) => tagsMenuAt && e.stopPropagation()}
+                        onClick={(e) => {
+                            const box = e.currentTarget.getBoundingClientRect();
+                            setTagsMenuAt(tagsMenuAt ? null : { x: box.left, y: box.bottom + 4 });
+                        }}
+                    >
                         <Tag size={13} /> {tags.length > 0 ? t("detail.editTags") : t("detail.addTags")}
+                        <ChevronDown size={12} />
                     </button>
                 </div>
                 {tagsOpen && (
@@ -375,6 +403,9 @@ export const NowPlaying = (props: NowPlayingProps) => {
             </div>
 
             {showCover && <CoverViewer path={track.coverPath} onClose={() => setShowCover(false)} />}
+            {tagsMenuAt && (
+                <ContextMenu x={tagsMenuAt.x} y={tagsMenuAt.y} entries={tagsMenu} onClose={closeTagsMenu} />
+            )}
         </div>
     );
 };

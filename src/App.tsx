@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import {
-	ArrowDown, ArrowUp, Check, FolderPlus, GitMerge, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder, ImagePlus, ImageOff, ClipboardPaste,
+	ArrowDown, ArrowUp, Check, FolderPlus, GitMerge, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder, ImagePlus, ImageOff, ClipboardPaste, ClipboardCopy,
 } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
@@ -75,6 +75,7 @@ import {
 } from "./utils/groups";
 import { nextTagColor } from "./utils/tags";
 import { notifyError, notifyInfo, notifyUndoable } from "./utils/notify";
+import { copyTagIds, useTagClipboard } from "./utils/tagClipboard";
 import { displayTitle } from "./utils/track";
 import { revealFile, revealLabel } from "./utils/reveal";
 import { formatDateTime, formatDuration, formatTotalDuration } from "./utils/format";
@@ -291,6 +292,7 @@ function App() {
 	const tracksByPath = useMemo(() => new Map(files.map(f => [f.relPath, f])), [files]);
 
 	const trackStats = useTrackStats(files);
+	const tagClipboard = useTagClipboard();
 	usePlayTracking(element, currentTrack ?? null, trackStats.recordPlay, trackStats.recordComplete);
 
 	// Android: the plays the app's player counted while the page was gone (the
@@ -316,6 +318,29 @@ function App() {
 	const playlists = usePlaylists(files);
 	const tags = useTags(files);
 	const pins = usePins(files);
+
+	/** Known tag ids from the clipboard (deleted tags are dropped). */
+	const liveClipboardTags = () => tagClipboard.filter(id => tags.byId.has(id));
+
+	const copyTrackTags = (track: Track) => {
+		copyTagIds(trackStats.stats[track.relPath]?.tags ?? []);
+		notifyInfo(t("tags.copied"));
+	};
+
+	const pasteTrackTags = (tracks: Track[]) => {
+		const ids = liveClipboardTags();
+		if (ids.length === 0) return;
+		trackStats.replaceTags(tracks, ids);
+		notifyInfo(t("tags.pasted"));
+	};
+
+	const addTrackTags = (tracks: Track[]) => {
+		const ids = liveClipboardTags();
+		if (ids.length === 0) return;
+		trackStats.addTags(tracks, ids);
+		notifyInfo(t("tags.added"));
+	};
+
 	const groupCoverStore = useGroupCovers(files);
 	const { withCovers } = groupCoverStore;
 
@@ -1068,6 +1093,31 @@ function App() {
 		return [{ kind: "label", label: t("menu.goTo") }, ...entries, { kind: "separator" }];
 	};
 
+	/**
+	 * Tag actions for a track menu: edit, and when copying from one track,
+	 * copy / paste / add from the in-app clipboard.
+	 */
+	const tagEntries = (tracks: Track[], copyFrom?: Track): MenuEntry[] => {
+		const items: MenuEntry[] = [
+			{ kind: "item", label: t("menu.editTags"), icon: <Tag size={16} />, onSelect: () => setTagPicker(tracks) },
+		];
+		if (copyFrom) {
+			items.push({
+				kind: "item",
+				label: t("menu.copyTags"),
+				icon: <ClipboardCopy size={16} />,
+				onSelect: () => copyTrackTags(copyFrom),
+			});
+		}
+		if (liveClipboardTags().length > 0) {
+			items.push(
+				{ kind: "item", label: t("menu.pasteTags"), icon: <ClipboardPaste size={16} />, onSelect: () => pasteTrackTags(tracks) },
+				{ kind: "item", label: t("menu.addTags"), icon: <ListPlus size={16} />, onSelect: () => addTrackTags(tracks) },
+			);
+		}
+		return [{ kind: "label", label: t("menu.tags") }, ...items, { kind: "separator" }];
+	};
+
 	/** Write `edit` into the tags of `tracks`; the library follows. */
 	const saveMetadata = async (tracks: Track[], edit: MetadataEdit) => {
 		const paths = tracks.map(track => track.path);
@@ -1165,9 +1215,9 @@ function App() {
 				onSelect: () => trackStats.toggleFavorite(row.track),
 			},
 			{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo([row.track]) },
-			{ kind: "item", label: t("common.tags"), icon: <Tag size={16} />, onSelect: () => setTagPicker([row.track]) },
 			{ kind: "item", label: t("edit.menu"), icon: <PencilLine size={16} />, onSelect: () => setEditing([row.track]) },
 			{ kind: "separator" },
+			...tagEntries([row.track], row.track),
 			...goToEntries(row.track),
 		];
 		// Danger zone: removals, then the file itself.
@@ -1229,9 +1279,9 @@ function App() {
 				onSelect: () => toggleFavorites(tracks),
 			},
 			{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo(tracks) },
-			{ kind: "item", label: t("common.tags"), icon: <Tag size={16} />, onSelect: () => setTagPicker(tracks) },
 			{ kind: "item", label: t("edit.menu"), icon: <PencilLine size={16} />, onSelect: () => setEditing(tracks) },
 			{ kind: "separator" },
+			...tagEntries(tracks),
 		];
 		if (currentTag) {
 			const tag = currentTag;
@@ -1372,7 +1422,7 @@ function App() {
 		{ kind: "item", label: t("common.play"), icon: <Play size={16} />, onSelect: () => playTracks(group.tracks, open) },
 		{ kind: "separator" },
 		{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo(group.tracks) },
-		{ kind: "item", label: t("common.tags"), icon: <Tag size={16} />, onSelect: () => setTagPicker(group.tracks) },
+		...tagEntries(group.tracks),
 		...(open.kind === "artist" || open.kind === "album"
 			? [pinEntry(open.kind, group.key), { kind: "separator" as const }, ...coverEntries(open.kind, group)]
 			: []),
@@ -1572,6 +1622,10 @@ function App() {
 			onSetRating={trackStats.setRating}
 			tagsById={tags.byId}
 			onEditTags={(track) => setTagPicker([track])}
+			onCopyTags={copyTrackTags}
+			onPasteTags={(track) => pasteTrackTags([track])}
+			onAddTags={(track) => addTrackTags([track])}
+			hasTagClipboard={liveClipboardTags().length > 0}
 			onEditDetails={(track) => setEditing([track])}
 			onOpenTag={(target) => {
 				leavePlayer();
@@ -1969,6 +2023,10 @@ function App() {
 							onToggleFavorite={trackStats.toggleFavorite}
 							onAddTo={(track) => setAddTo([track])}
 							onEditTags={(track) => setTagPicker([track])}
+							onCopyTags={copyTrackTags}
+							onPasteTags={(track) => pasteTrackTags([track])}
+							onAddTags={(track) => addTrackTags([track])}
+							hasTagClipboard={liveClipboardTags().length > 0}
 							onOpenTag={(target) => {
 								leavePlayer();
 								showView({ kind: "tag", id: target.id }, listView);
@@ -2118,6 +2176,10 @@ function App() {
 					stats={trackStats.stats}
 					onToggle={(tag, assigned) => trackStats.setTrackTag(tagPicker, tag.id, assigned)}
 					onCreate={(name, categoryIds) => setTagDialog({ tag: null, name, categoryIds, assignTo: tagPicker })}
+					onCopyTags={copyTrackTags}
+					onPasteTags={(track) => pasteTrackTags([track])}
+					onAddTags={(track) => addTrackTags([track])}
+					hasTagClipboard={liveClipboardTags().length > 0}
 					// Escape closes the tag dialog over it, not the picker as well.
 					onClose={() => {
 						if (!tagDialog) setTagPicker(null);

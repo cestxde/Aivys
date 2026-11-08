@@ -157,6 +157,7 @@ export const en = {
 
     // Track menu and actions
     "menu.goTo": "Go to",
+    "menu.tags": "Tags",
     "menu.openFolder": "Folder",
     "menu.revealWindows": "Show in Explorer",
     "menu.revealMac": "Show in Finder",
@@ -164,6 +165,10 @@ export const en = {
     "menu.removeTag": "Remove tag \"{name}\"",
     "menu.removeFromPlaylist": "Remove from this playlist",
     "menu.deleteFromDisk": "Delete from disk…",
+    "menu.editTags": "Edit tags…",
+    "menu.copyTags": "Copy tags",
+    "menu.pasteTags": "Paste tags",
+    "menu.addTags": "Add tags",
     "notice.playingNext": "Playing next",
     "notice.addedToQueue": "Added to queue",
     "notice.addedToFavorites": "Added to favorites",
@@ -377,6 +382,9 @@ export const en = {
     "tags.collapse": "Collapse",
     "tags.renameHint": "Double-click to rename",
     "tags.dropToUncategorize": "Drop a tag here to take it out of its category.",
+    "tags.copied": "Tags copied",
+    "tags.pasted": "Tags pasted",
+    "tags.added": "Tags added",
     "tag.kind": "Tag",
     "tag.all": "All tags",
     "tag.edit": "Edit tag",

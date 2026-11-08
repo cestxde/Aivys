@@ -102,6 +102,25 @@ export const useTrackStats = (files: Track[]) => {
         }
     }, [patch, persist]);
 
+    /** Give each track exactly `tagIds` (unknown ids already filtered by the caller). */
+    const replaceTags = useCallback((tracks: Track[], tagIds: string[]) => {
+        const want = new Set(tagIds);
+        for (const track of tracks) {
+            const current = statsRef.current[track.relPath]?.tags ?? [];
+            for (const tagId of current) {
+                if (!want.has(tagId)) setTrackTag([track], tagId, false);
+            }
+            for (const tagId of tagIds) {
+                if (!current.includes(tagId)) setTrackTag([track], tagId, true);
+            }
+        }
+    }, [setTrackTag]);
+
+    /** Assign every id in `tagIds` that the track does not already have. */
+    const addTags = useCallback((tracks: Track[], tagIds: string[]) => {
+        for (const tagId of tagIds) setTrackTag(tracks, tagId, true);
+    }, [setTrackTag]);
+
     const recordPlay = useCallback((track: Track) => {
         patch(track.relPath, current => ({ playCount: current.playCount + 1, lastPlayedAt: nowUnix() }));
         persist("record_play", { path: track.relPath });
@@ -122,5 +141,17 @@ export const useTrackStats = (files: Track[]) => {
     }, [persist, reload]);
 
     // An empty library shows none (not those of the library opened before).
-    return { stats: files.length > 0 ? stats : NO_STATS, reload, setFavorite, toggleFavorite, setRating, setTrackTag, recordPlay, recordComplete, recordMissed };
+    return {
+        stats: files.length > 0 ? stats : NO_STATS,
+        reload,
+        setFavorite,
+        toggleFavorite,
+        setRating,
+        setTrackTag,
+        replaceTags,
+        addTags,
+        recordPlay,
+        recordComplete,
+        recordMissed,
+    };
 };
