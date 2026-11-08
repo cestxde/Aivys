@@ -13,7 +13,7 @@
 use lofty::config::{ParseOptions, WriteOptions};
 use lofty::file::{AudioFile, FileType, TaggedFileExt};
 use lofty::flac::FlacFile;
-use lofty::id3::v2::{FrameId, Id3v2Version};
+use lofty::id3::v2::{ExtendedTextFrame, Frame, FrameId, Id3v2Version};
 use lofty::mp4::Mp4File;
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OggPictureStorage, OpusFile, SpeexFile, VorbisFile};
@@ -166,11 +166,32 @@ fn write_tags(target: &Path, file_type: FileType, edit: &MetadataEdit, cover: &C
             }
             // User-defined text frames skip the generic view: the edit never
             // touches them, and lofty maps some of them (TXXX:WORK) to keys it
-            // then cannot write back.
+            // then cannot write back. MusicBrainz's TXXX:ARTISTS /
+            // ALBUMARTISTS map to TrackArtists / AlbumArtists, so when those
+            // fields are edited the old TXXX must not be put back as-is —
+            // otherwise the editor appears to save nothing.
             let user_text: Vec<_> = tag.remove(&FrameId::Valid(Cow::Borrowed("TXXX"))).collect();
             let mut tag = edited(tag, edit, cover);
             for frame in user_text {
+                if let Frame::UserText(ExtendedTextFrame { description, .. }) = &frame {
+                    let desc = description.as_ref();
+                    if edit.artist.is_some() && desc.eq_ignore_ascii_case("ARTISTS") {
+                        continue;
+                    }
+                    if edit.album_artist.is_some()
+                        && (desc.eq_ignore_ascii_case("ALBUMARTISTS")
+                            || desc.eq_ignore_ascii_case("ALBUM ARTISTS"))
+                    {
+                        continue;
+                    }
+                }
                 tag.insert(frame);
+            }
+            if let Some(Some(artist)) = &edit.artist {
+                tag.insert_user_text("ARTISTS".into(), artist.clone());
+            }
+            if let Some(Some(album_artist)) = &edit.album_artist {
+                tag.insert_user_text("ALBUMARTISTS".into(), album_artist.clone());
             }
             audio.set_id3v2(tag);
             save(&audio, &mut file, options)
@@ -458,6 +479,55 @@ mod tests {
         let tag = read(&song);
         assert_eq!(tag.title(), None);
         assert_eq!(tag.album().as_deref(), Some("Kept"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// MP3 with TPE1 and a MusicBrainz TXXX:ARTISTS that disagrees with it.
+    fn write_mp3_with_artists_txxx(path: &Path) {
+        let mut bytes = Vec::new();
+        let frames: Vec<u8> = [
+            [b"TIT2".as_slice(), &[0, 0, 0, 4, 0, 0, 0], b"Old"].concat(),
+            // UTF-16 LE with BOM: "Ru"
+            [b"TPE1".as_slice(), &[0, 0, 0, 7, 0, 0, 1, 0xFF, 0xFE, b'R', 0, b'u', 0]].concat(),
+            // TXXX ARTISTS = "En" (UTF-8): encoding + "ARTISTS\0En"
+            [b"TXXX".as_slice(), &[0, 0, 0, 11, 0, 0, 0], b"ARTISTS\0En"].concat(),
+            [b"TXXX".as_slice(), &[0, 0, 0, 10, 0, 0, 0], b"WORK\0Opus"].concat(),
+        ]
+        .concat();
+        let size = frames.len() as u32;
+        let syncsafe = [(size >> 21) as u8 & 0x7f, (size >> 14) as u8 & 0x7f, (size >> 7) as u8 & 0x7f, size as u8 & 0x7f];
+        bytes.extend_from_slice(b"ID3\x03\x00\x00");
+        bytes.extend_from_slice(&syncsafe);
+        bytes.extend_from_slice(&frames);
+        for _ in 0..20 {
+            bytes.extend_from_slice(&[0xFF, 0xFB, 0x90, 0x00]);
+            bytes.resize(bytes.len() + 413, 0);
+        }
+        fs::write(path, bytes).unwrap();
+    }
+
+    #[test]
+    fn editing_artist_replaces_txxx_artists() {
+        let dir = temp_dir();
+        let song = dir.join("song.mp3");
+        write_mp3_with_artists_txxx(&song);
+
+        let before = read(&song);
+        let mut artists: Vec<_> = before.get_strings(ItemKey::TrackArtist).map(str::to_owned).collect();
+        artists.extend(before.get_strings(ItemKey::TrackArtists).map(str::to_owned));
+        assert!(artists.iter().any(|a| a == "Ru"), "{artists:?}");
+        assert!(artists.iter().any(|a| a == "En"), "{artists:?}");
+
+        let undo = EditUndo::default();
+        let edit: MetadataEdit = serde_json::from_str(r#"{"artist":"Only Ru"}"#).unwrap();
+        assert!(edit_files(&dir, &undo, &[song.clone()], &edit).is_empty());
+
+        let tag = read(&song);
+        assert_eq!(tag.artist().as_deref(), Some("Only Ru"));
+        let txxx: Vec<_> = tag.get_strings(ItemKey::TrackArtists).collect();
+        assert_eq!(txxx, ["Only Ru"], "TXXX:ARTISTS must follow the edit, not the old value");
+        let written = fs::read(&song).unwrap();
+        assert!(written.windows(9).any(|w| w == b"WORK\0Opus"), "unrelated TXXX must survive");
         let _ = fs::remove_dir_all(&dir);
     }
 }
