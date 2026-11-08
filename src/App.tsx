@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import {
-	ArrowDown, ArrowUp, Check, FolderPlus, GitMerge, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder, ImagePlus, ImageOff, ClipboardPaste, ClipboardCopy,
+	ArrowDown, ArrowUp, Check, FolderPlus, GitMerge, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder, ImagePlus, ImageOff, Images, ClipboardPaste, ClipboardCopy,
 } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
@@ -39,7 +39,7 @@ import { usePins, type PinKind } from "./hooks/usePins";
 import { useGroupCovers, type CoverKind } from "./hooks/useGroupCovers";
 import { useSleepTimer } from "./hooks/useSleepTimer";
 import { useTray } from "./hooks/useTray";
-import { clipboardImage, cropImage, pastedImage, pickFile } from "./utils/image";
+import { clipboardImage, cropImage, pastedImage, pickFile, readCoverBase64 } from "./utils/image";
 import { cropToSquare } from "./utils/coverCrop";
 import { useViewRows } from "./hooks/useViewRows";
 import { useSmartPlaylistPaths } from "./hooks/useSmartPlaylistPaths";
@@ -1402,31 +1402,76 @@ function App() {
 		});
 	};
 
+	/**
+	 * Write the image at `coverPath` into every track's tags (after confirming).
+	 * `onBusy` runs only while the files are being written, not over the dialog.
+	 */
+	const applyCoverToTracks = async (
+		tracks: Track[],
+		coverPath: string,
+		onBusy?: (busy: boolean) => void,
+	) => {
+		if (tracks.length === 0) return;
+		const confirmed = await ask(
+			t("confirm.applyCoverToTracks.body", { count: tracks.length, title: displayTitle(tracks[0]) }),
+			{
+				title: t("confirm.applyCoverToTracks.title"),
+				kind: "warning",
+				okLabel: t("confirm.applyCoverToTracks.ok"),
+				cancelLabel: t("common.cancel"),
+			},
+		);
+		if (!confirmed) return;
+		onBusy?.(true);
+		try {
+			const data = await readCoverBase64(coverPath);
+			await saveMetadata(tracks, { cover: data });
+		} catch (e) {
+			notifyError(t("error.setCover"), e);
+		} finally {
+			onBusy?.(false);
+		}
+	};
+
 	/** An album's or artist's own cover: set, change, or back to the tracks' art. */
-	const coverEntries = (kind: CoverKind, group: TrackGroup): MenuEntry[] => [
-		{
-			kind: "item",
-			label: group.cover ? t("group.changeCover") : t("group.setCover"),
-			icon: <ImagePlus size={16} />,
-			onSelect: () => chooseGroupCover(kind, group),
-		},
-		// The desktop's clipboard (Android's does not give images to the page).
-		...(androidStorage ? [] : [{
-			kind: "item" as const,
-			label: t("cover.pasteCover"),
-			icon: <ClipboardPaste size={16} />,
-			onSelect: () => pasteCover(data => {
-				setSettingCover({ kind, key: group.key });
-				groupCoverStore.setCover(kind, group.key, data).finally(() => setSettingCover(null));
-			}),
-		}]),
-		...(group.cover ? [{
-			kind: "item" as const,
-			label: t("group.resetCover"),
-			icon: <ImageOff size={16} />,
-			onSelect: () => groupCoverStore.setCover(kind, group.key, null),
-		}] : []),
-	];
+	const coverEntries = (kind: CoverKind, group: TrackGroup): MenuEntry[] => {
+		// Album only: the group's own cover, or the first track cover shown for it.
+		const applyPath = kind === "album"
+			? (group.cover ?? groupCovers(group, 1)[0] ?? null)
+			: null;
+		return [
+			{
+				kind: "item",
+				label: group.cover ? t("group.changeCover") : t("group.setCover"),
+				icon: <ImagePlus size={16} />,
+				onSelect: () => chooseGroupCover(kind, group),
+			},
+			// The desktop's clipboard (Android's does not give images to the page).
+			...(androidStorage ? [] : [{
+				kind: "item" as const,
+				label: t("cover.pasteCover"),
+				icon: <ClipboardPaste size={16} />,
+				onSelect: () => pasteCover(data => {
+					setSettingCover({ kind, key: group.key });
+					groupCoverStore.setCover(kind, group.key, data).finally(() => setSettingCover(null));
+				}),
+			}]),
+			...(group.cover ? [{
+				kind: "item" as const,
+				label: t("group.resetCover"),
+				icon: <ImageOff size={16} />,
+				onSelect: () => groupCoverStore.setCover(kind, group.key, null),
+			}] : []),
+			...(applyPath && group.tracks.length > 0 ? [{
+				kind: "item" as const,
+				label: t("group.applyCoverToTracks"),
+				icon: <Images size={16} />,
+				onSelect: () => applyCoverToTracks(group.tracks, applyPath, busy => {
+					setSettingCover(busy ? { kind, key: group.key } : null);
+				}),
+			}] : []),
+		];
+	};
 
 	const groupMenu = (group: TrackGroup, open: View): MenuEntry[] => [
 		{ kind: "item", label: t("common.open"), icon: <FolderOpen size={16} />, onSelect: () => showView(open) },
@@ -1888,6 +1933,13 @@ function App() {
 									onSetCover={(data) => playlists.setCover(playlist.id, data)}
 									onClearCover={() => playlists.clearCover(playlist.id)}
 									onPasteCover={androidStorage ? undefined : () => pasteCover(data => playlists.setCover(playlist.id, data))}
+									onApplyCoverToTracks={playlist.coverPath && viewRows.length > 0
+										? (onBusy) => applyCoverToTracks(
+											viewRows.map(row => row.track),
+											playlist.coverPath!,
+											onBusy,
+										)
+										: undefined}
 								/>
 							)}
 

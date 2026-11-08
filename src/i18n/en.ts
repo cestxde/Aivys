@@ -229,6 +229,12 @@ export const en = {
         one: "The tag “{from}” will be deleted. Its {count} track gets the tag “{into}”, which also takes over its categories, pin and smart-playlist rules.",
         other: "The tag “{from}” will be deleted. Its {count} tracks get the tag “{into}”, which also takes over its categories, pin and smart-playlist rules.",
     },
+    "confirm.applyCoverToTracks.title": "Apply cover to tracks",
+    "confirm.applyCoverToTracks.ok": "Apply",
+    "confirm.applyCoverToTracks.body": {
+        one: "Replace the cover embedded in “{title}”? This writes into the audio file.",
+        other: "Replace the cover embedded in {count} tracks? This writes into the audio files.",
+    },
 
     // Errors (the backend's reason follows after a colon)
     "error.playback": "Playback failed",
@@ -298,7 +304,9 @@ export const en = {
     "group.setCover": "Own cover",
     "group.changeCover": "Change cover",
     "group.resetCover": "Cover from the tracks",
+    "group.applyCoverToTracks": "Apply cover to all tracks",
     "playlist.removeCover": "Remove cover",
+    "playlist.applyCoverToTracks": "Apply cover to all tracks",
     "playlist.missing": "{count} missing",
 
     // Add to…

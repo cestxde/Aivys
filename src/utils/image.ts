@@ -1,3 +1,4 @@
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { cropToSquare, type CropFrame } from "./coverCrop";
 
 /** The longest side of a saved cover, in pixels. */
@@ -11,6 +12,13 @@ export const readBase64 = (file: Blob) => new Promise<string>((resolve, reject) 
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
 });
+
+/** A cover file on disk (playlist / album / track cache) as base64 for `edit_tracks`. */
+export const readCoverBase64 = async (path: string): Promise<string> => {
+    const response = await fetch(convertFileSrc(path));
+    if (!response.ok) throw new Error(`could not read cover (${response.status})`);
+    return readBase64(await response.blob());
+};
 
 /**
  * The square `frame` of `image` as a JPEG (or a PNG for a PNG), with its bytes

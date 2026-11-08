@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, ClipboardPaste, ImagePlus, ListMusic, Pencil, Sparkles, Trash2, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ClipboardPaste, ImagePlus, Images, ListMusic, Pencil, Sparkles, Trash2, SlidersHorizontal } from "lucide-react";
 import type { ListRow, Playlist } from "../../types";
 import { formatTotalDuration } from "../../utils/format";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
@@ -25,6 +25,8 @@ interface PlaylistHeaderProps {
     onClearCover: () => void;
     /** The clipboard's image as the cover (the desktop only). */
     onPasteCover?: () => void;
+    /** Write the playlist's cover into every track's tags; `onBusy` for the spinner. */
+    onApplyCoverToTracks?: (onBusy: (busy: boolean) => void) => void | Promise<unknown>;
 }
 
 const COVER_SIZE = 120;
@@ -41,6 +43,7 @@ export const PlaylistHeader = ({
     onSetCover,
     onClearCover,
     onPasteCover,
+    onApplyCoverToTracks,
 }: PlaylistHeaderProps) => {
     const [draft, setDraft] = useState<string | null>(startRenaming ? playlist.name : null);
     // True while the playlist's cover is being written (a spinner shows over it).
@@ -152,6 +155,15 @@ export const PlaylistHeader = ({
                         {playlist.coverPath && (
                             <button className="playlist-action" onClick={onClearCover}>
                                 {t("playlist.removeCover")}
+                            </button>
+                        )}
+                        {onApplyCoverToTracks && playlist.coverPath && (
+                            <button
+                                className="playlist-action"
+                                disabled={settingCover}
+                                onClick={() => onApplyCoverToTracks(setSettingCover)}
+                            >
+                                <Images size={14} /> {t("playlist.applyCoverToTracks")}
                             </button>
                         )}
                         <button className="playlist-action danger" onClick={onDelete}>

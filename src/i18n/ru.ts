@@ -241,6 +241,14 @@ export const ru: Record<MessageKey, Message> = {
         many: "Тег «{from}» будет удалён. Его {count} треков получат тег «{into}», к «{into}» перейдут и его категории, закрепление и правила умных плейлистов.",
         other: "Тег «{from}» будет удалён. Его {count} трека получат тег «{into}», к «{into}» перейдут и его категории, закрепление и правила умных плейлистов.",
     },
+    "confirm.applyCoverToTracks.title": "Обложка для треков",
+    "confirm.applyCoverToTracks.ok": "Задать",
+    "confirm.applyCoverToTracks.body": {
+        one: "Заменить встроенную обложку у «{title}»? Изменение запишется в аудиофайл.",
+        few: "Заменить встроенную обложку у {count} треков? Изменение запишется в аудиофайлы.",
+        many: "Заменить встроенную обложку у {count} треков? Изменение запишется в аудиофайлы.",
+        other: "Заменить встроенную обложку у {count} треков? Изменение запишется в аудиофайлы.",
+    },
 
     // Errors (the backend's reason follows after a colon)
     "error.playback": "Не удалось воспроизвести",
@@ -310,7 +318,9 @@ export const ru: Record<MessageKey, Message> = {
     "group.setCover": "Своя обложка",
     "group.changeCover": "Сменить обложку",
     "group.resetCover": "Обложка из треков",
+    "group.applyCoverToTracks": "Задать эту обложку всем трекам",
     "playlist.removeCover": "Убрать обложку",
+    "playlist.applyCoverToTracks": "Задать эту обложку всем трекам",
     "playlist.missing": "{count} отсутствует",
 
     // Add to…
