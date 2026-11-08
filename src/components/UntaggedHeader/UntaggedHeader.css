@@ -1,0 +1,4 @@
+/* The badge is informative only: no edit dialog behind it. */
+.untagged-header-badge {
+    cursor: default;
+}

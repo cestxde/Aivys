@@ -60,12 +60,13 @@ import { FolderGrid, GroupHeader, type Crumb } from "./components/GroupHeader/Gr
 import { AddToDialog } from "./components/AddToDialog/AddToDialog";
 import { TagsPage } from "./components/TagsPage/TagsPage";
 import { TagHeader } from "./components/TagHeader/TagHeader";
+import { UntaggedHeader } from "./components/UntaggedHeader/UntaggedHeader";
 import { TagDialog } from "./components/TagDialog/TagDialog";
 import { CategoryDialog } from "./components/TagDialog/CategoryDialog";
 import { MergeTagDialog } from "./components/TagPicker/MergeTagDialog";
 import { TagPicker } from "./components/TagPicker/TagPicker";
 import { SettingsPage } from "./components/SettingsPage/SettingsPage";
-import { systemViewTracks, tagTracks } from "./utils/views";
+import { systemViewTracks, tagTracks, untaggedTracks, UNTAGGED_KEY } from "./utils/views";
 import {
 	compareBy, hintOf, sectionOf, sortSpecOf, viewSortOf, DEFAULT_SORT, type SortSection, type ViewSort,
 } from "./utils/sort";
@@ -331,7 +332,7 @@ function App() {
 	// Something that is gone (deleted, renamed tags, other library) falls back to its list.
 	const listView: View =
 		requestedView.kind === "playlist" && !playlists.playlists.some(p => p.id === requestedView.id) ? PLAYLISTS_VIEW
-			: requestedView.kind === "tag" && !tags.byId.has(requestedView.id) ? TAGS_VIEW
+			: requestedView.kind === "tag" && !tags.byId.has(requestedView.id) && requestedView.id !== UNTAGGED_KEY ? TAGS_VIEW
 				: requestedView.kind === "artist" && !artistsByKey.has(requestedView.id) ? ARTISTS_VIEW
 					: requestedView.kind === "album" && !albumsByKey.has(requestedView.id) ? ALBUMS_VIEW
 						: requestedView.kind === "folder" && requestedView.id
@@ -391,6 +392,12 @@ function App() {
 		}
 		return counts;
 	}, [files, trackStats.stats]);
+
+	// Library tracks that have no tag yet.
+	const untaggedCount = useMemo(
+		() => files.filter(file => (trackStats.stats[file.relPath]?.tags ?? []).length === 0).length,
+		[files, trackStats.stats],
+	);
 
 	// Open a folder as the active library: validate it, remember it, scan it.
 	const openLibrary = async (path: string) => {
@@ -1418,7 +1425,7 @@ function App() {
 		: listView.kind === "system"
 			? EMPTY_TEXT[listView.id]
 			: listView.kind === "tag"
-				? "empty.tag"
+				? listView.id === UNTAGGED_KEY ? "empty.untagged" : "empty.tag"
 				: currentGroup
 					? "empty.group"
 					: playlist?.type === "smart"
@@ -1612,6 +1619,9 @@ function App() {
 							onFilterChange={setTagsFilter}
 							onOpen={(target) => showView({ kind: "tag", id: target.id })}
 							onPlay={(target) => playTracks(tracksOfTag(target), { kind: "tag", id: target.id })}
+							untaggedCount={untaggedCount}
+							onOpenUntagged={() => showView({ kind: "tag", id: UNTAGGED_KEY })}
+							onPlayUntagged={() => playTracks(untaggedTracks(files, trackStats.stats), { kind: "tag", id: UNTAGGED_KEY })}
 							playingId={playingIn("tag")}
 							onOpenMenu={(target, x, y) => setMenu({ x, y, entries: tagMenu(target) })}
 							isPinned={(target) => pins.isPinned("tag", target.id)}
@@ -1691,6 +1701,10 @@ function App() {
 									onEdit={() => setTagDialog({ tag: currentTag })}
 									onDelete={() => deleteTag(currentTag)}
 								/>
+							)}
+
+							{listView.kind === "tag" && listView.id === UNTAGGED_KEY && (
+								<UntaggedHeader rows={viewRows} onBack={goBack} />
 							)}
 
 							{currentGroup && listView.kind === "artist" && (

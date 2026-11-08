@@ -12,6 +12,7 @@ import { pinnedFirst } from "../../hooks/usePins";
 import { t } from "../../i18n";
 import { useRememberedScroll, useRememberedState, useStoredState } from "../../hooks/useRemembered";
 import { SearchInput } from "../SearchInput/SearchInput";
+import { UNTAGGED_KEY } from "../../utils/views";
 import "./TagsPage.css";
 
 interface TagsPageProps {
@@ -27,6 +28,10 @@ interface TagsPageProps {
     onFilterChange: (value: string) => void;
     onOpen: (tag: UserTag) => void;
     onPlay: (tag: UserTag) => void;
+    /** How many library tracks have no tag; the fixed "No tags" bucket. */
+    untaggedCount: number;
+    onOpenUntagged: () => void;
+    onPlayUntagged: () => void;
     /** Id of the tag playback was started from, to highlight it. */
     playingId: string | null;
     onOpenMenu: (tag: UserTag, x: number, y: number) => void;
@@ -73,7 +78,7 @@ const sectionAt = (x: number, y: number): string | null =>
  * tag is dragged to another category (in the list or the sidebar) to move it.
  */
 export const TagsPage = ({
-    tags, categories, counts, layout, onLayoutChange, filter, onFilterChange, onOpen, onPlay, playingId, onOpenMenu, isPinned, onCreate,
+    tags, categories, counts, layout, onLayoutChange, filter, onFilterChange, onOpen, onPlay, untaggedCount, onOpenUntagged, onPlayUntagged, playingId, onOpenMenu, isPinned, onCreate,
     onCreateCategory, onRenameCategory, onOpenCategoryMenu, onReorderCategories, onMoveTag,
 }: TagsPageProps) => {
     const [picked, setPicked] = useRememberedState<CategoryFilter>("tags.category", null);
@@ -256,6 +261,46 @@ export const TagsPage = ({
                         <Plus size={14} /> {t("tags.new")}
                     </button>
                 </div>
+
+                {selected === null && !query && untaggedCount > 0 && (
+                    <section className="tag-section untagged-section">
+                        <div className="tag-section-header">
+                            <Tag size={14} className="tag-section-icon" />
+                            <h2 className="tag-section-name">{t("tags.untagged")}</h2>
+                            <span className="tag-section-count">{untaggedCount}</span>
+                        </div>
+                        <div className={layout === "grid" ? "tags-grid" : "tags-list"}>
+                            <div
+                                className={`${layout === "grid" ? "tag-card" : "tag-row"} card-hover ${playingId === UNTAGGED_KEY ? "is-playing" : ""}`}
+                                role="button"
+                                tabIndex={0}
+                                style={{ "--tag-color": "#94a3b8" } as CSSProperties}
+                                onClick={onOpenUntagged}
+                                onKeyDown={(e) => e.key === "Enter" && onOpenUntagged()}
+                            >
+                                <TagDot color="#94a3b8" size={layout === "grid" ? 14 : 12} />
+                                {layout === "grid" ? (
+                                    <div className="tag-card-text">
+                                        <span className="tag-card-name">
+                                            {playingId === UNTAGGED_KEY && <PlayingMark />}
+                                            {t("tags.untagged")}
+                                        </span>
+                                        <span className="tag-card-meta">{describe(untaggedCount)}</span>
+                                    </div>
+                                ) : (
+                                    <span className="tag-row-text">
+                                        <span className="tag-card-name">
+                                            {playingId === UNTAGGED_KEY && <PlayingMark />}
+                                            {t("tags.untagged")}
+                                        </span>
+                                        <span className="tag-row-count" title={describe(untaggedCount)}>({untaggedCount})</span>
+                                    </span>
+                                )}
+                                {untaggedCount > 0 && <CardPlayButton onPlay={onPlayUntagged} />}
+                            </div>
+                        </div>
+                    </section>
+                )}
 
                 {tags.length === 0 && categories.length === 0 ? (
                     <div className="tags-empty">

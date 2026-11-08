@@ -26,7 +26,7 @@
 }
 
 /* The tags scroll; their sections keep their full height. */
-.tags-main > * {
+.tags-main>* {
     flex-shrink: 0;
 }
 
@@ -216,7 +216,7 @@
 }
 
 /* The first button after the count goes to the right. */
-.tag-section-count + .tag-section-button {
+.tag-section-count+.tag-section-button {
     margin-left: auto;
 }
 
@@ -337,4 +337,9 @@
         white-space: normal;
         overflow-wrap: anywhere;
     }
+}
+
+/* The fixed "No tags" bucket is a filter, not a real tag. */
+.untagged-section .tag-card {
+    border-left-style: dashed;
 }

@@ -32,8 +32,17 @@ export const systemViewTracks = (
     }
 };
 
+/** Fixed id of the synthetic "tracks without any tag" view; never a real tag. */
+export const UNTAGGED_KEY = "\u0000untagged";
+
 /** Tracks that have the user tag `tagId`, newest first. */
 export const tagTracks = (files: Track[], tagId: string, stats: Record<string, TrackStats>): Track[] =>
     files
         .filter(f => stats[f.relPath]?.tags.includes(tagId))
+        .sort((a, b) => b.dateCreated - a.dateCreated);
+
+/** Tracks without any assigned tag, newest first. */
+export const untaggedTracks = (files: Track[], stats: Record<string, TrackStats>): Track[] =>
+    files
+        .filter(f => (stats[f.relPath]?.tags ?? []).length === 0)
         .sort((a, b) => b.dateCreated - a.dateCreated);
