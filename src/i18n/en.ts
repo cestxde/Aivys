@@ -620,6 +620,15 @@ export const en = {
     "updates.promptHintApk": "On startup, look for a new release on GitHub and offer to download it.",
     "updates.openFailed": "Could not open the link",
     "updates.installing": "Updating…",
+    "updates.changelog": "Release notes",
+    "updates.changelogHint": "Everything published on GitHub, with the installed and latest versions marked.",
+    "updates.viewChangelog": "View notes",
+    "updates.changelogLoading": "Loading release notes…",
+    "updates.changelogFailed": "Could not load release notes: {message}",
+    "updates.badgeLatest": "Latest",
+    "updates.badgeCurrent": "Installed",
+    "updates.badgeBehind": "Update available",
+    "updates.currentNotOnGithub": "This build is not among the published releases.",
     "settings.version": "Version {version}",
 } satisfies Record<string, Message>;
 

@@ -1,50 +1,26 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect } from "react";
 import { Download, X } from "lucide-react";
 import {
-    closeUpdateDialog, installUpdate, isLinkUpdate, openDownload, setUpdatePrompt, useUpdatePrompt, useUpdateStatus,
+    closeUpdateDialog, installUpdate, isLinkUpdate, notesOf, openDownload, setUpdatePrompt, useUpdatePrompt, useUpdateStatus,
 } from "../../utils/updates";
 import { formatFileSize } from "../../utils/format";
 import { t } from "../../i18n";
 import { useBackLayer } from "../../hooks/useBackLayer";
+import { ReleaseNotes } from "./ReleaseNotes";
 import "./UpdateDialog.css";
-
-/**
- * Release notes, as the release workflow writes them: "### " headings and
- * "- " items; anything else is a paragraph.
- */
-const ReleaseNotes = ({ text }: { text: string }) => {
-    const blocks: ReactNode[] = [];
-    let items: string[] = [];
-    const flush = () => {
-        if (items.length === 0) return;
-        blocks.push(<ul key={blocks.length}>{items.map((item, i) => <li key={i}>{item}</li>)}</ul>);
-        items = [];
-    };
-    for (const raw of text.split(/\r?\n/)) {
-        const line = raw.trim();
-        if (line.startsWith("- ") || line.startsWith("* ")) {
-            items.push(line.slice(2));
-            continue;
-        }
-        flush();
-        if (line.startsWith("#")) blocks.push(<h3 key={blocks.length}>{line.replace(/^#+\s*/, "")}</h3>);
-        else if (line) blocks.push(<p key={blocks.length}>{line}</p>);
-    }
-    flush();
-    return <div className="update-notes">{blocks}</div>;
-};
 
 interface UpdateDialogProps {
     /** Called just before the installer takes over (the app is ended). */
     onBeforeInstall: () => void;
 }
 
-/** "A new version is available": its notes, install now or later (on Android, download the APK). */
+/** "A new version is available": notes since the installed one, install now or later (on Android, download the APK). */
 export const UpdateDialog = ({ onBeforeInstall }: UpdateDialogProps) => {
     useBackLayer(true, closeUpdateDialog);
     const status = useUpdateStatus();
     const prompt = useUpdatePrompt();
     const update = "update" in status ? status.update : null;
+    const notes = notesOf(status)?.trim() || update?.body?.trim() || "";
     const busy = status.kind === "downloading";
 
     useEffect(() => {
@@ -68,8 +44,8 @@ export const UpdateDialog = ({ onBeforeInstall }: UpdateDialogProps) => {
                 </div>
                 <span className="update-current">{t("updates.current", { version: update.currentVersion })}</span>
 
-                {update.body?.trim()
-                    ? <ReleaseNotes text={update.body} />
+                {notes
+                    ? <ReleaseNotes text={notes} />
                     : <p className="update-current">{t("updates.noNotes")}</p>}
 
                 {status.kind === "downloading" && (

@@ -1,10 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { getVersion } from "@tauri-apps/api/app";
-import { AppWindow, Download, FolderOpen, Info, Keyboard, MicVocal, Palette, RefreshCw, Library, Share2 } from "lucide-react";
+import { AppWindow, Download, FolderOpen, Info, Keyboard, MicVocal, Palette, RefreshCw, Library, Share2, ScrollText } from "lucide-react";
 import { ArtistRulesEditor } from "./ArtistRules";
 import { ShortcutSettings } from "./ShortcutSettings";
 import {
-    checkForUpdates, isAndroid, isLinkUpdate, openUpdateDialog, setUpdatePrompt, useUpdatePrompt, useUpdateStatus,
+    checkForUpdates, isAndroid, isLinkUpdate, openChangelog, openUpdateDialog, setUpdatePrompt, useUpdatePrompt, useUpdateStatus,
 } from "../../utils/updates";
 import type { ThemePreference } from "../../utils/theme";
 import {
@@ -236,6 +236,11 @@ export const SettingsPage = ({
                         checked={prompt}
                         onChange={(e) => setUpdatePrompt(e.target.checked)}
                     />
+                </Row>
+                <Row title={t("updates.changelog")} description={t("updates.changelogHint")}>
+                    <button className="settings-button" onClick={openChangelog}>
+                        <ScrollText size={14} /> {t("updates.viewChangelog")}
+                    </button>
                 </Row>
             </Section>
         </div>

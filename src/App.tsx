@@ -53,8 +53,9 @@ import { SelectionBar } from "./components/SelectionBar/SelectionBar";
 import { QueuePanel } from "./components/QueuePanel/QueuePanel";
 import { MetadataEditor, type MetadataEdit } from "./components/MetadataEditor/MetadataEditor";
 import { UpdateDialog } from "./components/UpdateDialog/UpdateDialog";
+import { ChangelogDialog } from "./components/UpdateDialog/ChangelogDialog";
 import { CoverCropDialog } from "./components/CoverCropDialog/CoverCropDialog";
-import { checkForUpdates, useUpdateDialogOpen } from "./utils/updates";
+import { checkForUpdates, useChangelogOpen, useUpdateDialogOpen } from "./utils/updates";
 import { savePosition } from "./utils/session";
 import { FolderGrid, GroupHeader, type Crumb } from "./components/GroupHeader/GroupHeader";
 import { AddToDialog } from "./components/AddToDialog/AddToDialog";
@@ -538,6 +539,7 @@ function App() {
 	// A new version on GitHub: looked for quietly once, as soon as the app has
 	// started (the library loaded, or the folder picker shown without one).
 	const updateDialogOpen = useUpdateDialogOpen();
+	const changelogOpen = useChangelogOpen();
 	const updatesChecked = useRef(false);
 	useEffect(() => {
 		if (view === "loading" || updatesChecked.current) return;
@@ -2141,6 +2143,7 @@ function App() {
 					}}
 				/>
 			)}
+			{changelogOpen && <ChangelogDialog />}
 
 			{editing && (
 				<MetadataEditor
