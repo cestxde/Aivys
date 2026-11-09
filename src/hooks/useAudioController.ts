@@ -36,7 +36,15 @@ export const usePlaybackTime = (element: HTMLAudioElement) => {
     const subscribe = useCallback((onChange: () => void) => {
         const events = ["timeupdate", "durationchange", "loadedmetadata", "seeked", "emptied"];
         events.forEach(event => element.addEventListener(event, onChange));
-        return () => events.forEach(event => element.removeEventListener(event, onChange));
+        // After a dialog/sheet, the bar may have missed updates while covered.
+        const wake = () => onChange();
+        document.addEventListener("visibilitychange", wake);
+        window.addEventListener("focus", wake);
+        return () => {
+            events.forEach(event => element.removeEventListener(event, onChange));
+            document.removeEventListener("visibilitychange", wake);
+            window.removeEventListener("focus", wake);
+        };
     }, [element]);
     const currentTime = useSyncExternalStore(subscribe, () => element.currentTime);
     const duration = useSyncExternalStore(subscribe, () => (Number.isFinite(element.duration) ? element.duration : 0));

@@ -10,12 +10,17 @@ interface SliderProps {
     onChange: (value: number) => void;
     formatTooltip: (value: number) => string;
     className?: string;
-    changeOn?: 'drag' | 'release';
+    changeOn?: "drag" | "release";
+    /** When this changes (e.g. track path), drop any held/drag preview. */
+    syncKey?: string | number | null;
 }
+
+/** How long a committed seek may paint over the live value before we give up. */
+const HOLD_MS = 900;
 
 export const Slider = ({
     value, min, max, step, disabled, onChange, formatTooltip, className,
-    changeOn = 'drag'
+    changeOn = "drag", syncKey,
 }: SliderProps) => {
     const [tooltip, setTooltip] = useState({ text: "", x: 0, visible: false });
     const [localValue, setLocalValue] = useState<number | null>(null);
@@ -28,12 +33,19 @@ export const Slider = ({
     const [held, setHeld] = useState<{ value: number; from: number } | null>(null);
     const displayValue = localValue ?? (held && held.from === value ? held.value : value);
 
+    const clearPreview = () => {
+        setLocalValue(null);
+        setHeld(null);
+    };
+
     // A "release" slider commits when the press ends, wherever the pointer is
     // then: leaving the thin bar while dragging must not lose the new value.
     const commit = () => {
-        if (changeOn === 'release' && localValue !== null) {
-            onChange(localValue);
-            setHeld({ value: localValue, from: value });
+        if (changeOn === "release" && localValue !== null) {
+            if (Math.abs(localValue - value) >= step / 2) {
+                onChange(localValue);
+                setHeld({ value: localValue, from: value });
+            }
             setLocalValue(null);
         }
     };
@@ -41,6 +53,7 @@ export const Slider = ({
     useEffect(() => {
         commitRef.current = commit;
     });
+
     useEffect(() => {
         if (!dragging) return;
         const end = () => {
@@ -54,6 +67,30 @@ export const Slider = ({
             window.removeEventListener("pointercancel", end);
         };
     }, [dragging]);
+
+    // Track change, range change, or disable: never keep a stale preview.
+    useEffect(() => {
+        clearPreview();
+        setDragging(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only sync signals
+    }, [syncKey, max, min, disabled]);
+
+    // Seek applied (or timed out): drop the hold so the bar follows live time.
+    useEffect(() => {
+        if (!held) return;
+        if (Math.abs(value - held.value) <= Math.max(step, 0.35)) {
+            setHeld(null);
+            return;
+        }
+        if (value !== held.from) {
+            setHeld(null);
+            return;
+        }
+        const timer = window.setTimeout(() => setHeld(null), HOLD_MS);
+        return () => window.clearTimeout(timer);
+    }, [held, value, step]);
+
+    useEffect(() => () => clearPreview(), []);
 
     const handlePointerMove = (e: React.PointerEvent<HTMLInputElement>) => {
         if (disabled) return;
@@ -70,13 +107,13 @@ export const Slider = ({
         setTooltip({
             text: formatTooltip(val),
             x: e.clientX - wrapperRect.left,
-            visible: true
+            visible: true,
         });
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = parseFloat(e.target.value);
-        if (changeOn === 'drag') {
+        if (changeOn === "drag") {
             onChange(val);
         } else if (e.nativeEvent.type !== "change") {
             // The native change comes after the release, once the commit has
@@ -85,7 +122,6 @@ export const Slider = ({
             setLocalValue(val);
         }
     };
-
 
     const progressPercent = max > min ? ((displayValue - min) / (max - min)) * 100 : 0;
 
@@ -102,7 +138,7 @@ export const Slider = ({
                 min={min}
                 max={max}
                 step={step}
-                value={displayValue}
+                value={Number.isFinite(displayValue) ? displayValue : min}
                 disabled={disabled}
                 onChange={handleChange}
                 onPointerDown={() => setDragging(true)}
@@ -115,8 +151,8 @@ export const Slider = ({
                 }}
                 className="base-slider-input"
                 style={{
-                    '--slider-progress': `${progressPercent}%`,
-                    '--slider-hover-pos': `${hoverPercent}%`,
+                    "--slider-progress": `${progressPercent}%`,
+                    "--slider-hover-pos": `${hoverPercent}%`,
                 } as React.CSSProperties}
             />
         </div>
