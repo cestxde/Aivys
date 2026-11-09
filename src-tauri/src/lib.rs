@@ -77,7 +77,9 @@ pub fn run() {
         // Updates from the GitHub releases (endpoint and key in tauri.conf.json),
         // and the restart into the new version.
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init());
+        .plugin(tauri_plugin_process::init())
+        // Launch with the OS login session (Windows Run key / Launch Agents).
+        .plugin(tauri_plugin_autostart::Builder::new().build());
 
     builder
         .manage(StoreState::default())

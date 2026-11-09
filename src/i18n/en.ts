@@ -546,6 +546,8 @@ export const en = {
     "settings.window": "Window",
     "settings.closeToTray": "Close to the tray",
     "settings.closeToTrayHint": "The window's close button hides the player in the tray and the music plays on. Quit from the tray icon's menu.",
+    "settings.autostart": "Start with the system",
+    "settings.autostartHint": "Open Aivys when you sign in to Windows.",
     "settings.about": "About",
     "tray.show": "Show Aivys",
     "tray.toggle": "Play / pause",

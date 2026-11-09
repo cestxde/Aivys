@@ -579,6 +579,8 @@ export const ru: Record<MessageKey, Message> = {
     "settings.window": "Окно",
     "settings.closeToTray": "Сворачивать в трей при закрытии",
     "settings.closeToTrayHint": "Крестик окна прячет плеер в трей, музыка играет дальше. Выйти можно из меню значка в трее.",
+    "settings.autostart": "Запускать вместе с системой",
+    "settings.autostartHint": "Открывать Aivys при входе в Windows.",
     "settings.about": "О приложении",
     "tray.show": "Показать Aivys",
     "tray.toggle": "Воспроизведение / пауза",

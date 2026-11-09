@@ -15,6 +15,7 @@ import {
     type LanguagePreference, type LogoPreference, type MessageKey,
 } from "../../i18n";
 import { setCloseToTray, useCloseToTray } from "../../hooks/useTray";
+import { useAutostart } from "../../hooks/useAutostart";
 import { useBackLayer } from "../../hooks/useBackLayer";
 import { useIsPhone } from "../../hooks/useIsPhone";
 import { androidStorage } from "../../utils/androidStorage";
@@ -103,6 +104,7 @@ export const SettingsPage = ({
     const updates = useUpdateStatus();
     const prompt = useUpdatePrompt();
     const closeToTray = useCloseToTray();
+    const autostart = useAutostart();
 
     useEffect(() => {
         getVersion().then(setVersion).catch(() => setVersion(null));
@@ -202,6 +204,18 @@ export const SettingsPage = ({
                     onChange={(e) => setCloseToTray(e.target.checked)}
                 />
             </Row>
+            {autostart.available && (
+                <Row title={t("settings.autostart")} description={t("settings.autostartHint")}>
+                    <input
+                        type="checkbox"
+                        className="settings-checkbox"
+                        aria-label={t("settings.autostart")}
+                        checked={autostart.enabled === true}
+                        disabled={autostart.enabled === null}
+                        onChange={(e) => void autostart.setAutostart(e.target.checked)}
+                    />
+                </Row>
+            )}
         </Rows>
     );
 

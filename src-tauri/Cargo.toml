@@ -39,6 +39,7 @@ trash = "5.2"
 tauri-plugin-window-state = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+tauri-plugin-autostart = "2"
 
 # Taskbar thumbnail buttons (src/taskbar.rs) and the system media controls
 # (src/media_controls.rs).
