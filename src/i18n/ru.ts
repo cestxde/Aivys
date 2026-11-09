@@ -579,6 +579,7 @@ export const ru: Record<MessageKey, Message> = {
     "settings.window": "Окно",
     "settings.closeToTray": "Сворачивать в трей при закрытии",
     "settings.closeToTrayHint": "Крестик окна прячет плеер в трей, музыка играет дальше. Выйти можно из меню значка в трее.",
+    "settings.about": "О приложении",
     "tray.show": "Показать Aivys",
     "tray.toggle": "Воспроизведение / пауза",
     "tray.quit": "Выйти",

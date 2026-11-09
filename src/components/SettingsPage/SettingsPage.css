@@ -1,39 +1,148 @@
 .settings-page {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
     min-height: 0;
-    overflow-y: auto;
-}
-
-.settings-page > * {
-    flex-shrink: 0;
+    overflow: hidden;
 }
 
 .settings-title {
     margin: 0;
+    flex-shrink: 0;
     font-size: 1.4rem;
     font-weight: 700;
     color: var(--text-h);
 }
 
-.settings-section {
+.settings-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    gap: 1.25rem;
+}
+
+.settings-nav {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    flex-shrink: 0;
+    gap: 2px;
+    min-width: 0;
+}
+
+.settings-page.desktop .settings-nav {
+    width: 220px;
+    overflow-y: auto;
+}
+
+.settings-page.phone .settings-nav {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.settings-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 0.75rem 0.85rem;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--text-h);
+    font: inherit;
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.settings-nav-item:hover {
+    background: var(--surface);
+}
+
+.settings-nav-item.active {
+    background: var(--surface);
+    font-weight: 600;
+}
+
+.settings-nav-icon {
+    display: flex;
+    color: var(--text);
+    opacity: 0.85;
+}
+
+.settings-nav-label {
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-nav-chevron {
+    flex-shrink: 0;
+    opacity: 0.45;
+}
+
+.settings-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    gap: 0.75rem;
+}
+
+.settings-panel-title {
+    margin: 0;
+    flex-shrink: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-h);
+}
+
+.settings-panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-height: 0;
+    overflow-y: auto;
     max-width: 760px;
 }
 
-.settings-section-title {
+.settings-back {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--text-h);
+    font: inherit;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.settings-subsection {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.settings-subsection-title {
     margin: 0;
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text);
+}
+
+.settings-page.phone .settings-layout {
+    flex-direction: column;
+}
+
+.settings-page.phone .settings-panel {
+    flex: 1;
 }
 
 .settings-rows {
@@ -121,6 +230,7 @@
 
 .settings-segmented {
     display: flex;
+    flex-wrap: wrap;
     border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
@@ -134,6 +244,7 @@
     font: inherit;
     font-size: 0.8rem;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .settings-segmented button + button {
