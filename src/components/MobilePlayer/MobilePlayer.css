@@ -22,6 +22,12 @@
 
 .mini-player-cover {
     border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.mini-player-cover img {
+    object-fit: contain;
 }
 
 .mini-player-text {
@@ -118,14 +124,25 @@
     width: min(82vw, 42vh);
     aspect-ratio: 1;
     flex-shrink: 0;
+    overflow: hidden;
+    border-radius: 16px;
 }
 
 /* The cover fills its square, whatever size CoverArt was given. */
 .now-playing-cover.cover-art {
     width: 100% !important;
     height: 100% !important;
+    border: none;
+    background: transparent;
     border-radius: 16px;
     box-shadow: var(--shadow-dialog);
+    overflow: hidden;
+    opacity: 1;
+}
+
+.now-playing-cover.cover-art img {
+    object-fit: contain;
+    border-radius: 16px;
 }
 
 .now-playing-heading {

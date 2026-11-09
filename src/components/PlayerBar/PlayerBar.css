@@ -52,6 +52,12 @@
 
 .player-cover {
     border-radius: 4px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.player-cover img {
+    object-fit: contain;
 }
 
 .track-info {

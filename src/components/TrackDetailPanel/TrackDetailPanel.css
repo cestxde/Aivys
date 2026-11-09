@@ -87,6 +87,12 @@
 .detail-cover {
     border-radius: 8px;
     box-shadow: var(--shadow-cover);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.detail-cover img {
+    object-fit: contain;
 }
 
 .detail-heading {
