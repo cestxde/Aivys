@@ -3,7 +3,8 @@
     width: 300px;
     flex-shrink: 0;
     border-left: 1px solid var(--border);
-    padding: 1rem 1.5rem 1.5rem;
+    /* Less right padding so the scrollbar sits nearer the panel edge. */
+    padding: 1rem 0.65rem 1.5rem 1.5rem;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -48,7 +49,11 @@
     flex-direction: column;
     gap: 1rem;
     flex: 1;
+    min-width: 0;
     min-height: 0;
+    /* Top: room for the cover wash's rounded corners (overflow would clip them). */
+    padding: 0.35rem 0.55rem 0 0;
+    overflow-x: hidden;
     overflow-y: auto;
 }
 
@@ -80,8 +85,24 @@
 }
 
 .detail-cover-wrap {
+    position: relative;
     display: flex;
     justify-content: center;
+    align-self: center;
+    width: max-content;
+    max-width: 100%;
+    flex-shrink: 0;
+    /* Space above the art; the linear wash lives here and scrolls with the cover. */
+    padding: 1.5rem 1rem 1.25rem;
+    /* Same corner radius as `.detail-cover` — must stay inside the scrollport. */
+    border-radius: 8px;
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--cover-tint, transparent) 40%, transparent) 0%,
+        color-mix(in srgb, var(--cover-tint, transparent) 22%, transparent) 42%,
+        color-mix(in srgb, var(--cover-tint, transparent) 8%, transparent) 72%,
+        transparent 100%
+    );
 }
 
 .detail-cover {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import {
     ChevronDown, ClipboardCopy, ClipboardPaste, Disc3, Heart, Info, ListMusic, ListPlus, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Tag,
 } from "lucide-react";
@@ -13,6 +13,8 @@ import { ContextMenu, type MenuEntry } from "../ContextMenu/ContextMenu";
 import { TrackSlider } from "../PlayerBar/TrackSlider";
 import { t } from "../../i18n";
 import { useBackLayer } from "../../hooks/useBackLayer";
+import { useCoverColor } from "../../hooks/useCoverColor";
+import { rgbCss } from "../../utils/coverColor";
 import { SleepTimerButton } from "../SleepTimer/SleepTimerButton";
 import type { SleepTimer } from "../../hooks/useSleepTimer";
 import "./MobilePlayer.css";
@@ -216,6 +218,10 @@ export const NowPlaying = (props: NowPlayingProps) => {
     const tags = tagsOf(stats?.tags, props.tagsById);
     const favorite = stats?.favorite ?? false;
     const swipe = useSwipe(props.next ? props.onNext : null, props.previous ? props.onSwipePrevious : null);
+    const tint = useCoverColor(track.coverPath);
+    const tintStyle = tint
+        ? ({ "--cover-tint": rgbCss(tint) } as CSSProperties)
+        : undefined;
 
     const tagsMenu: MenuEntry[] = [
         { kind: "item", label: t("menu.editTags"), icon: <Tag size={16} />, onSelect: () => props.onEditTags(track) },
@@ -255,7 +261,12 @@ export const NowPlaying = (props: NowPlayingProps) => {
     }, []);
 
     return (
-        <div className={`now-playing ${tagsOpen ? "tags-open" : ""}`} role="dialog" aria-label={t("player.nowPlaying")}>
+        <div
+            className={`now-playing ${tagsOpen ? "tags-open" : ""}`}
+            role="dialog"
+            aria-label={t("player.nowPlaying")}
+            style={tintStyle}
+        >
             <div className="now-playing-header">
                 <button className="now-playing-icon" title={t("common.close")} onClick={props.onClose}>
                     <ChevronDown size={28} />

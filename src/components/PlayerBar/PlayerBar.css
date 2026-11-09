@@ -1,4 +1,5 @@
 .player-bar-wrapper {
+    position: relative;
     width: 100%;
     background: var(--surface);
     border-top: 1px solid var(--border);
@@ -8,6 +9,27 @@
     padding: 12px 0 20px 0;
     box-sizing: border-box;
     z-index: 100;
+    overflow: hidden;
+}
+
+/* Cover tint stays inside the bar: short, soft left → right fade. */
+.player-bar-wrapper::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--cover-tint, transparent) 18%, transparent) 0%,
+        color-mix(in srgb, var(--cover-tint, transparent) 8%, transparent) 12%,
+        transparent 32%
+    );
+    pointer-events: none;
+    z-index: 0;
+}
+
+.player-bar-wrapper > * {
+    position: relative;
+    z-index: 1;
 }
 
 .seek-container {

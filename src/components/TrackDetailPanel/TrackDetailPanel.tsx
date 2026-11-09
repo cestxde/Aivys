@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useState, type CSSProperties, type ReactNode } from "react";
 import { ChevronDown, ClipboardCopy, ClipboardPaste, Heart, ListPlus, PencilLine, Star, Tag } from "lucide-react";
 import type { Track, TrackStats, UserTag } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
@@ -10,6 +10,8 @@ import { ArtistLinks } from "../ArtistLinks/ArtistLinks";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { TagChip } from "../TagChip/TagChip";
 import { ContextMenu, type MenuEntry } from "../ContextMenu/ContextMenu";
+import { useCoverColor } from "../../hooks/useCoverColor";
+import { rgbCss } from "../../utils/coverColor";
 import { t } from "../../i18n";
 import "./TrackDetailPanel.css";
 
@@ -113,6 +115,10 @@ export const TrackDetailPanel = ({
     const [showCover, setShowCover] = useState(false);
     const [tagsMenuAt, setTagsMenuAt] = useState<{ x: number; y: number } | null>(null);
     const closeTagsMenu = useCallback(() => setTagsMenuAt(null), []);
+    const tint = useCoverColor(track?.coverPath);
+    const tintStyle = tint
+        ? ({ "--cover-tint": rgbCss(tint) } as CSSProperties)
+        : undefined;
 
     if (!track) {
         return (
@@ -147,7 +153,7 @@ export const TrackDetailPanel = ({
 
     return (
         <div className="detail-body">
-            <div className="detail-cover-wrap">
+            <div className="detail-cover-wrap" style={tintStyle}>
                 <CoverArt
                     path={track.coverPath}
                     size={200}

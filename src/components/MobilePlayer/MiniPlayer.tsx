@@ -1,8 +1,11 @@
 import { Pause, Play, SkipBack, SkipForward } from "lucide-react";
+import type { CSSProperties } from "react";
 import type { Track } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { CoverArt } from "../CoverArt";
 import { Marquee } from "../PlayerBar/Marquee";
+import { useCoverColor } from "../../hooks/useCoverColor";
+import { rgbCss } from "../../utils/coverColor";
 import { t } from "../../i18n";
 import "./MobilePlayer.css";
 
@@ -22,8 +25,19 @@ interface MiniPlayerProps {
  */
 export const MiniPlayer = ({ track, isPlaying, onTogglePlay, onPrev, onNext, onOpen }: MiniPlayerProps) => {
     const artist = displayArtists(track);
+    const tint = useCoverColor(track.coverPath);
+    const tintStyle = tint
+        ? ({ "--cover-tint": rgbCss(tint) } as CSSProperties)
+        : undefined;
     return (
-        <div className="mini-player" role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => e.key === "Enter" && onOpen()}>
+        <div
+            className="mini-player"
+            role="button"
+            tabIndex={0}
+            onClick={onOpen}
+            onKeyDown={(e) => e.key === "Enter" && onOpen()}
+            style={tintStyle}
+        >
             <CoverArt path={track.coverPath} size={44} className="mini-player-cover" />
             <div className="mini-player-text">
                 <Marquee text={displayTitle(track)} className="mini-player-title" />

@@ -7,7 +7,7 @@ import {
     Repeat,
     Repeat1, ListMusic
 } from "lucide-react";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import type { Track } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { CoverArt } from "../CoverArt";
@@ -18,6 +18,8 @@ import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { TrackSlider } from "./TrackSlider";
 import { VolumeControl } from "./VolumeControl";
 import { Marquee } from "./Marquee";
+import { useCoverColor } from "../../hooks/useCoverColor";
+import { rgbCss } from "../../utils/coverColor";
 import { t } from "../../i18n";
 import "./PlayerBar.css";
 
@@ -49,11 +51,15 @@ export const PlayerBar = (props: PlayerBarProps) => {
     const hasTrack = !!props.currentTrack;
     const title = props.currentTrack ? displayTitle(props.currentTrack) : null;
     const artist = props.currentTrack ? displayArtists(props.currentTrack) : null;
+    const tint = useCoverColor(props.currentTrack?.coverPath);
+    const tintStyle = tint
+        ? ({ "--cover-tint": rgbCss(tint) } as CSSProperties)
+        : undefined;
 
     const [showCover, setShowCover] = useState(false);
 
     return (
-        <div className="player-bar-wrapper">
+        <div className="player-bar-wrapper" style={tintStyle}>
             <TrackSlider
                 element={props.element}
                 disabled={!hasTrack}
