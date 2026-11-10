@@ -9,7 +9,9 @@
     padding: 12px 0 20px 0;
     box-sizing: border-box;
     z-index: 100;
-    overflow: hidden;
+    /* Keep visible so the seek tooltip can paint above the bar; the tint
+       (::before) is already inset and does not need clipping. */
+    overflow: visible;
 }
 
 /* Cover tint stays inside the bar: short, soft left → right fade. */
