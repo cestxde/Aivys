@@ -4,6 +4,7 @@ description = "Allows reading and writing the library's .aivys data (favorites, 
 commands.allow = [
   "get_library_settings",
   "set_artist_rules",
+  "set_include_mp4",
   "default_artist_rules",
   "resolve_conflicts",
   "take_opening_conflicts",

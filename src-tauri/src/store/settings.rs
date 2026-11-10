@@ -21,6 +21,9 @@ pub(crate) struct LibrarySettings {
     /// How artist tags are split into artists.
     #[serde(default)]
     pub(crate) artists: ArtistRules,
+    /// Include `.mp4` files when scanning (off by default: many are video).
+    #[serde(default)]
+    pub(crate) include_mp4: bool,
     #[serde(default)]
     pub(crate) updated_at: u64,
     #[serde(flatten)]
@@ -55,6 +58,7 @@ impl Default for LibrarySettings {
             schema_version: SCHEMA_VERSION,
             ui: UiSettings::default(),
             artists: ArtistRules::default(),
+            include_mp4: false,
             updated_at: 0,
             extra: Map::new(),
         }
@@ -83,6 +87,16 @@ pub(crate) fn set_artist_rules(store: &Store, rules: ArtistRules) -> Result<Libr
     let mut settings = read_json_or_default::<LibrarySettings>(&path)?.writable(&path)?;
     settings.schema_version = SCHEMA_VERSION;
     settings.artists = rules.normalized();
+    settings.updated_at = now_unix();
+    write_json(&path, &settings)?;
+    Ok(settings)
+}
+
+pub(crate) fn set_include_mp4(store: &Store, include_mp4: bool) -> Result<LibrarySettings, StoreError> {
+    let path = store.path(FILE);
+    let mut settings = read_json_or_default::<LibrarySettings>(&path)?.writable(&path)?;
+    settings.schema_version = SCHEMA_VERSION;
+    settings.include_mp4 = include_mp4;
     settings.updated_at = now_unix();
     write_json(&path, &settings)?;
     Ok(settings)

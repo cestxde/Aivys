@@ -95,6 +95,7 @@ pub fn run() {
             set_tray_labels,
             get_library_settings,
             set_artist_rules,
+            set_include_mp4,
             default_artist_rules,
             resolve_conflicts,
             take_opening_conflicts,

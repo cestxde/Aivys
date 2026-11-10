@@ -1,6 +1,6 @@
 use crate::artists::{ArtistRules, Splitter};
 use crate::db::{LibraryDb, ScannedTrack};
-use crate::store::commands::{artist_rules, open_store};
+use crate::store::commands::{artist_rules, include_mp4, open_store};
 use crate::store::fsio::now_unix;
 use crate::store::index::{added_at_path, load_added_at, save_added_at};
 use crate::track::{read_modified, read_track, Track};
@@ -11,17 +11,21 @@ use tauri::Manager;
 use walkdir::WalkDir;
 
 /// File extensions we attempt to read. Covers the formats whose (most) tag
-/// capabilities overlap with MP3 and that `lofty` can parse.
+/// capabilities overlap with MP3 and that `lofty` can parse. `.mp4` is left
+/// out on purpose: video files often share it; enable via library settings.
 const AUDIO_EXTENSIONS: &[&str] = &[
-    "mp3", "flac", "m4a", "m4b", "mp4", "ogg", "oga", "opus", "wav", "aiff", "aif", "ape", "wv",
+    "mp3", "flac", "m4a", "m4b", "ogg", "oga", "opus", "wav", "aiff", "aif", "ape", "wv",
     "mpc", "spx", "aac",
 ];
 
-fn is_audio_file(path: &Path) -> bool {
+fn is_audio_file(path: &Path, include_mp4: bool) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
         .map(|ext| {
             let lower = ext.to_ascii_lowercase();
+            if lower == "mp4" {
+                return include_mp4;
+            }
             AUDIO_EXTENSIONS.iter().any(|candidate| *candidate == lower)
         })
         .unwrap_or(false)
@@ -72,7 +76,7 @@ fn is_hidden_dir(entry: &walkdir::DirEntry) -> bool {
 
 /// Walk the library and resolve each file's stable "date added", updating the
 /// "added-at" store.
-fn find_files(base: &Path) -> Vec<FoundFile> {
+fn find_files(base: &Path, include_mp4: bool) -> Vec<FoundFile> {
     let store_path = added_at_path(base);
 
     // A missing store means this is the first time the folder is scanned: seed
@@ -96,7 +100,7 @@ fn find_files(base: &Path) -> Vec<FoundFile> {
         let path = entry.path();
 
         // A sync tool's conflict copy of a track is not a track of its own.
-        if !path.is_file() || !is_audio_file(path) || is_conflict_copy(path) {
+        if !path.is_file() || !is_audio_file(path, include_mp4) || is_conflict_copy(path) {
             continue;
         }
         let Ok(meta) = entry.metadata() else {
@@ -205,10 +209,16 @@ fn scan_cached(
 /// The blocking part of a scan: walks the folder, reads tags and covers, and
 /// updates the "added-at" store and the local index. Kept synchronous so it can
 /// run on a blocking thread pool via [`scan_directory`], never on the UI thread.
-fn do_scan(base_path: &str, covers_dir: &Path, app_data: Option<&Path>, rules: &ArtistRules) -> Vec<Track> {
+fn do_scan(
+    base_path: &str,
+    covers_dir: &Path,
+    app_data: Option<&Path>,
+    rules: &ArtistRules,
+    include_mp4: bool,
+) -> Vec<Track> {
     let base = Path::new(base_path);
     let started = std::time::Instant::now();
-    let files = find_files(base);
+    let files = find_files(base, include_mp4);
     log::info!("scan: walked {} files in {:?}", files.len(), started.elapsed());
 
     let db = app_data.and_then(|app_data| match LibraryDb::open(app_data, base) {
@@ -263,7 +273,13 @@ pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String, reu
         if !reuse_store.unwrap_or(false) {
             open_library(&app, &base_path, &covers_dir);
         }
-        do_scan(&base_path, &covers_dir, app_data.as_deref(), &artist_rules(&app))
+        do_scan(
+            &base_path,
+            &covers_dir,
+            app_data.as_deref(),
+            &artist_rules(&app),
+            include_mp4(&app),
+        )
     })
     .await
     .unwrap_or_default()
@@ -308,7 +324,13 @@ pub(crate) async fn cached_tracks(app: tauri::AppHandle, base_path: String) -> V
 pub(crate) fn rescan_library(app: &tauri::AppHandle, root: &Path) -> Vec<Track> {
     let covers_dir = resolve_covers_dir(app);
     let app_data = app.path().app_data_dir().ok();
-    do_scan(&root.to_string_lossy(), &covers_dir, app_data.as_deref(), &artist_rules(app))
+    do_scan(
+        &root.to_string_lossy(),
+        &covers_dir,
+        app_data.as_deref(),
+        &artist_rules(app),
+        include_mp4(app),
+    )
 }
 
 /// Returns true if `path` exists and is a directory.
@@ -383,7 +405,7 @@ mod tests {
         write_wav(&root.join("two.sync-conflict-20261028-120000-ABC1234.wav"), 8000);
         let root_str = root.to_string_lossy().into_owned();
 
-        let tracks = do_scan(&root_str, &covers, Some(&app_data), &ArtistRules::default());
+        let tracks = do_scan(&root_str, &covers, Some(&app_data), &ArtistRules::default(), false);
         assert_eq!(tracks.len(), 2);
         assert_eq!(tracks[0].rel_path, "Artist/one.wav");
         assert_eq!(tracks[0].path, root.join("Artist").join("one.wav").to_string_lossy());
@@ -397,7 +419,7 @@ mod tests {
         std::fs::remove_file(root.join("Artist").join("one.wav")).unwrap();
         write_wav(&root.join("three.wav"), 8000);
 
-        let tracks = do_scan(&root_str, &covers, Some(&app_data), &ArtistRules::default());
+        let tracks = do_scan(&root_str, &covers, Some(&app_data), &ArtistRules::default(), false);
         let titles: Vec<(&str, Option<&str>)> = tracks
             .iter()
             .map(|t| (t.rel_path.as_str(), t.title.as_deref()))
@@ -409,7 +431,7 @@ mod tests {
         let conn = rusqlite::Connection::open(crate::db::db_path(&app_data, &root)).unwrap();
         conn.execute("UPDATE tracks SET title = 'cached'", []).unwrap();
         drop(conn);
-        let tracks = do_scan(&root_str, &covers, Some(&app_data), &ArtistRules::default());
+        let tracks = do_scan(&root_str, &covers, Some(&app_data), &ArtistRules::default(), false);
         let cached = tracks.iter().filter(|t| t.title.as_deref() == Some("cached")).count();
         assert_eq!(cached, 2, "unchanged files must come from the index");
 

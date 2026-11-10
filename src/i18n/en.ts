@@ -283,6 +283,8 @@ export const en = {
     "error.reveal": "Could not show the file",
     "error.loadArtistRules": "Could not load the artist rules",
     "error.saveArtistRules": "Could not save the artist rules",
+    "error.loadIncludeMp4": "Could not load the MP4 scan setting",
+    "error.saveIncludeMp4": "Could not save the MP4 scan setting",
 
     // Playlists
     "playlists.filter": "Filter playlists...",
@@ -516,6 +518,8 @@ export const en = {
     "settings.change": "Change",
     "settings.rescan": "Rescan",
     "settings.rescanHint": "Read new and changed files now. Unchanged files are taken from the index.",
+    "settings.includeMp4": "Include MP4 files",
+    "settings.includeMp4Hint": "Scan .mp4 as audio. Off by default: many .mp4 files are video.",
     "settings.recent": "Recent folders",
     "settings.recentCount": {
         one: "{count} other folder is remembered on the start screen.",

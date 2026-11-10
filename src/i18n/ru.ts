@@ -297,6 +297,8 @@ export const ru: Record<MessageKey, Message> = {
     "error.reveal": "Не удалось показать файл",
     "error.loadArtistRules": "Не удалось загрузить правила исполнителей",
     "error.saveArtistRules": "Не удалось сохранить правила исполнителей",
+    "error.loadIncludeMp4": "Не удалось загрузить настройку сканирования MP4",
+    "error.saveIncludeMp4": "Не удалось сохранить настройку сканирования MP4",
 
     // Playlists
     "playlists.filter": "Фильтр плейлистов...",
@@ -547,6 +549,8 @@ export const ru: Record<MessageKey, Message> = {
     "settings.change": "Сменить",
     "settings.rescan": "Пересканировать",
     "settings.rescanHint": "Прочитать новые и изменённые файлы сейчас. Неизменённые файлы берутся из индекса.",
+    "settings.includeMp4": "Включать MP4",
+    "settings.includeMp4Hint": "Сканировать .mp4 как аудио. По умолчанию выключено: многие .mp4 — видео.",
     "settings.recent": "Недавние папки",
     "settings.recentCount": {
         one: "На стартовом экране запомнена ещё {count} папка.",

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import {
     AppWindow, ArrowLeft, ChevronRight, Download, FolderOpen, Info, Keyboard,
@@ -11,7 +12,7 @@ import {
 } from "../../utils/updates";
 import type { ThemePreference } from "../../utils/theme";
 import {
-    getLanguagePreference, getLogoPreference, setLanguagePreference, setLogoPreference, t,
+    getLanguagePreference, getLogoPreference, setLanguagePreference, setLogoPreference, t, useI18n,
     type LanguagePreference, type LogoPreference, type MessageKey,
 } from "../../i18n";
 import { setCloseToTray, useCloseToTray } from "../../hooks/useTray";
@@ -19,6 +20,7 @@ import { useAutostart } from "../../hooks/useAutostart";
 import { useBackLayer } from "../../hooks/useBackLayer";
 import { useIsPhone } from "../../hooks/useIsPhone";
 import { androidStorage } from "../../utils/androidStorage";
+import { notifyError } from "../../utils/notify";
 import "./SettingsPage.css";
 
 /** Content column too narrow for a settings sidebar + panel side by side. */
@@ -92,6 +94,7 @@ export const SettingsPage = ({
     onClearRecent,
     onCheckConflicts,
 }: SettingsPageProps) => {
+    useI18n();
     const isPhone = useIsPhone();
     const desktop = androidStorage === null;
     const rootRef = useRef<HTMLDivElement>(null);
@@ -101,6 +104,7 @@ export const SettingsPage = ({
     const [version, setVersion] = useState<string | null>(null);
     const [checking, setChecking] = useState(false);
     const [category, setCategory] = useState<CategoryId | null>(compact ? null : "appearance");
+    const [includeMp4, setIncludeMp4] = useState<boolean | null>(null);
     const updates = useUpdateStatus();
     const prompt = useUpdatePrompt();
     const closeToTray = useCloseToTray();
@@ -108,6 +112,12 @@ export const SettingsPage = ({
 
     useEffect(() => {
         getVersion().then(setVersion).catch(() => setVersion(null));
+    }, []);
+
+    useEffect(() => {
+        invoke<{ includeMp4: boolean }>("get_library_settings")
+            .then(settings => setIncludeMp4(!!settings.includeMp4))
+            .catch(e => notifyError(t("error.loadIncludeMp4"), e));
     }, []);
 
     useEffect(() => {
@@ -231,6 +241,25 @@ export const SettingsPage = ({
                     <button className="settings-button" onClick={onRescan}>
                         <RefreshCw size={14} /> {t("settings.rescan")}
                     </button>
+                </Row>
+                <Row title={t("settings.includeMp4")} description={t("settings.includeMp4Hint")}>
+                    <input
+                        type="checkbox"
+                        className="settings-checkbox"
+                        aria-label={t("settings.includeMp4")}
+                        checked={includeMp4 === true}
+                        disabled={includeMp4 === null}
+                        onChange={(e) => {
+                            const next = e.target.checked;
+                            setIncludeMp4(next);
+                            void invoke("set_include_mp4", { includeMp4: next })
+                                .then(() => onRescan())
+                                .catch(err => {
+                                    setIncludeMp4(!next);
+                                    notifyError(t("error.saveIncludeMp4"), err);
+                                });
+                        }}
+                    />
                 </Row>
                 <Row
                     title={t("settings.recent")}

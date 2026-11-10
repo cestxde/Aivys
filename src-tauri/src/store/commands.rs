@@ -126,6 +126,12 @@ pub(crate) async fn set_artist_rules(state: State<'_, StoreState>, rules: Artist
     with_store(&state, |store| settings::set_artist_rules(store, rules))
 }
 
+/// Whether `.mp4` files are scanned; a rescan applies it.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn set_include_mp4(state: State<'_, StoreState>, include_mp4: bool) -> Result<LibrarySettings, StoreError> {
+    with_store(&state, |store| settings::set_include_mp4(store, include_mp4))
+}
+
 /// The built-in artist rules, for "reset to defaults".
 #[tauri::command]
 pub(crate) async fn default_artist_rules() -> ArtistRules {
@@ -138,6 +144,15 @@ pub(crate) fn artist_rules(app: &tauri::AppHandle) -> ArtistRules {
     with_store(&state, |store| settings::load(store).map(|settings| settings.artists)).unwrap_or_else(|err| {
         log::warn!("cannot read the artist rules: {err}");
         ArtistRules::default()
+    })
+}
+
+/// Whether the open library scans `.mp4` (false when unreadable).
+pub(crate) fn include_mp4(app: &tauri::AppHandle) -> bool {
+    let state = app.state::<StoreState>();
+    with_store(&state, |store| settings::load(store).map(|settings| settings.include_mp4)).unwrap_or_else(|err| {
+        log::warn!("cannot read includeMp4: {err}");
+        false
     })
 }
 
