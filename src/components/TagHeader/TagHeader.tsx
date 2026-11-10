@@ -28,13 +28,15 @@ export const TagHeader = ({ tag, rows, onBack, onEdit, onDelete }: TagHeaderProp
             <button className="playlist-back" title={t("tag.all")} onClick={onBack}>
                 <ArrowLeft size={18} />
             </button>
-            <div
-                className="tag-header-badge"
-                style={{ "--tag-color": tag.color } as CSSProperties}
-                title={t("tag.edit")}
-                onClick={onEdit}
-            >
-                <Tag size={40} />
+            <div className="playlist-header-cover-wrap">
+                <div
+                    className="tag-header-badge"
+                    style={{ "--tag-color": tag.color } as CSSProperties}
+                    title={t("tag.edit")}
+                    onClick={onEdit}
+                >
+                    <Tag size={40} />
+                </div>
             </div>
 
             <div className="playlist-info">

@@ -25,11 +25,13 @@ export const UntaggedHeader = ({ rows, onBack }: UntaggedHeaderProps) => {
             <button className="playlist-back" title={t("tag.all")} onClick={onBack}>
                 <ArrowLeft size={18} />
             </button>
-            <div
-                className="tag-header-badge untagged-header-badge"
-                style={{ "--tag-color": "#94a3b8" } as CSSProperties}
-            >
-                <Tag size={40} />
+            <div className="playlist-header-cover-wrap">
+                <div
+                    className="tag-header-badge untagged-header-badge"
+                    style={{ "--tag-color": "#94a3b8" } as CSSProperties}
+                >
+                    <Tag size={40} />
+                </div>
             </div>
 
             <div className="playlist-info">
