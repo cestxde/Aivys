@@ -1,9 +1,9 @@
 import "./App.css";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ask } from "@tauri-apps/plugin-dialog";
+import { ask, save } from "@tauri-apps/plugin-dialog";
 import {
-	ArrowDown, ArrowUp, Check, FolderPlus, GitMerge, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder, ImagePlus, ImageOff, Images, ClipboardPaste, ClipboardCopy,
+	ArrowDown, ArrowUp, Check, Download, FolderPlus, GitMerge, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder, ImagePlus, ImageOff, Images, ClipboardPaste, ClipboardCopy,
 } from "lucide-react";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useLibrary } from "./hooks/useLibrary";
@@ -81,6 +81,7 @@ import { nextTagColor } from "./utils/tags";
 import { notifyError, notifyInfo, notifyUndoable } from "./utils/notify";
 import { copyTagIds, useTagClipboard } from "./utils/tagClipboard";
 import { displayTitle } from "./utils/track";
+import { buildM3u8, joinDirFile, m3uFileName, type M3uPathMode } from "./utils/m3u";
 import { revealFile, revealLabel } from "./utils/reveal";
 import { formatDateTime, formatDuration, formatTotalDuration } from "./utils/format";
 import { compareText, t, useI18n, type MessageKey } from "./i18n";
@@ -903,6 +904,46 @@ function App() {
 	const playPlaylist = async (target: Playlist) =>
 		playTracks(await tracksOf(target), { kind: "playlist", id: target.id });
 
+	/** Save `tracks` as an M3U8 under `name` (relative or absolute paths). */
+	const exportTracksAsM3u = async (tracks: Track[], name: string, mode: M3uPathMode) => {
+		if (tracks.length === 0) {
+			notifyInfo(t("export.empty"));
+			return;
+		}
+		try {
+			const defaultPath = settings.lastPath
+				? joinDirFile(settings.lastPath, m3uFileName(name))
+				: m3uFileName(name);
+			const path = await save({
+				title: t("export.m3u"),
+				defaultPath,
+				filters: [{ name: "M3U8", extensions: ["m3u8"] }],
+			});
+			if (!path) return;
+			await invoke("write_text_file", { path, contents: buildM3u8(tracks, mode) });
+			notifyInfo(t("export.saved"));
+		} catch (e) {
+			notifyError(t("error.exportM3u"), e);
+		}
+	};
+
+	const exportMenuEntries = (tracks: Track[], name: string): MenuEntry[] => [
+		{
+			kind: "item",
+			label: t("export.m3uRelative"),
+			icon: <Download size={16} />,
+			disabled: tracks.length === 0,
+			onSelect: () => void exportTracksAsM3u(tracks, name, "relative"),
+		},
+		{
+			kind: "item",
+			label: t("export.m3uAbsolute"),
+			icon: <Download size={16} />,
+			disabled: tracks.length === 0,
+			onSelect: () => void exportTracksAsM3u(tracks, name, "absolute"),
+		},
+	];
+
 	const saveTag = async (name: string, color: string, categoryIds: string[], implies: string[]) => {
 		const edited = tagDialog?.tag;
 		const assignTo = tagDialog?.assignTo;
@@ -1368,6 +1409,19 @@ function App() {
 			},
 		},
 		pinEntry("playlist", target.id),
+		{ kind: "separator" },
+		{
+			kind: "item",
+			label: t("export.m3uRelative"),
+			icon: <Download size={16} />,
+			onSelect: () => void tracksOf(target).then(tracks => exportTracksAsM3u(tracks, target.name, "relative")),
+		},
+		{
+			kind: "item",
+			label: t("export.m3uAbsolute"),
+			icon: <Download size={16} />,
+			onSelect: () => void tracksOf(target).then(tracks => exportTracksAsM3u(tracks, target.name, "absolute")),
+		},
 		...(target.readOnly ? [] : [
 			{ kind: "separator" } as const,
 			{
@@ -1485,6 +1539,8 @@ function App() {
 		{ kind: "separator" },
 		{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo(group.tracks) },
 		...tagEntries(group.tracks),
+		{ kind: "separator" },
+		...exportMenuEntries(group.tracks, group.name),
 		...(open.kind === "artist" || open.kind === "album"
 			? [pinEntry(open.kind, group.key), { kind: "separator" as const }, ...coverEntries(open.kind, group)]
 			: []),
@@ -1541,31 +1597,35 @@ function App() {
 		{ kind: "item", label: t("tags.editTag"), icon: <Pencil size={16} />, onSelect: () => setTagDialog({ tag: target }) },
 	];
 
-	const tagMenu = (target: UserTag): MenuEntry[] => [
-		{ kind: "item", label: t("common.open"), icon: <FolderOpen size={16} />, onSelect: () => showView({ kind: "tag", id: target.id }) },
-		{
-			kind: "item",
-			label: t("common.play"),
-			icon: <Play size={16} />,
-			onSelect: () => playTracks(tracksOfTag(target), { kind: "tag", id: target.id }),
-		},
-		{
-			kind: "item",
-			label: t("common.addTo"),
-			icon: <ListPlus size={16} />,
-			onSelect: () => {
-				const tracks = tracksOfTag(target);
-				if (tracks.length > 0) setAddTo(tracks);
+	const tagMenu = (target: UserTag): MenuEntry[] => {
+		const tracks = tracksOfTag(target);
+		return [
+			{ kind: "item", label: t("common.open"), icon: <FolderOpen size={16} />, onSelect: () => showView({ kind: "tag", id: target.id }) },
+			{
+				kind: "item",
+				label: t("common.play"),
+				icon: <Play size={16} />,
+				onSelect: () => playTracks(tracks, { kind: "tag", id: target.id }),
 			},
-		},
-		pinEntry("tag", target.id),
-		{ kind: "separator" },
-		{ kind: "item", label: t("common.edit"), icon: <Pencil size={16} />, onSelect: () => setTagDialog({ tag: target }) },
-		{ kind: "item", label: t("mergeTag.menu"), icon: <GitMerge size={16} />, disabled: tags.tags.length < 2, onSelect: () => setMergeTag(target) },
-		...tagCategoryEntries(target),
-		{ kind: "separator" },
-		{ kind: "item", label: t("common.delete"), icon: <Trash2 size={16} />, danger: true, onSelect: () => deleteTag(target) },
-	];
+			{
+				kind: "item",
+				label: t("common.addTo"),
+				icon: <ListPlus size={16} />,
+				onSelect: () => {
+					if (tracks.length > 0) setAddTo(tracks);
+				},
+			},
+			pinEntry("tag", target.id),
+			{ kind: "separator" },
+			...exportMenuEntries(tracks, target.name),
+			{ kind: "separator" },
+			{ kind: "item", label: t("common.edit"), icon: <Pencil size={16} />, onSelect: () => setTagDialog({ tag: target }) },
+			{ kind: "item", label: t("mergeTag.menu"), icon: <GitMerge size={16} />, disabled: tags.tags.length < 2, onSelect: () => setMergeTag(target) },
+			...tagCategoryEntries(target),
+			{ kind: "separator" },
+			{ kind: "item", label: t("common.delete"), icon: <Trash2 size={16} />, danger: true, onSelect: () => deleteTag(target) },
+		];
+	};
 
 	const emptyText = t(isFiltering
 		? "empty.search"
@@ -1880,11 +1940,16 @@ function App() {
 									onBack={goBack}
 									onEdit={() => setTagDialog({ tag: currentTag })}
 									onDelete={() => deleteTag(currentTag)}
+									onExport={() => void exportTracksAsM3u(displayFiles, currentTag.name, "relative")}
 								/>
 							)}
 
 							{listView.kind === "tag" && listView.id === UNTAGGED_KEY && (
-								<UntaggedHeader rows={viewRows} onBack={goBack} />
+								<UntaggedHeader
+									rows={viewRows}
+									onBack={goBack}
+									onExport={() => void exportTracksAsM3u(displayFiles, t("tags.untagged"), "relative")}
+								/>
 							)}
 
 							{listView.kind === "gap" && (
@@ -1902,6 +1967,13 @@ function App() {
 									rows={viewRows}
 									backTitle={t("group.allArtists")}
 									onBack={goBack}
+									actions={[{
+										kind: "item",
+										label: t("export.m3u"),
+										icon: <Download size={14} />,
+										disabled: displayFiles.length === 0,
+										onSelect: () => void exportTracksAsM3u(displayFiles, currentGroup.name, "relative"),
+									}]}
 									coverActions={coverEntries("artist", currentGroup)}
 									loading={settingCover?.kind === "artist" && settingCover.key === currentGroup.key}
 								/>
@@ -1917,6 +1989,13 @@ function App() {
 									rows={viewRows}
 									backTitle={t("group.allAlbums")}
 									onBack={goBack}
+									actions={[{
+										kind: "item",
+										label: t("export.m3u"),
+										icon: <Download size={14} />,
+										disabled: displayFiles.length === 0,
+										onSelect: () => void exportTracksAsM3u(displayFiles, currentGroup.name, "relative"),
+									}]}
 									coverActions={coverEntries("album", currentGroup)}
 									loading={settingCover?.kind === "album" && settingCover.key === currentGroup.key}
 								/>
@@ -1931,6 +2010,13 @@ function App() {
 									crumbs={listView.id ? folderCrumbs(listView.id).slice(0, -1) : undefined}
 									backTitle={t("group.parentFolder")}
 									onBack={listView.id || backTo ? goBack : undefined}
+									actions={[{
+										kind: "item",
+										label: t("export.m3u"),
+										icon: <Download size={14} />,
+										disabled: displayFiles.length === 0,
+										onSelect: () => void exportTracksAsM3u(displayFiles, currentGroup.name, "relative"),
+									}]}
 								/>
 							)}
 
@@ -1958,6 +2044,7 @@ function App() {
 											onBusy,
 										)
 										: undefined}
+									onExport={() => void exportTracksAsM3u(displayFiles, playlist.name, "relative")}
 								/>
 							)}
 

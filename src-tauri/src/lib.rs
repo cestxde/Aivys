@@ -11,7 +11,7 @@ mod text;
 mod track;
 mod tray;
 
-use library::{cached_tracks, list_folders, scan_directory, validate_directory};
+use library::{cached_tracks, list_folders, scan_directory, validate_directory, write_text_file};
 use store::commands::*;
 use media_controls::set_media_state;
 use taskbar::set_taskbar_state;
@@ -89,6 +89,7 @@ pub fn run() {
             cached_tracks,
             validate_directory,
             list_folders,
+            write_text_file,
             show_main_window,
             set_taskbar_state,
             set_media_state,

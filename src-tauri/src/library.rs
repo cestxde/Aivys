@@ -339,6 +339,18 @@ pub(crate) fn validate_directory(path: String) -> bool {
     std::path::Path::new(&path).is_dir()
 }
 
+/// Write UTF-8 text to `path` (create or overwrite), making parent dirs if needed.
+#[tauri::command]
+pub(crate) fn write_text_file(path: String, contents: String) -> Result<(), String> {
+    let path = std::path::Path::new(&path);
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+        }
+    }
+    std::fs::write(path, contents).map_err(|err| err.to_string())
+}
+
 /// The folders directly in `path`, by name, hidden ones (`.name`) left out:
 /// the in-app folder browser of platforms without a folder dialog (Android).
 #[tauri::command]

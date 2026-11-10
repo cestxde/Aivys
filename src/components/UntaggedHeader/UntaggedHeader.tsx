@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { ArrowLeft, Tag } from "lucide-react";
+import { ArrowLeft, Download, Tag } from "lucide-react";
 import type { ListRow } from "../../types";
 import { formatTotalDuration } from "../../utils/format";
 import { t } from "../../i18n";
@@ -10,10 +10,12 @@ import "./UntaggedHeader.css";
 interface UntaggedHeaderProps {
     rows: ListRow[];
     onBack: () => void;
+    /** Export the untagged tracks as M3U8 (relative paths). */
+    onExport?: () => void;
 }
 
 /** Heading of the "no tags" track list: a gray badge, without edit/delete. */
-export const UntaggedHeader = ({ rows, onBack }: UntaggedHeaderProps) => {
+export const UntaggedHeader = ({ rows, onBack, onExport }: UntaggedHeaderProps) => {
     const totalSeconds = rows.reduce((sum, row) => sum + row.track.duration, 0);
     const summary = [
         t("common.tracks", { count: rows.length }),
@@ -40,6 +42,17 @@ export const UntaggedHeader = ({ rows, onBack }: UntaggedHeaderProps) => {
                 </span>
                 <h1 className="playlist-name">{t("tags.untagged")}</h1>
                 <span className="playlist-summary">{summary}</span>
+                {onExport && (
+                    <div className="playlist-actions">
+                        <button
+                            className="playlist-action"
+                            disabled={rows.length === 0}
+                            onClick={onExport}
+                        >
+                            <Download size={14} /> {t("export.m3u")}
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

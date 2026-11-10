@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { ArrowLeft, Pencil, Tag, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Pencil, Tag, Trash2 } from "lucide-react";
 import type { ListRow, UserTag } from "../../types";
 import { formatTotalDuration } from "../../utils/format";
 import { t } from "../../i18n";
@@ -13,10 +13,12 @@ interface TagHeaderProps {
     onEdit: () => void;
     /** Asks for confirmation itself. */
     onDelete: () => void;
+    /** Export the tag's tracks as M3U8 (relative paths). */
+    onExport?: () => void;
 }
 
 /** Heading of a tag's track list: its color, name, summary and actions. */
-export const TagHeader = ({ tag, rows, onBack, onEdit, onDelete }: TagHeaderProps) => {
+export const TagHeader = ({ tag, rows, onBack, onEdit, onDelete, onExport }: TagHeaderProps) => {
     const totalSeconds = rows.reduce((sum, row) => sum + row.track.duration, 0);
     const summary = [
         t("common.tracks", { count: rows.length }),
@@ -48,6 +50,15 @@ export const TagHeader = ({ tag, rows, onBack, onEdit, onDelete }: TagHeaderProp
                 </h1>
                 <span className="playlist-summary">{summary}</span>
                 <div className="playlist-actions">
+                    {onExport && (
+                        <button
+                            className="playlist-action"
+                            disabled={rows.length === 0}
+                            onClick={onExport}
+                        >
+                            <Download size={14} /> {t("export.m3u")}
+                        </button>
+                    )}
                     <button className="playlist-action" onClick={onEdit}>
                         <Pencil size={14} /> {t("common.edit")}
                     </button>

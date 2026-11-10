@@ -34,6 +34,8 @@ interface GroupHeaderProps {
     crumbs?: Crumb[];
     /** Albums and artists: buttons for their own cover (set, change, back to the tracks'). */
     coverActions?: MenuEntry[];
+    /** Extra header actions (e.g. export), shown with cover actions. */
+    actions?: MenuEntry[];
     /** True while the group's own cover is being written (a spinner shows over it). */
     loading?: boolean;
 }
@@ -54,6 +56,7 @@ export const GroupHeader = ({
     onBack,
     crumbs,
     coverActions = [],
+    actions = [],
     loading = false,
 }: GroupHeaderProps) => {
     const [viewing, setViewing] = useState(false);
@@ -108,10 +111,15 @@ export const GroupHeader = ({
                 <h1 className="playlist-name" title={title}>{title}</h1>
                 <span className="playlist-summary">{summary}</span>
 
-                {coverActions.length > 0 && (
+                {(actions.length > 0 || coverActions.length > 0) && (
                     <div className="playlist-actions">
-                        {coverActions.map((action, index) => action.kind === "item" && (
-                            <button key={index} className="playlist-action" onClick={action.onSelect}>
+                        {[...actions, ...coverActions].map((action, index) => action.kind === "item" && (
+                            <button
+                                key={index}
+                                className="playlist-action"
+                                disabled={action.disabled}
+                                onClick={action.onSelect}
+                            >
                                 {action.icon} {action.label}
                             </button>
                         ))}

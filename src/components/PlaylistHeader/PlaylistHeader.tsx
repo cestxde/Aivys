@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, ClipboardPaste, ImagePlus, Images, ListMusic, Pencil, Sparkles, Trash2, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ClipboardPaste, Download, ImagePlus, Images, ListMusic, Pencil, Sparkles, Trash2, SlidersHorizontal } from "lucide-react";
 import type { ListRow, Playlist } from "../../types";
 import { formatTotalDuration } from "../../utils/format";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
@@ -27,6 +27,8 @@ interface PlaylistHeaderProps {
     onPasteCover?: () => void;
     /** Write the playlist's cover into every track's tags; `onBusy` for the spinner. */
     onApplyCoverToTracks?: (onBusy: (busy: boolean) => void) => void | Promise<unknown>;
+    /** Export the playlist's tracks as M3U8 (relative paths). */
+    onExport?: () => void;
 }
 
 const COVER_SIZE = 120;
@@ -44,6 +46,7 @@ export const PlaylistHeader = ({
     onClearCover,
     onPasteCover,
     onApplyCoverToTracks,
+    onExport,
 }: PlaylistHeaderProps) => {
     const [draft, setDraft] = useState<string | null>(startRenaming ? playlist.name : null);
     // True while the playlist's cover is being written (a spinner shows over it).
@@ -134,30 +137,43 @@ export const PlaylistHeader = ({
 
                 <span className="playlist-summary">{summary}</span>
 
-                {editable && (
+                {(editable || onExport) && (
                     <div className="playlist-actions">
-                        {smart && (
+                        {onExport && (
+                            <button
+                                className="playlist-action"
+                                disabled={rows.length === 0}
+                                onClick={onExport}
+                            >
+                                <Download size={14} /> {t("export.m3u")}
+                            </button>
+                        )}
+                        {editable && smart && (
                             <button className="playlist-action" onClick={onEditRules}>
                                 <SlidersHorizontal size={14} /> {t("playlist.editRules")}
                             </button>
                         )}
-                        <button className="playlist-action" onClick={() => setDraft(playlist.name)}>
-                            <Pencil size={14} /> {t("playlist.rename")}
-                        </button>
-                        <button className="playlist-action" onClick={chooseCover}>
-                            <ImagePlus size={14} /> {playlist.coverPath ? t("playlist.changeCover") : t("playlist.setCover")}
-                        </button>
-                        {onPasteCover && (
+                        {editable && (
+                            <button className="playlist-action" onClick={() => setDraft(playlist.name)}>
+                                <Pencil size={14} /> {t("playlist.rename")}
+                            </button>
+                        )}
+                        {editable && (
+                            <button className="playlist-action" onClick={chooseCover}>
+                                <ImagePlus size={14} /> {playlist.coverPath ? t("playlist.changeCover") : t("playlist.setCover")}
+                            </button>
+                        )}
+                        {editable && onPasteCover && (
                             <button className="playlist-action" title={t("cover.pasteHint")} onClick={onPasteCover}>
                                 <ClipboardPaste size={14} /> {t("cover.pasteCover")}
                             </button>
                         )}
-                        {playlist.coverPath && (
+                        {editable && playlist.coverPath && (
                             <button className="playlist-action" onClick={onClearCover}>
                                 {t("playlist.removeCover")}
                             </button>
                         )}
-                        {onApplyCoverToTracks && playlist.coverPath && (
+                        {editable && onApplyCoverToTracks && playlist.coverPath && (
                             <button
                                 className="playlist-action"
                                 disabled={settingCover}
@@ -166,9 +182,11 @@ export const PlaylistHeader = ({
                                 <Images size={14} /> {t("playlist.applyCoverToTracks")}
                             </button>
                         )}
-                        <button className="playlist-action danger" onClick={onDelete}>
-                            <Trash2 size={14} /> {t("common.delete")}
-                        </button>
+                        {editable && (
+                            <button className="playlist-action danger" onClick={onDelete}>
+                                <Trash2 size={14} /> {t("common.delete")}
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
