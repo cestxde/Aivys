@@ -2,7 +2,7 @@
   "app": {
     "security": {
       "csp": {
-        "connect-src": "ipc: http://ipc.localhost https://api.github.com"
+        "connect-src": "ipc: http://ipc.localhost asset: http://asset.localhost https://asset.localhost https://api.github.com"
       }
     }
   }
