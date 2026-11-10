@@ -129,7 +129,8 @@
 .has-mini-player .playlists-page,
 .has-mini-player .tags-page,
 .has-mini-player .settings-page,
-.has-mini-player .stats-page {
+.has-mini-player .stats-page,
+.has-mini-player .incomplete-page {
   padding-bottom: var(--mini-player-space);
 }
 

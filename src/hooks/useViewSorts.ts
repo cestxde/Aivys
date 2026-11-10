@@ -14,6 +14,8 @@ export const sortScopeOf = (view: View, playlistType: 'manual' | 'smart' | null)
     switch (view.kind) {
         case 'system': return view.id;
         case 'tag':
+        case 'gap':
+            return 'tag';
         case 'artist':
         case 'album':
         case 'folder': return view.kind;

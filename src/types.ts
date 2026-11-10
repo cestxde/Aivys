@@ -97,6 +97,9 @@ export interface TagCategory {
 /** Built-in list views. */
 export type SystemView = 'library' | 'favorites' | 'recentlyPlayed' | 'mostPlayed';
 
+/** A metadata gap on the Incomplete page. */
+export type IncompleteGap = 'noArtist' | 'noTitle' | 'noAlbum' | 'noCover' | 'noTags';
+
 /** What the main track list shows. */
 export type View =
     | { kind: 'system'; id: SystemView }
@@ -110,6 +113,8 @@ export type View =
     | { kind: 'album'; id: string }
     // `id` is the "/"-separated folder path, "" for the library root.
     | { kind: 'folder'; id: string }
+    | { kind: 'incomplete' }
+    | { kind: 'gap'; id: IncompleteGap }
     | { kind: 'stats' }
     | { kind: 'settings' };
 

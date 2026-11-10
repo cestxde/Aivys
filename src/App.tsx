@@ -68,6 +68,8 @@ import { MergeTagDialog } from "./components/TagPicker/MergeTagDialog";
 import { TagPicker } from "./components/TagPicker/TagPicker";
 import { SettingsPage } from "./components/SettingsPage/SettingsPage";
 import { StatsPage } from "./components/StatsPage/StatsPage";
+import { IncompletePage } from "./components/IncompletePage/IncompletePage";
+import { GapHeader } from "./components/GapHeader/GapHeader";
 import { systemViewTracks, tagTracks, untaggedTracks, UNTAGGED_KEY } from "./utils/views";
 import {
 	compareBy, hintOf, sectionOf, sortSpecOf, viewSortOf, DEFAULT_SORT, type SortSection, type ViewSort,
@@ -115,6 +117,8 @@ const SECTION_TITLES: Record<SystemView | Exclude<View["kind"], "system">, Messa
 	album: "nav.albums",
 	folder: "nav.folders",
 	stats: "nav.stats",
+	incomplete: "nav.incomplete",
+	gap: "nav.incomplete",
 	settings: "nav.settings",
 };
 const PLAYLISTS_VIEW: View = { kind: "playlists" };
@@ -208,7 +212,7 @@ const VOLUME_STEP = 0.05;
 const SEEK_STEP = 5;
 
 /** Pages that show cards rather than a track list. */
-const CARD_PAGES: View["kind"][] = ["playlists", "tags", "settings", "stats", "artists", "albums"];
+const CARD_PAGES: View["kind"][] = ["playlists", "tags", "settings", "stats", "incomplete", "artists", "albums"];
 
 /** The smart-playlist editor: creating a new one, or editing `playlist`. */
 interface EditorState {
@@ -724,6 +728,8 @@ function App() {
 				return backTo ?? (listView.id ? { kind: "folder", id: listView.id.split("/").slice(0, -1).join("/") } : LIBRARY_VIEW);
 			case "settings": return backTo ?? LIBRARY_VIEW;
 			case "stats": return backTo ?? LIBRARY_VIEW;
+			case "incomplete": return backTo ?? LIBRARY_VIEW;
+			case "gap": return backTo ?? { kind: "incomplete" };
 			case "system": return listView.id === "library" ? null : backTo ?? LIBRARY_VIEW;
 			default: return LIBRARY_VIEW;
 		}
@@ -1567,11 +1573,13 @@ function App() {
 			? EMPTY_TEXT[listView.id]
 			: listView.kind === "tag"
 				? listView.id === UNTAGGED_KEY ? "empty.untagged" : "empty.tag"
-				: currentGroup
-					? "empty.group"
-					: playlist?.type === "smart"
-						? "empty.smart"
-						: "empty.playlist");
+				: listView.kind === "gap"
+					? "empty.gap"
+					: currentGroup
+						? "empty.group"
+						: playlist?.type === "smart"
+							? "empty.smart"
+							: "empty.playlist");
 
 	// Play all: from the first track, in order.
 	const handlePlayAll = () => {
@@ -1642,7 +1650,7 @@ function App() {
 	// Pages of tracks (with the toolbar's search) and pages of cards (grid or list).
 	const cardPage = listView.kind === "playlists" || listView.kind === "tags"
 		|| listView.kind === "artists" || listView.kind === "albums" ? listView.kind : null;
-	const hasTrackList = !cardPage && listView.kind !== "settings" && listView.kind !== "stats";
+	const hasTrackList = !cardPage && listView.kind !== "settings" && listView.kind !== "stats" && listView.kind !== "incomplete";
 	const cardLayout = cardPage
 		? { value: layouts[cardPage], onChange: (layout: PlaylistsLayout) => setLayout(cardPage, layout) }
 		: null;
@@ -1809,6 +1817,12 @@ function App() {
 							onOpenArtist={(key) => showView({ kind: "artist", id: key }, { kind: "stats" })}
 							onOpenView={(view) => showView(view)}
 						/>
+					) : listView.kind === "incomplete" ? (
+						<IncompletePage
+							files={files}
+							stats={trackStats.stats}
+							onOpenGap={(gap) => showView({ kind: "gap", id: gap }, { kind: "incomplete" })}
+						/>
 					) : listView.kind === "artists" ? (
 						<CollectionPage
 							memoryKey="artists"
@@ -1871,6 +1885,10 @@ function App() {
 
 							{listView.kind === "tag" && listView.id === UNTAGGED_KEY && (
 								<UntaggedHeader rows={viewRows} onBack={goBack} />
+							)}
+
+							{listView.kind === "gap" && (
+								<GapHeader gap={listView.id} rows={viewRows} onBack={goBack} />
 							)}
 
 							{currentGroup && listView.kind === "artist" && (

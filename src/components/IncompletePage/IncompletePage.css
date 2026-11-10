@@ -1,0 +1,99 @@
+.incomplete-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.incomplete-page > * {
+    flex-shrink: 0;
+}
+
+.incomplete-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-width: 760px;
+}
+
+.incomplete-title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-h);
+}
+
+.incomplete-lead {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text);
+    opacity: 0.85;
+}
+
+.incomplete-gaps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 760px;
+}
+
+.incomplete-gap {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+
+button.incomplete-gap {
+    cursor: pointer;
+}
+
+button.incomplete-gap:hover {
+    background: var(--surface);
+}
+
+.incomplete-gap.is-empty {
+    opacity: 0.55;
+}
+
+.incomplete-gap-icon {
+    display: flex;
+    flex-shrink: 0;
+    color: var(--text);
+    opacity: 0.85;
+}
+
+.incomplete-gap-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.incomplete-gap-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-h);
+}
+
+.incomplete-gap-hint {
+    font-size: 0.8rem;
+    color: var(--text);
+    opacity: 0.8;
+}
+
+.incomplete-gap-count {
+    flex-shrink: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-h);
+    line-height: 1;
+}
