@@ -351,6 +351,12 @@ pub(crate) fn write_text_file(path: String, contents: String) -> Result<(), Stri
     std::fs::write(path, contents).map_err(|err| err.to_string())
 }
 
+/// Read a UTF-8 text file (M3U import and similar).
+#[tauri::command]
+pub(crate) fn read_text_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|err| err.to_string())
+}
+
 /// The folders directly in `path`, by name, hidden ones (`.name`) left out:
 /// the in-app folder browser of platforms without a folder dialog (Android).
 #[tauri::command]

@@ -1,7 +1,7 @@
 import "./App.css";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ask, save } from "@tauri-apps/plugin-dialog";
+import { ask, open, save } from "@tauri-apps/plugin-dialog";
 import {
 	ArrowDown, ArrowUp, Check, Download, FolderPlus, GitMerge, Heart, Pin, PinOff, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, FolderOpen, FolderSearch, Tag, Pencil, X, History, TrendingUp, MicVocal, Disc3, Folder, ImagePlus, ImageOff, Images, ClipboardPaste, ClipboardCopy,
 } from "lucide-react";
@@ -81,7 +81,10 @@ import { nextTagColor } from "./utils/tags";
 import { notifyError, notifyInfo, notifyUndoable } from "./utils/notify";
 import { copyTagIds, useTagClipboard } from "./utils/tagClipboard";
 import { displayTitle } from "./utils/track";
-import { buildM3u8, joinDirFile, m3uFileName, type M3uPathMode } from "./utils/m3u";
+import {
+	buildM3u8, fileStem, joinDirFile, m3uFileName, matchM3uTracks, parseM3u, type M3uPathMode,
+} from "./utils/m3u";
+import { sanitizeFileName } from "./utils/fileName";
 import { revealFile, revealLabel } from "./utils/reveal";
 import { formatDateTime, formatDuration, formatTotalDuration } from "./utils/format";
 import { compareText, t, useI18n, type MessageKey } from "./i18n";
@@ -842,6 +845,39 @@ function App() {
 		setRenamingId(created.id);
 	};
 
+	/** Import an M3U/M3U8 as a new manual playlist of tracks found in the library. */
+	const importM3uPlaylist = async () => {
+		try {
+			const selected = await open({
+				title: t("import.m3u"),
+				multiple: false,
+				filters: [{ name: "M3U", extensions: ["m3u", "m3u8"] }],
+				defaultPath: settings.lastPath || undefined,
+			});
+			if (typeof selected !== "string") return;
+			const text = await invoke<string>("read_text_file", { path: selected });
+			const entries = parseM3u(text);
+			const { tracks, missing } = matchM3uTracks(entries, files, selected, settings.lastPath);
+			if (tracks.length === 0) {
+				notifyInfo(t("import.m3uNone"));
+				return;
+			}
+			const name = sanitizeFileName(fileStem(selected)) || t("playlists.defaultName");
+			const created = await playlists.createManual(name);
+			if (!created) return;
+			const added = await playlists.addTracks(created.id, tracks.map(track => track.relPath));
+			if (!added) return;
+			if (missing > 0) {
+				notifyInfo(t("import.m3uPartial", { count: tracks.length, added: tracks.length, missing }));
+			} else {
+				notifyInfo(t("import.m3uAdded", { count: tracks.length }));
+			}
+			showView({ kind: "playlist", id: created.id });
+		} catch (e) {
+			notifyError(t("error.importM3u"), e);
+		}
+	};
+
 	const addToPlaylist = async (target: Playlist, tracks: Track[]) => {
 		if (await playlists.addTracks(target.id, tracks.map(t => t.relPath))) {
 			notifyInfo(t("notice.addedToPlaylist", { name: target.name }));
@@ -927,7 +963,10 @@ function App() {
 		}
 	};
 
-	const exportMenuEntries = (tracks: Track[], name: string): MenuEntry[] => [
+	/** M3U import/export need a real filesystem path dialog — not available on Android. */
+	const m3uDesktop = androidStorage === null;
+
+	const exportMenuEntries = (tracks: Track[], name: string): MenuEntry[] => m3uDesktop ? [
 		{
 			kind: "item",
 			label: t("export.m3uRelative"),
@@ -942,7 +981,15 @@ function App() {
 			disabled: tracks.length === 0,
 			onSelect: () => void exportTracksAsM3u(tracks, name, "absolute"),
 		},
-	];
+	] : [];
+
+	const exportHeaderAction = (tracks: Track[], name: string): MenuEntry[] => m3uDesktop ? [{
+		kind: "item",
+		label: t("export.m3u"),
+		icon: <Download size={14} />,
+		disabled: tracks.length === 0,
+		onSelect: () => void exportTracksAsM3u(tracks, name, "relative"),
+	}] : [];
 
 	const saveTag = async (name: string, color: string, categoryIds: string[], implies: string[]) => {
 		const edited = tagDialog?.tag;
@@ -1409,19 +1456,21 @@ function App() {
 			},
 		},
 		pinEntry("playlist", target.id),
-		{ kind: "separator" },
-		{
-			kind: "item",
-			label: t("export.m3uRelative"),
-			icon: <Download size={16} />,
-			onSelect: () => void tracksOf(target).then(tracks => exportTracksAsM3u(tracks, target.name, "relative")),
-		},
-		{
-			kind: "item",
-			label: t("export.m3uAbsolute"),
-			icon: <Download size={16} />,
-			onSelect: () => void tracksOf(target).then(tracks => exportTracksAsM3u(tracks, target.name, "absolute")),
-		},
+		...(m3uDesktop ? [
+			{ kind: "separator" } as const,
+			{
+				kind: "item" as const,
+				label: t("export.m3uRelative"),
+				icon: <Download size={16} />,
+				onSelect: () => void tracksOf(target).then(tracks => exportTracksAsM3u(tracks, target.name, "relative")),
+			},
+			{
+				kind: "item" as const,
+				label: t("export.m3uAbsolute"),
+				icon: <Download size={16} />,
+				onSelect: () => void tracksOf(target).then(tracks => exportTracksAsM3u(tracks, target.name, "absolute")),
+			},
+		] : []),
 		...(target.readOnly ? [] : [
 			{ kind: "separator" } as const,
 			{
@@ -1539,10 +1588,9 @@ function App() {
 		{ kind: "separator" },
 		{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo(group.tracks) },
 		...tagEntries(group.tracks),
-		{ kind: "separator" },
-		...exportMenuEntries(group.tracks, group.name),
+		...(m3uDesktop ? [{ kind: "separator" as const }, ...exportMenuEntries(group.tracks, group.name)] : []),
 		...(open.kind === "artist" || open.kind === "album"
-			? [pinEntry(open.kind, group.key), { kind: "separator" as const }, ...coverEntries(open.kind, group)]
+			? [{ kind: "separator" as const }, pinEntry(open.kind, group.key), { kind: "separator" as const }, ...coverEntries(open.kind, group)]
 			: []),
 	];
 
@@ -1616,8 +1664,7 @@ function App() {
 				},
 			},
 			pinEntry("tag", target.id),
-			{ kind: "separator" },
-			...exportMenuEntries(tracks, target.name),
+			...(m3uDesktop ? [{ kind: "separator" as const }, ...exportMenuEntries(tracks, target.name)] : []),
 			{ kind: "separator" },
 			{ kind: "item", label: t("common.edit"), icon: <Pencil size={16} />, onSelect: () => setTagDialog({ tag: target }) },
 			{ kind: "item", label: t("mergeTag.menu"), icon: <GitMerge size={16} />, disabled: tags.tags.length < 2, onSelect: () => setMergeTag(target) },
@@ -1830,6 +1877,7 @@ function App() {
 							isPinned={(target) => pins.isPinned("playlist", target.id)}
 							onCreate={createPlaylist}
 							onCreateSmart={() => openEditor(null)}
+							onImport={m3uDesktop ? () => void importM3uPlaylist() : undefined}
 						/>
 					) : listView.kind === "tags" ? (
 						<TagsPage
@@ -1940,7 +1988,9 @@ function App() {
 									onBack={goBack}
 									onEdit={() => setTagDialog({ tag: currentTag })}
 									onDelete={() => deleteTag(currentTag)}
-									onExport={() => void exportTracksAsM3u(displayFiles, currentTag.name, "relative")}
+									onExport={m3uDesktop
+										? () => void exportTracksAsM3u(displayFiles, currentTag.name, "relative")
+										: undefined}
 								/>
 							)}
 
@@ -1948,7 +1998,9 @@ function App() {
 								<UntaggedHeader
 									rows={viewRows}
 									onBack={goBack}
-									onExport={() => void exportTracksAsM3u(displayFiles, t("tags.untagged"), "relative")}
+									onExport={m3uDesktop
+										? () => void exportTracksAsM3u(displayFiles, t("tags.untagged"), "relative")
+										: undefined}
 								/>
 							)}
 
@@ -1967,13 +2019,7 @@ function App() {
 									rows={viewRows}
 									backTitle={t("group.allArtists")}
 									onBack={goBack}
-									actions={[{
-										kind: "item",
-										label: t("export.m3u"),
-										icon: <Download size={14} />,
-										disabled: displayFiles.length === 0,
-										onSelect: () => void exportTracksAsM3u(displayFiles, currentGroup.name, "relative"),
-									}]}
+									actions={exportHeaderAction(displayFiles, currentGroup.name)}
 									coverActions={coverEntries("artist", currentGroup)}
 									loading={settingCover?.kind === "artist" && settingCover.key === currentGroup.key}
 								/>
@@ -1989,13 +2035,7 @@ function App() {
 									rows={viewRows}
 									backTitle={t("group.allAlbums")}
 									onBack={goBack}
-									actions={[{
-										kind: "item",
-										label: t("export.m3u"),
-										icon: <Download size={14} />,
-										disabled: displayFiles.length === 0,
-										onSelect: () => void exportTracksAsM3u(displayFiles, currentGroup.name, "relative"),
-									}]}
+									actions={exportHeaderAction(displayFiles, currentGroup.name)}
 									coverActions={coverEntries("album", currentGroup)}
 									loading={settingCover?.kind === "album" && settingCover.key === currentGroup.key}
 								/>
@@ -2010,13 +2050,7 @@ function App() {
 									crumbs={listView.id ? folderCrumbs(listView.id).slice(0, -1) : undefined}
 									backTitle={t("group.parentFolder")}
 									onBack={listView.id || backTo ? goBack : undefined}
-									actions={[{
-										kind: "item",
-										label: t("export.m3u"),
-										icon: <Download size={14} />,
-										disabled: displayFiles.length === 0,
-										onSelect: () => void exportTracksAsM3u(displayFiles, currentGroup.name, "relative"),
-									}]}
+									actions={exportHeaderAction(displayFiles, currentGroup.name)}
 								/>
 							)}
 
@@ -2044,7 +2078,9 @@ function App() {
 											onBusy,
 										)
 										: undefined}
-									onExport={() => void exportTracksAsM3u(displayFiles, playlist.name, "relative")}
+									onExport={m3uDesktop
+										? () => void exportTracksAsM3u(displayFiles, playlist.name, "relative")
+										: undefined}
 								/>
 							)}
 

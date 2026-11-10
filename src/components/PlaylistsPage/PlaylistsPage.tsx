@@ -1,5 +1,5 @@
 import type { ComponentType, CSSProperties } from "react";
-import { LayoutGrid, List, MoreVertical, Plus, Sparkles } from "lucide-react";
+import { LayoutGrid, List, MoreVertical, Plus, Sparkles, Upload } from "lucide-react";
 import type { Playlist, SystemView, Track } from "../../types";
 import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
 import { CardPlayButton, PinnedMark, PlayingMark } from "../CardPlayButton/CardPlayButton";
@@ -45,6 +45,8 @@ interface PlaylistsPageProps {
     isPinned: (playlist: Playlist) => boolean;
     onCreate: () => void;
     onCreateSmart: () => void;
+    /** Import a local M3U/M3U8 as a new manual playlist (desktop only). */
+    onImport?: () => void;
 }
 
 const trackCount = (count: number) => t("common.tracks", { count });
@@ -118,6 +120,7 @@ export const PlaylistsPage = ({
     isPinned,
     onCreate,
     onCreateSmart,
+    onImport,
 }: PlaylistsPageProps) => {
     const { ref: scrollRef, onScroll: onPageScroll } = useRememberedScroll("playlists");
     const query = filter.trim().toLowerCase();
@@ -222,6 +225,11 @@ export const PlaylistsPage = ({
                 <button className="toolbar-button shuffle-button playlists-create" onClick={onCreateSmart}>
                     <Sparkles size={14} /> {t("playlists.newSmart")}
                 </button>
+                {onImport && (
+                    <button className="toolbar-button playlists-create" onClick={onImport}>
+                        <Upload size={14} /> {t("import.m3u")}
+                    </button>
+                )}
                 <button className="toolbar-button play-button playlists-create" onClick={onCreate}>
                     <Plus size={14} /> {t("playlists.new")}
                 </button>

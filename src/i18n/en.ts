@@ -28,6 +28,17 @@ export const en = {
     "export.empty": "Nothing to export",
     "export.saved": "Playlist exported",
     "error.exportM3u": "Could not export the playlist",
+    "import.m3u": "Import M3U8…",
+    "import.m3uAdded": {
+        one: "Added {count} track",
+        other: "Added {count} tracks",
+    },
+    "import.m3uPartial": {
+        one: "Added {added} track; {missing} not in the library",
+        other: "Added {added} tracks; {missing} not in the library",
+    },
+    "import.m3uNone": "No tracks from the playlist were found in the library",
+    "error.importM3u": "Could not import the playlist",
     "common.added": "added",
     "common.playingFrom": "Playing from here",
     "common.grid": "Grid",
