@@ -106,6 +106,13 @@
     max-width: 760px;
 }
 
+/* Sections keep their height; the panel scrolls instead of crushing the
+   library rows under the tall artist-rules form (those rows also clip via
+   overflow: hidden). */
+.settings-panel-body > * {
+    flex-shrink: 0;
+}
+
 .settings-back {
     display: flex;
     align-items: center;
