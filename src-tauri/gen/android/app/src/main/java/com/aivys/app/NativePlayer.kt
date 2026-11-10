@@ -24,7 +24,8 @@ import org.json.JSONObject
  * were pressed), `slept` (the sleep timer paused it) (seconds throughout).
  *
  * The page also tells the player its queue, for it to go on through it with
- * the page gone (the app swiped away), and takes the plays it counted then.
+ * the page gone (the app swiped away), and takes the plays and listening
+ * chunks it counted then.
  */
 class NativePlayer(private val activity: Activity, private val webView: WebView) {
   private val main = Handler(Looper.getMainLooper())
@@ -109,9 +110,10 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
   fun setStopAfterTrack(on: Boolean) = main.post { PlayerHub.stopAfterTrack = on }
 
   /**
-   * The plays counted while the page was gone, for it to record:
-   * `[{kind: "play" | "complete", path, at}]` (`at` in Unix seconds). Taken
-   * once; they are not given again.
+   * The plays and listening chunks counted while the page was gone, for it to
+   * record: `[{kind: "play" | "complete", path, at}]` and
+   * `[{kind: "listen", path, at, seconds}]` (`at` in Unix seconds). Taken once;
+   * they are not given again.
    */
   @JavascriptInterface
   fun takeMissedEvents(): String = PlayerHub.takeMissed(activity)

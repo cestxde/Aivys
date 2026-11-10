@@ -152,11 +152,21 @@ export const useTrackStats = (files: Track[], tagById: Map<string, UserTag> = ne
         persist("record_listen", { path: track.relPath, seconds });
     }, [persist]);
 
-    /** Plays that happened while the page was gone (Android, the app swiped away): `at` is when, in Unix seconds. */
-    const recordMissed = useCallback(async (events: { track: Track; kind: "play" | "complete"; at: number }[]) => {
+    /**
+     * Plays and listen chunks that happened while the page was gone (Android,
+     * the app swiped away): `at` is when, in Unix seconds; `seconds` is for listen.
+     */
+    const recordMissed = useCallback(async (
+        events: { track: Track; kind: "play" | "complete" | "listen"; at: number; seconds?: number }[],
+    ) => {
         if (events.length === 0) return;
-        for (const { track, kind, at } of events) {
-            await persist(kind === "play" ? "record_play" : "record_complete", { path: track.relPath, at });
+        for (const { track, kind, at, seconds } of events) {
+            if (kind === "listen") {
+                if (!seconds || seconds < 1) continue;
+                await persist("record_listen", { path: track.relPath, seconds, at });
+            } else {
+                await persist(kind === "play" ? "record_play" : "record_complete", { path: track.relPath, at });
+            }
         }
         reload();
     }, [persist, reload]);
