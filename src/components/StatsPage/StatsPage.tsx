@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { BarChart3, ChevronDown, ChevronUp, Heart, Music2, Tag } from "lucide-react";
+import { BarChart3, Check, ChevronDown, ChevronUp, Clock, Heart, Music2, Tag } from "lucide-react";
 import type { Track, TrackStats, View } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import {
-    libraryOverview, sinceOf, STATS_PERIODS, STATS_PREVIEW, type RankedArtist, type RankedTrack, type StatsPeriod,
+    libraryOverview, listenMinutesOf, listenSinceOf, LISTEN_DAY_RANGES, LISTEN_HOUR_RANGES,
+    sinceOf, STATS_PERIODS, STATS_PREVIEW, type ListenRange, type RankedArtist, type RankedTrack,
+    type StatsPeriod,
 } from "../../utils/libraryStats";
 import { UNTAGGED_KEY } from "../../utils/views";
-import { useRememberedScroll } from "../../hooks/useRemembered";
+import { useRememberedScroll, useStoredState } from "../../hooks/useRemembered";
 import { notifyError } from "../../utils/notify";
 import { CoverArt } from "../CoverArt";
+import { ContextMenu, type MenuEntry } from "../ContextMenu/ContextMenu";
 import { t, type MessageKey } from "../../i18n";
 import "./StatsPage.css";
 
@@ -30,6 +33,22 @@ const PERIOD_LABEL: Record<StatsPeriod, MessageKey> = {
     year: "stats.periodYear",
     all: "stats.periodAll",
 };
+
+const LISTEN_LABEL: Record<ListenRange, MessageKey> = {
+    "1h": "stats.listen1h",
+    "6h": "stats.listen6h",
+    "12h": "stats.listen12h",
+    "24h": "stats.listen24h",
+    "7d": "stats.listen7d",
+    "30d": "stats.listen30d",
+    "90d": "stats.listen90d",
+    all: "stats.listenAll",
+};
+
+const LISTEN_RANGES: ListenRange[] = [...LISTEN_HOUR_RANGES, ...LISTEN_DAY_RANGES];
+
+const isListenRange = (value: unknown): value is ListenRange =>
+    typeof value === "string" && (LISTEN_RANGES as string[]).includes(value);
 
 const Metric = ({
     icon, label, value, onClick,
@@ -131,6 +150,61 @@ const ArtistRow = ({
     </button>
 );
 
+/** Listening minutes with an hours/days range dropdown (ContextMenu pattern). */
+const ListenMetric = ({
+    range, minutes, waiting, onChange,
+}: {
+    range: ListenRange;
+    minutes: number;
+    waiting: boolean;
+    onChange: (range: ListenRange) => void;
+}) => {
+    const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
+    const closeMenu = useCallback(() => setMenuAt(null), []);
+
+    const entries: MenuEntry[] = [
+        { kind: "label", label: t("stats.listenHours") },
+        ...LISTEN_HOUR_RANGES.map((option): MenuEntry => ({
+            kind: "item",
+            label: t(LISTEN_LABEL[option]),
+            icon: range === option ? <Check size={16} /> : undefined,
+            onSelect: () => onChange(option),
+        })),
+        { kind: "separator" },
+        { kind: "label", label: t("stats.listenDays") },
+        ...LISTEN_DAY_RANGES.map((option): MenuEntry => ({
+            kind: "item",
+            label: t(LISTEN_LABEL[option]),
+            icon: range === option ? <Check size={16} /> : undefined,
+            onSelect: () => onChange(option),
+        })),
+    ];
+
+    return (
+        <div className={`stats-metric stats-listen ${waiting ? "waiting" : ""}`}>
+            <button
+                type="button"
+                className="stats-listen-range"
+                aria-haspopup="menu"
+                aria-expanded={menuAt !== null}
+                title={t("stats.listenRange")}
+                onPointerDown={(e) => menuAt && e.stopPropagation()}
+                onClick={(e) => {
+                    const box = e.currentTarget.getBoundingClientRect();
+                    setMenuAt(menuAt ? null : { x: box.left, y: box.bottom + 4 });
+                }}
+            >
+                <Clock size={14} />
+                <span>{t(LISTEN_LABEL[range])}</span>
+                <ChevronDown size={14} />
+            </button>
+            <span className="stats-metric-label">{t("stats.listenMinutes")}</span>
+            <span className="stats-metric-value">{minutes.toLocaleString()}</span>
+            {menuAt && <ContextMenu x={menuAt.x} y={menuAt.y} entries={entries} onClose={closeMenu} />}
+        </div>
+    );
+};
+
 /** Library overview from play journals, with a period switch. */
 export const StatsPage = ({
     files, stats, artistCover, onPlayTrack, onOpenArtist, onOpenView,
@@ -138,6 +212,8 @@ export const StatsPage = ({
     const { ref: scrollRef, onScroll } = useRememberedScroll("stats");
     const [period, setPeriod] = useState<StatsPeriod>("month");
     const [loaded, setLoaded] = useState<{ period: StatsPeriod; counts: Record<string, number> } | null>(null);
+    const [listenRange, setListenRange] = useStoredState("stats.listenRange", "24h" as ListenRange, isListenRange);
+    const [listenLoaded, setListenLoaded] = useState<{ range: ListenRange; seconds: number } | null>(null);
 
     useEffect(() => {
         if (period === "all") return;
@@ -155,6 +231,21 @@ export const StatsPage = ({
         };
     }, [period, files]);
 
+    useEffect(() => {
+        let cancelled = false;
+        const since = listenSinceOf(listenRange);
+        invoke<number>("get_listen_seconds", { since })
+            .then(seconds => {
+                if (!cancelled) setListenLoaded({ range: listenRange, seconds });
+            })
+            .catch(e => {
+                if (!cancelled) notifyError(t("error.loadListenTime"), e);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [listenRange, files]);
+
     const periodPlays = period === "all"
         ? null
         : loaded?.period === period ? loaded.counts : {};
@@ -166,6 +257,10 @@ export const StatsPage = ({
 
     const trackQueue = (rows: RankedTrack[]) => rows.map(row => row.track);
     const waiting = period !== "all" && loaded?.period !== period;
+    const listenWaiting = listenLoaded?.range !== listenRange;
+    const listenMinutes = listenLoaded?.range === listenRange
+        ? listenMinutesOf(listenLoaded.seconds)
+        : 0;
 
     return (
         <div className="stats-page" ref={scrollRef} onScroll={onScroll}>
@@ -200,6 +295,12 @@ export const StatsPage = ({
                         label={t("stats.plays")}
                         value={overview.plays}
                         onClick={() => onOpenView({ kind: "system", id: "mostPlayed" })}
+                    />
+                    <ListenMetric
+                        range={listenRange}
+                        minutes={listenMinutes}
+                        waiting={listenWaiting}
+                        onChange={setListenRange}
                     />
                     <Metric
                         icon={<Heart size={14} />}

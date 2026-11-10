@@ -165,6 +165,21 @@ pub(crate) async fn record_complete(state: State<'_, StoreState>, path: String, 
     record_at(&state, &path, EventKind::Complete, None, None, at)
 }
 
+/// Append a chunk of listening time. `seconds` is wall-clock time spent playing
+/// (at least 1). Optional `at` is when the chunk ended (Unix seconds).
+#[tauri::command]
+pub(crate) async fn record_listen(
+    state: State<'_, StoreState>,
+    path: String,
+    seconds: u32,
+    at: Option<u64>,
+) -> Result<(), StoreError> {
+    if seconds == 0 {
+        return Ok(());
+    }
+    record_at(&state, &path, EventKind::Listen, Some(i64::from(seconds)), None, at)
+}
+
 /// `rating` is 1–5, or 0 to clear.
 #[tauri::command]
 pub(crate) async fn set_rating(state: State<'_, StoreState>, path: String, rating: u8) -> Result<(), StoreError> {
@@ -266,6 +281,40 @@ fn play_counts_from_journals(store: &Store, since: Option<u64>) -> Result<HashMa
         *counts.entry(event.line.path).or_insert(0) += 1;
     }
     Ok(counts)
+}
+
+/// Total listening seconds since `since` (Unix seconds), or all time when omitted.
+#[tauri::command]
+pub(crate) async fn get_listen_seconds(
+    state: State<'_, StoreState>,
+    since: Option<u64>,
+) -> Result<u64, StoreError> {
+    with_library(&state, |library| {
+        if let Some(db) = library.synced_db() {
+            match db.listen_seconds_since(since) {
+                Ok(seconds) => return Ok(seconds),
+                Err(err) => log::warn!("index query failed: {err}"),
+            }
+        }
+        listen_seconds_from_journals(&library.store, since)
+    })
+}
+
+/// Listening seconds from the journals directly (when the index is unavailable).
+fn listen_seconds_from_journals(store: &Store, since: Option<u64>) -> Result<u64, StoreError> {
+    let mut total: u64 = 0;
+    for event in events::read_all(store)? {
+        if event.kind != EventKind::Listen {
+            continue;
+        }
+        if since.is_some_and(|from| event.line.ts < from) {
+            continue;
+        }
+        if let Some(seconds) = event.line.value.filter(|v| *v > 0) {
+            total = total.saturating_add(seconds as u64);
+        }
+    }
+    Ok(total)
 }
 
 // ---- Track files ----

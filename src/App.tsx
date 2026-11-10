@@ -29,6 +29,7 @@ import { useTheme } from "./hooks/useTheme";
 import { sortScopeOf, useViewSorts } from "./hooks/useViewSorts";
 import { useTrackStats } from "./hooks/useTrackStats";
 import { asNativeAudio } from "./utils/nativeAudio";
+import { useListenTracking } from "./hooks/useListenTracking";
 import { usePlayTracking } from "./hooks/usePlayTracking";
 import { useTaskbar } from "./hooks/useTaskbar";
 import { useMediaControls } from "./hooks/useMediaControls";
@@ -298,6 +299,7 @@ function App() {
 	const trackStats = useTrackStats(files, tags.byId);
 	const tagClipboard = useTagClipboard();
 	usePlayTracking(element, currentTrack ?? null, trackStats.recordPlay, trackStats.recordComplete);
+	useListenTracking(element, currentTrack ?? null, trackStats.recordListen);
 
 	// Android: the plays the app's player counted while the page was gone (the
 	// app swiped away) are recorded now, as of when they happened.

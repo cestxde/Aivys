@@ -194,6 +194,49 @@ impl LibraryDb {
         Ok(counts)
     }
 
+    /// Total listening seconds since `since` (Unix seconds), or all time when
+    /// `since` is `None`. Conflict copies are collapsed like journal derivation.
+    pub(crate) fn listen_seconds_since(&self, since: Option<u64>) -> rusqlite::Result<u64> {
+        let mut stmt = if since.is_some() {
+            self.conn.prepare(
+                "SELECT file, ts, device, path, value, tag_id FROM events
+                 WHERE event = 'listen' AND ts >= ?1
+                 ORDER BY file, seq",
+            )?
+        } else {
+            self.conn.prepare(
+                "SELECT file, ts, device, path, value, tag_id FROM events
+                 WHERE event = 'listen'
+                 ORDER BY file, seq",
+            )?
+        };
+        let mut dedup = Dedup::new();
+        let mut total: u64 = 0;
+        let mut rows = match since {
+            Some(from) => stmt.query([from as i64])?,
+            None => stmt.query([])?,
+        };
+        while let Some(row) = rows.next()? {
+            let file: String = row.get(0)?;
+            let line = EventLine {
+                schema_version: 1,
+                ts: row.get(1)?,
+                device: row.get(2)?,
+                path: row.get(3)?,
+                event: "listen".to_owned(),
+                value: row.get(4)?,
+                tag_id: row.get(5)?,
+                extra: Map::new(),
+            };
+            if dedup.keep(file, line.dedup_key()) {
+                if let Some(seconds) = line.value.filter(|v| *v > 0) {
+                    total = total.saturating_add(seconds as u64);
+                }
+            }
+        }
+        Ok(total)
+    }
+
     /// Derived state of every track that has any, keyed by relative path.
     /// Tags deleted in `tags.json` are left out.
     pub(crate) fn track_stats(&self) -> rusqlite::Result<HashMap<String, TrackStats>> {

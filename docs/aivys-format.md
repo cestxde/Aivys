@@ -280,6 +280,7 @@ device appends **only to its own file**; all devices read **all** files in
 ```json
 {"schemaVersion":1,"ts":1730000000,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"play"}
 {"schemaVersion":1,"ts":1730000190,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"complete"}
+{"schemaVersion":1,"ts":1730000195,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"listen","value":185}
 {"schemaVersion":1,"ts":1730000200,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"rating","value":4}
 {"schemaVersion":1,"ts":1730000210,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"favorite"}
 {"schemaVersion":1,"ts":1730000300,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"tag","tagId":"8f1c...uuid"}
@@ -293,6 +294,7 @@ device appends **only to its own file**; all devices read **all** files in
 |--------------|-------------|---------|
 | `play`       | —           | playback started |
 | `complete`   | —           | played to (near) end |
+| `listen`     | `value` (seconds ≥ 1) | wall-clock time spent listening; chunks may be appended periodically |
 | `rating`     | `value` (0–5) | explicit rating change; `0` clears |
 | `favorite`   | —           | track added to favorites |
 | `unfavorite` | —           | track removed from favorites |
@@ -831,6 +833,8 @@ Still open (to settle before Iteration 1, non-blocking):
 
 ## 15. Change log
 
+- **v1 (draft, rev 5)** — `listen` event with `value` = wall-clock listening
+  seconds (§8.2.1); chunks may be appended periodically while playing.
 - **v1 (draft, rev 4)** — de-duplication of journal lines is a union with
   maximum multiplicity across files; identical lines within one journal are
   distinct events (§8.2.4).

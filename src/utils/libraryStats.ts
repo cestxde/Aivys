@@ -19,6 +19,35 @@ export const sinceOf = (period: StatsPeriod, nowSec = Math.floor(Date.now() / 10
     }
 };
 
+/** Listening-time windows for the hours/days dropdown on the stats page. */
+export type ListenRange =
+    | "1h" | "6h" | "12h" | "24h"
+    | "7d" | "30d" | "90d"
+    | "all";
+
+export const LISTEN_HOUR_RANGES: ListenRange[] = ["1h", "6h", "12h", "24h"];
+export const LISTEN_DAY_RANGES: ListenRange[] = ["7d", "30d", "90d", "all"];
+
+/** Unix seconds at the start of a listening window, or `null` for all time. */
+export const listenSinceOf = (
+    range: ListenRange,
+    nowSec = Math.floor(Date.now() / 1000),
+): number | null => {
+    switch (range) {
+        case "1h": return nowSec - 60 * 60;
+        case "6h": return nowSec - 6 * 60 * 60;
+        case "12h": return nowSec - 12 * 60 * 60;
+        case "24h": return nowSec - 24 * 60 * 60;
+        case "7d": return nowSec - 7 * 24 * 60 * 60;
+        case "30d": return nowSec - 30 * 24 * 60 * 60;
+        case "90d": return nowSec - 90 * 24 * 60 * 60;
+        case "all": return null;
+    }
+};
+
+/** Whole minutes from a total of listening seconds. */
+export const listenMinutesOf = (seconds: number): number => Math.floor(Math.max(0, seconds) / 60);
+
 export interface RankedTrack {
     track: Track;
     plays: number;
