@@ -123,10 +123,11 @@
     color: var(--danger);
 }
 
-/* Phones: the name and the summary beside the cover, the name on up to two
-   lines; the action buttons under them across the whole width, so they do
-   not make the column beside the cover tall. */
-@media (max-width: 720px) {
+/* Narrow page column (phone, or desktop with the side panel taking space):
+   name and summary beside the cover; actions under the whole header so they
+   do not stretch the column beside the cover. By the page's width, not the
+   window's (.container is the container). */
+@container page (max-width: 720px) {
     .playlist-header {
         display: grid;
         grid-template-columns: auto auto minmax(0, 1fr);
