@@ -40,8 +40,18 @@
 }
 
 .context-menu-text {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* Like `.tag-picker-count`: beside the name via the row gap, then fills. */
+.context-menu-suffix {
+    flex-shrink: 0;
+    margin-right: auto;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    opacity: 0.6;
 }
 
 .context-menu-item:hover:not(:disabled) {

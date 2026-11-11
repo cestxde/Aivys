@@ -1177,7 +1177,8 @@ function App() {
 			if (artist && !here("artist", key)) {
 				entries.push({
 					kind: "item",
-					label: `${name} (${artist.tracks.length})`,
+					label: name,
+					suffix: `(${artist.tracks.length})`,
 					icon: <MicVocal size={16} />,
 					onSelect: () => openArtist(name),
 				});

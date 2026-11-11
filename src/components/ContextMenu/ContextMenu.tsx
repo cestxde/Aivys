@@ -7,6 +7,8 @@ export type MenuEntry =
         kind: "item";
         label: string;
         icon?: ReactNode;
+        /** Gray text right after the label (e.g. a count in parentheses). */
+        suffix?: string;
         /** Gray text on the right, e.g. the current state of the item. */
         detail?: string;
         onSelect: () => void;
@@ -95,6 +97,7 @@ export const ContextMenu = ({ x, y, entries, onClose }: ContextMenuProps) => {
                     >
                         <span className="context-menu-icon">{entry.icon}</span>
                         <span className="context-menu-text">{entry.label}</span>
+                        {entry.suffix && <span className="context-menu-suffix">{entry.suffix}</span>}
                         {entry.detail && <span className="context-menu-detail">{entry.detail}</span>}
                     </button>
                 );
