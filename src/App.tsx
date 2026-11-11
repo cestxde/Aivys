@@ -1206,7 +1206,8 @@ function App() {
 		const items: MenuEntry[] = [
 			{ kind: "item", label: t("menu.editTags"), icon: <Tag size={16} />, onSelect: () => setTagPicker(tracks) },
 		];
-		if (copyFrom) {
+		const copyTags = copyFrom ? trackStats.stats[copyFrom.relPath]?.tags ?? [] : [];
+		if (copyFrom && copyTags.length > 0) {
 			items.push({
 				kind: "item",
 				label: t("menu.copyTags"),

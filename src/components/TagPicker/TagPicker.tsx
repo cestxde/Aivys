@@ -76,7 +76,9 @@ export const TagPicker = ({
     const closeOverflow = useCallback(() => setOverflowAt(null), []);
     const list = useRef<HTMLDivElement>(null);
     const single = tracks.length === 1 ? tracks[0] : null;
-    const canClipboard = !!single && !!onCopyTags;
+    const singleTagCount = single ? stats[single.relPath]?.tags.length ?? 0 : 0;
+    const canCopyTags = !!single && !!onCopyTags && singleTagCount > 0;
+    const canClipboard = !!single && (canCopyTags || (hasTagClipboard && (!!onPasteTags || !!onAddTags)));
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -293,14 +295,19 @@ export const TagPicker = ({
                 </div>
             </div>
 
-            {overflowAt && canClipboard && single && onCopyTags && (
+            {overflowAt && canClipboard && single && (
                 <ContextMenu
                     x={overflowAt.x}
                     y={overflowAt.y}
                     entries={([
-                        { kind: "item", label: t("menu.copyTags"), icon: <ClipboardCopy size={16} />, onSelect: () => onCopyTags(single) },
+                        ...(canCopyTags && onCopyTags ? [{
+                            kind: "item" as const,
+                            label: t("menu.copyTags"),
+                            icon: <ClipboardCopy size={16} />,
+                            onSelect: () => onCopyTags(single),
+                        }] : []),
                         ...(hasTagClipboard && onPasteTags && onAddTags ? [
-                            { kind: "separator" as const },
+                            ...(canCopyTags ? [{ kind: "separator" as const }] : []),
                             { kind: "item" as const, label: t("menu.pasteTags"), icon: <ClipboardPaste size={16} />, onSelect: () => onPasteTags(single) },
                             { kind: "item" as const, label: t("menu.addTags"), icon: <ListPlus size={16} />, onSelect: () => onAddTags(single) },
                         ] : []),

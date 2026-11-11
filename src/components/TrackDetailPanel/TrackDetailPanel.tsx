@@ -143,7 +143,12 @@ export const TrackDetailPanel = ({
 
     const tagsMenu: MenuEntry[] = [
         { kind: "item", label: t("menu.editTags"), icon: <Tag size={16} />, onSelect: () => onEditTags(track) },
-        { kind: "item", label: t("menu.copyTags"), icon: <ClipboardCopy size={16} />, onSelect: () => onCopyTags(track) },
+        ...(tags.length > 0 ? [{
+            kind: "item" as const,
+            label: t("menu.copyTags"),
+            icon: <ClipboardCopy size={16} />,
+            onSelect: () => onCopyTags(track),
+        }] : []),
         ...(hasTagClipboard ? [
             { kind: "separator" as const },
             { kind: "item" as const, label: t("menu.pasteTags"), icon: <ClipboardPaste size={16} />, onSelect: () => onPasteTags(track) },
@@ -207,17 +212,21 @@ export const TrackDetailPanel = ({
                 ))}
                 <button
                     className="detail-tags-edit"
-                    aria-haspopup="menu"
-                    aria-expanded={tagsMenuAt !== null}
+                    aria-haspopup={tags.length > 0 ? "menu" : undefined}
+                    aria-expanded={tags.length > 0 ? tagsMenuAt !== null : undefined}
                     onPointerDown={(e) => tagsMenuAt && e.stopPropagation()}
                     onClick={(e) => {
+                        if (tags.length === 0) {
+                            onEditTags(track);
+                            return;
+                        }
                         const box = e.currentTarget.getBoundingClientRect();
                         setTagsMenuAt(tagsMenuAt ? null : { x: box.left, y: box.bottom + 4 });
                     }}
                 >
                     <Tag size={13} />
                     {tags.length > 0 ? t("detail.editTags") : t("detail.addTags")}
-                    <ChevronDown size={12} />
+                    {tags.length > 0 && <ChevronDown size={12} />}
                 </button>
             </div>
 
