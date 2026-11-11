@@ -41,11 +41,11 @@ const EVENTS_PLAY_TS: &str = "CREATE INDEX IF NOT EXISTS events_play_ts ON event
 /// Bump on any schema change. A database with another version is deleted and
 /// rebuilt from scratch: it only holds rebuildable data, so no migrations.
 /// Also bump when the event vocabulary changes, so journals are re-ingested,
-/// or when reading tags changes, so files are read again (8: writing-system
-/// bitmask on tracks; 7: the album's track total; 6: raw artist tags kept,
-/// artists derived from them by the library's rules; 4 and 5 were development
-/// builds).
-const SCHEMA_VERSION: i32 = 8;
+/// or when reading tags changes, so files are read again (9: `listen` events;
+/// 8: writing-system bitmask on tracks; 7: the album's track total; 6: raw
+/// artist tags kept, artists derived from them by the library's rules; 4 and
+/// 5 were development builds).
+const SCHEMA_VERSION: i32 = 9;
 
 const SCHEMA: &str = "
 CREATE TABLE meta (

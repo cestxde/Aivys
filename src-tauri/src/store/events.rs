@@ -14,6 +14,8 @@ const EVENTS_DIR: &str = "events";
 pub(crate) enum EventKind {
     Play,
     Complete,
+    /// Wall-clock seconds spent listening; `value` is the seconds in this chunk.
+    Listen,
     Rating,
     Favorite,
     Unfavorite,
@@ -26,6 +28,7 @@ impl EventKind {
         match self {
             EventKind::Play => "play",
             EventKind::Complete => "complete",
+            EventKind::Listen => "listen",
             EventKind::Rating => "rating",
             EventKind::Favorite => "favorite",
             EventKind::Unfavorite => "unfavorite",
@@ -38,6 +41,7 @@ impl EventKind {
         Some(match value {
             "play" => EventKind::Play,
             "complete" => EventKind::Complete,
+            "listen" => EventKind::Listen,
             "rating" => EventKind::Rating,
             "favorite" => EventKind::Favorite,
             "unfavorite" => EventKind::Unfavorite,
@@ -294,6 +298,8 @@ pub(crate) fn derive(events: &[Event], deleted_tags: &HashSet<String>) -> HashMa
             EventKind::Complete => {
                 entry.last_played_at = entry.last_played_at.max(Some(line.ts));
             }
+            // Listening time is summed on demand for a window; not part of TrackStats.
+            EventKind::Listen => {}
             EventKind::Rating => match line.value {
                 Some(0) => entry.rating = None,
                 Some(value @ 1..=5) => entry.rating = Some(value as u8),

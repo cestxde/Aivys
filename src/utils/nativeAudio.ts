@@ -27,7 +27,7 @@ interface AndroidPlayer {
     setShuffle(on: boolean): void;
     /** The sleep timer's "end of the track" is on or off. */
     setStopAfterTrack(on: boolean): void;
-    /** JSON `MissedEvent[]`: the plays counted with the page gone; given once. */
+    /** JSON `MissedEvent[]`: plays and listen chunks counted with the page gone; given once. */
     takeMissedEvents(): string;
 }
 
@@ -67,11 +67,16 @@ export interface QueueEntry extends NowPlaying {
     path: string;
 }
 
-/** A play the player counted while the page was gone; `at` is when, in Unix seconds. */
+/**
+ * An event the player counted while the page was gone; `at` is when, in Unix
+ * seconds. `listen` chunks also carry `seconds` of wall-clock listening.
+ */
 export interface MissedEvent {
-    kind: "play" | "complete";
+    kind: "play" | "complete" | "listen";
     path: string;
     at: number;
+    /** Whole seconds for `listen` chunks. */
+    seconds?: number;
 }
 
 /** The file path an asset URL (`convertFileSrc`, maybe with `?v=`) points at. */
@@ -87,7 +92,8 @@ const pathOf = (url: string): string => decodeURIComponent(new URL(url).pathname
  * The music outlives the page (the app swiped away from the recent apps): a
  * new page's first load of the track that still plays takes it over where it
  * is, rather than loading it again. Meanwhile the player goes through the
- * queue the page told it, and counts the plays (`takeMissedEvents`).
+ * queue the page told it, and counts the plays and listening time
+ * (`takeMissedEvents`).
  */
 export class NativeAudio extends EventTarget {
     private readonly player: AndroidPlayer;

@@ -28,11 +28,12 @@ import java.io.File
  * which loads the next track when one ends. The page also tells the player
  * the queue (`queue`, `queueIndex`, `repeat`, `stopAfterTrack`), and with the
  * page gone (the app swiped away) the player goes through it by itself,
- * counting the plays for the page to record when it is back (`takeMissed`).
- * Only touched on the main thread.
+ * counting the plays and listening time for the page to record when it is
+ * back (`takeMissed`). Only touched on the main thread.
  *
  * Its events go to the current page through `sink` (see `NativePlayer`), null
- * with the page gone.
+ * with the page gone. While `sink` is null, listening seconds are accumulated
+ * here and queued with the missed plays.
  *
  * The system stops the service a while after the music is paused in the
  * background, and the player with it (`release`); the track stays loaded for
@@ -44,8 +45,26 @@ object PlayerHub {
   private var exo: ExoPlayer? = null
   private var forwarding: Player? = null
 
-  /** Where events go: the current page, if there is one. */
+  /**
+   * Where events go: the current page, if there is one. Clearing it (page gone)
+   * starts native listen accounting if music is already playing; setting it
+   * again flushes any pending listen chunk into the missed-events queue.
+   */
   var sink: ((JSONObject) -> Unit)? = null
+    set(value) {
+      val was = field
+      when {
+        was == null && value != null -> {
+          stopListen()
+          field = value
+        }
+        was != null && value == null -> {
+          field = value
+          if (playing) startListen()
+        }
+        else -> field = value
+      }
+    }
 
   /** The loaded file, for a new page to find. */
   @Volatile var path: String? = null
@@ -292,6 +311,9 @@ object PlayerHub {
 
   /** A new file loaded at `startAt` seconds. */
   fun loaded(path: String, startAt: Double) {
+    // Credit listening on the previous track before the path changes.
+    stopListen()
+    listenPending = 0.0
     this.path = path
     position = startAt
     duration = null
@@ -306,6 +328,10 @@ object PlayerHub {
       val player = exo ?: return
       position = player.currentPosition / 1000.0
       countCompletion()
+      tickListen()
+      if (listenSince != 0L && SystemClock.elapsedRealtime() - listenFlushedAt >= LISTEN_FLUSH_MS) {
+        flushListen()
+      }
       saveState(false)
       val now = SystemClock.uptimeMillis()
       if (pageVisible || now - timeSentAt >= HIDDEN_TICK_MS) {
@@ -432,6 +458,7 @@ object PlayerHub {
     main.removeCallbacks(sleeper)
     sleepAt = 0L
     exo?.let { position = it.currentPosition / 1000.0 }
+    stopListen()
     saveState(true)
     exo?.release()
     exo = null
@@ -504,22 +531,69 @@ object PlayerHub {
     }
   }
 
-  // Plays the page does not see (it is gone) are kept, with when they were, in
-  // the preferences, as the process may be gone before the page is back.
+  // Plays and listen chunks the page does not see (it is gone) are kept, with
+  // when they were, in the preferences, as the process may be gone before the
+  // page is back.
   private val missedLock = Any()
 
-  private fun missed(kind: String) {
+  // Wall-clock listening while sink is null (mirrors useListenTracking.ts).
+  // listenSince != 0 means a segment is open; pending holds sub-second remainder.
+  private var listenSince = 0L
+  private var listenPending = 0.0
+  private var listenFlushedAt = 0L
+
+  private fun startListen() {
+    if (sink != null || listenSince != 0L || path == null) return
+    listenSince = SystemClock.elapsedRealtime()
+    listenFlushedAt = listenSince
+  }
+
+  private fun tickListen() {
+    if (listenSince == 0L) return
+    val now = SystemClock.elapsedRealtime()
+    listenPending += (now - listenSince) / 1000.0
+    listenSince = now
+  }
+
+  private fun flushListen() {
+    tickListen()
+    val whole = listenPending.toInt()
+    if (whole < 1) return
+    listenPending -= whole
+    listenFlushedAt = SystemClock.elapsedRealtime()
+    missed("listen", whole)
+  }
+
+  private fun stopListen() {
+    if (listenSince == 0L && listenPending < 1.0) {
+      listenSince = 0L
+      return
+    }
+    flushListen()
+    listenSince = 0L
+  }
+
+  private fun missed(kind: String, seconds: Int? = null) {
     val file = path ?: return
     val context = appContext ?: return
     synchronized(missedLock) {
       val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
       val list = JSONArray(preferences.getString(MISSED_KEY, "[]"))
-      list.put(JSONObject().put("kind", kind).put("path", file).put("at", System.currentTimeMillis() / 1000))
+      val entry = JSONObject()
+        .put("kind", kind)
+        .put("path", file)
+        .put("at", System.currentTimeMillis() / 1000)
+      if (seconds != null) entry.put("seconds", seconds)
+      list.put(entry)
       preferences.edit().putString(MISSED_KEY, list.toString()).apply()
     }
   }
 
-  /** The plays counted with the page gone, `[{kind: "play" | "complete", path, at}]` (`at` in Unix seconds), now handed over. */
+  /**
+   * Events counted with the page gone, now handed over:
+   * `[{kind: "play" | "complete", path, at}]` and
+   * `[{kind: "listen", path, at, seconds}]` (`at` in Unix seconds).
+   */
   fun takeMissed(context: Context): String = synchronized(missedLock) {
     val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
     val list = preferences.getString(MISSED_KEY, null) ?: "[]"
@@ -548,6 +622,7 @@ object PlayerHub {
           playCounted = true
           if (sink == null) missed("play")
         }
+        if (sink == null) startListen()
       }
     }
 
@@ -556,7 +631,10 @@ object PlayerHub {
       widgetChanged()
       if (!playWhenReady) {
         position = exo?.let { it.currentPosition / 1000.0 } ?: position
+        stopListen()
         saveState(true)
+      } else if (sink == null) {
+        startListen()
       }
       emit(JSONObject().put("type", if (playWhenReady) "play" else "pause"))
     }
@@ -571,6 +649,7 @@ object PlayerHub {
         Player.STATE_ENDED -> {
           player.playWhenReady = false
           position = duration ?: position
+          stopListen()
           countCompletion()
           // Whatever plays next, or this again, is a new play.
           playCounted = false
@@ -607,6 +686,8 @@ object PlayerHub {
   private const val WIDGET_DELAY_MS = 250L
   private const val TICK_MS = 250L
   private const val HIDDEN_TICK_MS = 5000L
+  /** How often listen chunks are flushed while playing with the page gone. */
+  private const val LISTEN_FLUSH_MS = 30_000L
   private const val SLEEP_FADE_MS = 15_000L
   private const val SLEEP_FADE_STEP_MS = 100L
 }
