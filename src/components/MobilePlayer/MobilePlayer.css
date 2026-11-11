@@ -19,11 +19,11 @@
     background:
         linear-gradient(
             90deg,
-            color-mix(in srgb, var(--cover-tint, var(--accent)) 38%, transparent) 0%,
-            color-mix(in srgb, var(--cover-tint, var(--accent)) 18%, transparent) 55%,
+            color-mix(in srgb, var(--cover-tint, var(--border)) 38%, transparent) 0%,
+            color-mix(in srgb, var(--cover-tint, var(--border)) 18%, transparent) 55%,
             transparent 100%
         ),
-        color-mix(in srgb, var(--cover-tint, var(--accent)) 22%, var(--surface));
+        color-mix(in srgb, var(--cover-tint, var(--border)) 22%, var(--surface));
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.18);
     cursor: pointer;
 }
@@ -99,10 +99,10 @@
     background:
         radial-gradient(
             ellipse 90% 70% at 50% 28%,
-            color-mix(in srgb, var(--cover-tint, var(--accent)) 62%, transparent) 0%,
+            color-mix(in srgb, var(--cover-tint, var(--border)) 62%, transparent) 0%,
             transparent 68%
         ),
-        linear-gradient(to bottom, var(--bg) 30%, color-mix(in srgb, var(--cover-tint, var(--accent)) 28%, var(--bg)));
+        linear-gradient(to bottom, var(--bg) 30%, color-mix(in srgb, var(--cover-tint, var(--border)) 28%, var(--bg)));
     animation: now-playing-in 0.2s ease-out;
 }
 
@@ -143,16 +143,21 @@
     border-radius: 16px;
 }
 
-/* The cover fills its square, whatever size CoverArt was given. */
+/* The cover fills its square, whatever size CoverArt was given. Keep the
+   surface fill so a missing cover still reads as a rounded plate. */
 .now-playing-cover.cover-art {
     width: 100% !important;
     height: 100% !important;
-    border: none;
-    background: transparent;
+    border: 1px solid var(--border);
+    background: var(--surface);
     border-radius: 16px;
     box-shadow: var(--shadow-dialog);
     overflow: hidden;
     opacity: 1;
+}
+
+.now-playing-cover.cover-art:has(img) {
+    border-color: transparent;
 }
 
 .now-playing-cover.cover-art img {

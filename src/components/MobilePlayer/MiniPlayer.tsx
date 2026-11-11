@@ -27,7 +27,8 @@ export const MiniPlayer = ({ track, isPlaying, onTogglePlay, onPrev, onNext, onO
     const artist = displayArtists(track);
     const tint = useCoverColor(track.coverPath);
     const tintStyle = {
-        "--cover-tint": tint ? rgbCss(tint) : "var(--accent)",
+        // No cover: a dull gray wash, not the bright accent.
+        "--cover-tint": tint ? rgbCss(tint) : "var(--border)",
     } as CSSProperties;
     return (
         <div

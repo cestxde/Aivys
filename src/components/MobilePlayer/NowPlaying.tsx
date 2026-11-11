@@ -220,7 +220,8 @@ export const NowPlaying = (props: NowPlayingProps) => {
     const swipe = useSwipe(props.next ? props.onNext : null, props.previous ? props.onSwipePrevious : null);
     const tint = useCoverColor(track.coverPath);
     const tintStyle = {
-        "--cover-tint": tint ? rgbCss(tint) : "var(--accent)",
+        // No cover: a dull gray wash, not the bright accent.
+        "--cover-tint": tint ? rgbCss(tint) : "var(--border)",
     } as CSSProperties;
 
     const tagsMenu: MenuEntry[] = [
