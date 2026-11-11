@@ -30,7 +30,9 @@
     z-index: 0;
 }
 
-.player-bar-wrapper > * {
+/* Above the tint wash; keep the cover viewer out so its fixed overlay
+   still covers the whole window (relative would trap it in the bar). */
+.player-bar-wrapper > *:not(.cover-viewer-backdrop) {
     position: relative;
     z-index: 1;
 }
