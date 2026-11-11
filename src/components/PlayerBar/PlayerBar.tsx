@@ -52,9 +52,9 @@ export const PlayerBar = (props: PlayerBarProps) => {
     const title = props.currentTrack ? displayTitle(props.currentTrack) : null;
     const artist = props.currentTrack ? displayArtists(props.currentTrack) : null;
     const tint = useCoverColor(props.currentTrack?.coverPath);
-    const tintStyle = tint
-        ? ({ "--cover-tint": rgbCss(tint) } as CSSProperties)
-        : undefined;
+    const tintStyle = {
+        "--cover-tint": tint ? rgbCss(tint) : "transparent",
+    } as CSSProperties;
 
     const [showCover, setShowCover] = useState(false);
 

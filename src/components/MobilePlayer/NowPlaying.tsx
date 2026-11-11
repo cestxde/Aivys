@@ -219,9 +219,9 @@ export const NowPlaying = (props: NowPlayingProps) => {
     const favorite = stats?.favorite ?? false;
     const swipe = useSwipe(props.next ? props.onNext : null, props.previous ? props.onSwipePrevious : null);
     const tint = useCoverColor(track.coverPath);
-    const tintStyle = tint
-        ? ({ "--cover-tint": rgbCss(tint) } as CSSProperties)
-        : undefined;
+    const tintStyle = {
+        "--cover-tint": tint ? rgbCss(tint) : "var(--accent)",
+    } as CSSProperties;
 
     const tagsMenu: MenuEntry[] = [
         { kind: "item", label: t("menu.editTags"), icon: <Tag size={16} />, onSelect: () => props.onEditTags(track) },

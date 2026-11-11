@@ -4,6 +4,13 @@
  * to date by src/utils/theme.ts. Components use only these variables, so a
  * theme is just a different set of values.
  */
+/* Animatable so player tints can ease between covers. */
+@property --cover-tint {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
 :root {
   color-scheme: light;
 

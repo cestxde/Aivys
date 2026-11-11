@@ -116,9 +116,9 @@ export const TrackDetailPanel = ({
     const [tagsMenuAt, setTagsMenuAt] = useState<{ x: number; y: number } | null>(null);
     const closeTagsMenu = useCallback(() => setTagsMenuAt(null), []);
     const tint = useCoverColor(track?.coverPath);
-    const tintStyle = tint
-        ? ({ "--cover-tint": rgbCss(tint) } as CSSProperties)
-        : undefined;
+    const tintStyle = {
+        "--cover-tint": tint ? rgbCss(tint) : "transparent",
+    } as CSSProperties;
 
     if (!track) {
         return (

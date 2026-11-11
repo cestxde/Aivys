@@ -26,9 +26,9 @@ interface MiniPlayerProps {
 export const MiniPlayer = ({ track, isPlaying, onTogglePlay, onPrev, onNext, onOpen }: MiniPlayerProps) => {
     const artist = displayArtists(track);
     const tint = useCoverColor(track.coverPath);
-    const tintStyle = tint
-        ? ({ "--cover-tint": rgbCss(tint) } as CSSProperties)
-        : undefined;
+    const tintStyle = {
+        "--cover-tint": tint ? rgbCss(tint) : "var(--accent)",
+    } as CSSProperties;
     return (
         <div
             className="mini-player"

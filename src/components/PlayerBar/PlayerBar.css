@@ -12,6 +12,7 @@
     /* Keep visible so the seek tooltip can paint above the bar; the tint
        (::before) is already inset and does not need clipping. */
     overflow: visible;
+    transition: --cover-tint 0.55s ease;
 }
 
 /* Cover tint stays inside the bar: short, soft left → right fade. */

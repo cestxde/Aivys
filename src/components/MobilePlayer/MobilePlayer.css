@@ -15,6 +15,7 @@
     gap: 12px;
     padding: 10px calc(8px + var(--safe-right, 0px)) calc(10px + var(--safe-bottom, 0px)) calc(12px + var(--safe-left, 0px));
     border-radius: 20px 20px 0 0;
+    transition: --cover-tint 0.55s ease;
     background:
         linear-gradient(
             90deg,
@@ -94,13 +95,14 @@
 }
 
 .now-playing {
+    transition: --cover-tint 0.55s ease;
     background:
         radial-gradient(
             ellipse 90% 70% at 50% 28%,
-            color-mix(in srgb, var(--cover-tint, var(--accent)) 42%, transparent) 0%,
+            color-mix(in srgb, var(--cover-tint, var(--accent)) 62%, transparent) 0%,
             transparent 68%
         ),
-        linear-gradient(to bottom, var(--bg) 35%, color-mix(in srgb, var(--cover-tint, var(--accent)) 16%, var(--bg)));
+        linear-gradient(to bottom, var(--bg) 30%, color-mix(in srgb, var(--cover-tint, var(--accent)) 28%, var(--bg)));
     animation: now-playing-in 0.2s ease-out;
 }
 

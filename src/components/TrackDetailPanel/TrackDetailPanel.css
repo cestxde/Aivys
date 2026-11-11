@@ -96,6 +96,7 @@
     padding: 1.5rem 1rem 1.25rem;
     /* Same corner radius as `.detail-cover` — must stay inside the scrollport. */
     border-radius: 8px;
+    transition: --cover-tint 0.55s ease;
     background: linear-gradient(
         180deg,
         color-mix(in srgb, var(--cover-tint, transparent) 40%, transparent) 0%,
