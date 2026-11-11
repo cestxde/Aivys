@@ -158,22 +158,24 @@ export const TrackDetailPanel = ({
 
     return (
         <div className="detail-body">
-            <div className="detail-cover-wrap" style={tintStyle}>
-                <CoverArt
-                    path={track.coverPath}
-                    size={200}
-                    className="detail-cover"
-                    onClick={track.coverPath ? () => setShowCover(true) : undefined}
-                />
-            </div>
+            <div className="detail-hero" style={tintStyle}>
+                <div className="detail-cover-wrap">
+                    <CoverArt
+                        path={track.coverPath}
+                        size={200}
+                        className="detail-cover"
+                        onClick={track.coverPath ? () => setShowCover(true) : undefined}
+                    />
+                </div>
 
-            <div className="detail-heading">
-                <h2 className="detail-title">{displayTitle(track)}</h2>
-                {artists && (
-                    <span className="detail-artist">
-                        <ArtistLinks line={artists} artists={track.artists} canOpen={canOpenArtist} onOpen={onOpenArtist} />
-                    </span>
-                )}
+                <div className="detail-heading">
+                    <h2 className="detail-title">{displayTitle(track)}</h2>
+                    {artists && (
+                        <span className="detail-artist">
+                            <ArtistLinks line={artists} artists={track.artists} canOpen={canOpenArtist} onOpen={onOpenArtist} />
+                        </span>
+                    )}
+                </div>
             </div>
 
             <div className="detail-actions">
