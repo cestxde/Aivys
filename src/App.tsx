@@ -1173,8 +1173,14 @@ function App() {
 		const entries: MenuEntry[] = [];
 		for (const name of track.artists) {
 			const key = artistKey(name);
-			if (artistsByKey.has(key) && !here("artist", key)) {
-				entries.push({ kind: "item", label: name, icon: <MicVocal size={16} />, onSelect: () => openArtist(name) });
+			const artist = artistsByKey.get(key);
+			if (artist && !here("artist", key)) {
+				entries.push({
+					kind: "item",
+					label: `${name} (${artist.tracks.length})`,
+					icon: <MicVocal size={16} />,
+					onSelect: () => openArtist(name),
+				});
 			}
 		}
 		const album = albumKeyOf(track);
