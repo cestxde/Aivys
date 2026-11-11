@@ -87,7 +87,6 @@ export const ru: Record<MessageKey, Message> = {
     "stats.tracks": "Треки",
     "stats.plays": "Прослушивания",
     "stats.favorites": "Избранное",
-    "stats.untagged": "Без тегов",
     "stats.listenMinutes": "Минут прослушано",
     "stats.listenRange": "Период прослушивания",
     "stats.listenHours": "Часы",

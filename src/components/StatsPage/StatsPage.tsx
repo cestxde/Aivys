@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { BarChart3, Check, ChevronDown, ChevronUp, Clock, Heart, Music2, Tag } from "lucide-react";
+import { BarChart3, Check, ChevronDown, ChevronUp, Clock, Heart, Music2 } from "lucide-react";
 import type { Track, TrackStats, View } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import {
@@ -8,7 +8,6 @@ import {
     sinceOf, STATS_PERIODS, STATS_PREVIEW, type ListenRange, type RankedArtist, type RankedTrack,
     type StatsPeriod,
 } from "../../utils/libraryStats";
-import { UNTAGGED_KEY } from "../../utils/views";
 import { useRememberedScroll, useStoredState } from "../../hooks/useRemembered";
 import { notifyError } from "../../utils/notify";
 import { CoverArt } from "../CoverArt";
@@ -307,12 +306,6 @@ export const StatsPage = ({
                         label={t("stats.favorites")}
                         value={overview.favorites}
                         onClick={() => onOpenView({ kind: "system", id: "favorites" })}
-                    />
-                    <Metric
-                        icon={<Tag size={14} />}
-                        label={t("stats.untagged")}
-                        value={overview.untagged}
-                        onClick={() => onOpenView({ kind: "tag", id: UNTAGGED_KEY })}
                     />
                 </div>
 

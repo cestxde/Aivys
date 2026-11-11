@@ -87,7 +87,6 @@ export const en = {
     "stats.tracks": "Tracks",
     "stats.plays": "Plays",
     "stats.favorites": "Favorites",
-    "stats.untagged": "No tags",
     "stats.listenMinutes": "Minutes listened",
     "stats.listenRange": "Listening period",
     "stats.listenHours": "Hours",

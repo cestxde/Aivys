@@ -65,7 +65,6 @@ export interface LibraryOverview {
     tracks: number;
     plays: number;
     favorites: number;
-    untagged: number;
     topTracks: RankedTrack[];
     topArtists: RankedArtist[];
     forgotten: RankedTrack[];
@@ -85,7 +84,6 @@ export const libraryOverview = (
     nowSec = Math.floor(Date.now() / 1000),
 ): LibraryOverview => {
     let favorites = 0;
-    let untagged = 0;
     const ranked: RankedTrack[] = [];
     const artists = new Map<string, RankedArtist>();
     let plays = 0;
@@ -93,7 +91,6 @@ export const libraryOverview = (
     for (const track of files) {
         const st = stats[track.relPath];
         if (st?.favorite) favorites += 1;
-        if ((st?.tags ?? []).length === 0) untagged += 1;
 
         const count = periodPlays ? (periodPlays[track.relPath] ?? 0) : (st?.playCount ?? 0);
         plays += count;
@@ -147,5 +144,5 @@ export const libraryOverview = (
         .sort(byPlays)
         .slice(0, STATS_TOP);
 
-    return { tracks: files.length, plays, favorites, untagged, topTracks, topArtists, forgotten };
+    return { tracks: files.length, plays, favorites, topTracks, topArtists, forgotten };
 };
