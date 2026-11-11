@@ -84,7 +84,7 @@ import { displayTitle } from "./utils/track";
 import {
 	buildM3u8, fileStem, joinDirFile, m3uFileName, matchM3uTracks, parseM3u, type M3uPathMode,
 } from "./utils/m3u";
-import { sanitizeFileName } from "./utils/fileName";
+import { fileNameFromTags, preferredFileNameVariant, sanitizeFileName } from "./utils/fileName";
 import { revealFile, revealLabel } from "./utils/reveal";
 import { formatDateTime, formatDuration, formatTotalDuration } from "./utils/format";
 import { compareText, t, useI18n, type MessageKey } from "./i18n";
@@ -1290,6 +1290,80 @@ function App() {
 		notifyInfo(t("edit.renamed", { name: next?.name ?? name }));
 	};
 
+	/** Rename every selected file from its tags (Artist - Title). */
+	const renameManyFromTags = async (tracks: Track[]) => {
+		const renames = tracks.flatMap(track => {
+			const name = fileNameFromTags(track);
+			return name && name !== track.name ? [{ path: track.path, name }] : [];
+		});
+		if (renames.length === 0) {
+			notifyInfo(t("edit.renameNone"));
+			return;
+		}
+		const paths = renames.map(item => item.path);
+		let result: EditResult;
+		try {
+			result = await releaseWhile(paths, () => invoke<EditResult>("rename_tracks", { renames }));
+		} catch (e) {
+			notifyError(t("edit.renameFailed"), e);
+			return;
+		}
+		library.setFiles(result.tracks);
+		if (result.failed.length > 0) {
+			notifyError(t("edit.someFailed", { count: result.failed.length, list: result.failed.join("; ") }));
+		}
+		const written = renames.length - result.failed.length;
+		if (written === 0) return;
+		const nextEditing = tracks
+			.map(track => {
+				const spec = renames.find(item => item.path === track.path);
+				return spec ? renamedTrack(track, spec.name, result.tracks) : track;
+			})
+			.filter((track): track is Track => !!track);
+		if (nextEditing.length > 0) setEditing(nextEditing);
+		else setEditing(null);
+		notifyInfo(t("edit.renamedMany", { count: written }));
+	};
+
+	/** Fill artist/title/track number from each file name automatically. */
+	const fillManyFromNames = async (tracks: Track[]) => {
+		const edits = tracks.flatMap(track => {
+			const variant = preferredFileNameVariant(track);
+			if (!variant) return [];
+			const edit: MetadataEdit = {
+				artist: variant.artist,
+				title: variant.title,
+				...(variant.trackNumber !== undefined ? { trackNumber: variant.trackNumber } : {}),
+			};
+			return [{ path: track.path, edit }];
+		});
+		if (edits.length === 0) {
+			notifyInfo(t("edit.fillNone"));
+			return;
+		}
+		const paths = edits.map(item => item.path);
+		let result: EditResult;
+		try {
+			result = await releaseWhile(paths, () => invoke<EditResult>("edit_tracks_each", { edits }));
+		} catch (e) {
+			notifyError(t("edit.failed"), e);
+			return;
+		}
+		library.setFiles(result.tracks);
+		if (result.failed.length > 0) {
+			notifyError(t("edit.someFailed", { count: result.failed.length, list: result.failed.join("; ") }));
+		}
+		const written = edits.length - result.failed.length;
+		if (written === 0) return;
+		setEditing(null);
+		setUndoablePaths(paths);
+		notifyUndoable(
+			t("edit.filledMany", { count: written }),
+			t("edit.undo"),
+			() => undoEdit(paths),
+		);
+	};
+
 	/** Put back the tags the last edit (of the files at `paths`) replaced. */
 	const undoEdit = async (paths: string[]) => {
 		setUndoablePaths(current => (current === paths ? null : current));
@@ -2350,6 +2424,8 @@ function App() {
 					tracks={editing}
 					onSave={(edit) => saveMetadata(editing, edit)}
 					onRename={editing.length === 1 ? (name) => renameTrack(editing[0], name) : undefined}
+					onRenameMany={editing.length > 1 ? () => renameManyFromTags(editing) : undefined}
+					onFillMany={editing.length > 1 ? () => fillManyFromNames(editing) : undefined}
 					onClose={() => setEditing(null)}
 				/>
 			)}

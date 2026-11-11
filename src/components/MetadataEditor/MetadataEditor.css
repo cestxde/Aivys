@@ -62,6 +62,16 @@
     opacity: 0.85;
 }
 
+.metadata-file-dont-show {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--text);
+    cursor: pointer;
+    user-select: none;
+}
+
 .metadata-file-panel-actions {
     display: flex;
     justify-content: flex-end;

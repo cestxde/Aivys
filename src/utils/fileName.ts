@@ -90,3 +90,18 @@ export const parseFileNameVariants = (track: Track): NameVariant[] => {
 
     return variants;
 };
+
+/**
+ * Best automatic split of the file name: prefer a variant whose artist matches
+ * the track's current artist line, otherwise the first cut.
+ */
+export const preferredFileNameVariant = (track: Track): NameVariant | null => {
+    const variants = parseFileNameVariants(track);
+    if (variants.length === 0) return null;
+    const artist = track.artistLine.trim().toLowerCase();
+    if (artist) {
+        const match = variants.find(variant => variant.artist.toLowerCase() === artist);
+        if (match) return match;
+    }
+    return variants[0];
+};

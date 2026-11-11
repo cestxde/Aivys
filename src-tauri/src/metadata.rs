@@ -297,27 +297,43 @@ pub(crate) fn clear_undo(app_data: &Path) {
     let _ = fs::remove_dir_all(undo_dir(app_data));
 }
 
+fn decode_cover(edit: &MetadataEdit) -> Result<CoverChange, String> {
+    match &edit.cover {
+        None => Ok(None),
+        Some(None) => Ok(Some(None)),
+        Some(Some(data)) => Ok(Some(Some(read_picture(data)?))),
+    }
+}
+
 /// Apply `edit` to `files`; the files that could not be changed, with why.
 pub(crate) fn edit_files(app_data: &Path, undo: &EditUndo, files: &[PathBuf], edit: &MetadataEdit) -> Vec<(PathBuf, String)> {
-    let cover: CoverChange = match &edit.cover {
-        None => None,
-        Some(None) => Some(None),
-        Some(Some(data)) => match read_picture(data) {
-            Ok(picture) => Some(Some(picture)),
-            Err(err) => return files.iter().map(|file| (file.clone(), format!("cover: {err}"))).collect(),
-        },
-    };
+    let jobs: Vec<(PathBuf, &MetadataEdit)> = files.iter().map(|file| (file.clone(), edit)).collect();
+    edit_files_each(app_data, undo, &jobs)
+}
 
+/// Apply a different edit per file in one undo batch (fill-from-name for many tracks).
+pub(crate) fn edit_files_each(
+    app_data: &Path,
+    undo: &EditUndo,
+    jobs: &[(PathBuf, &MetadataEdit)],
+) -> Vec<(PathBuf, String)> {
     let mut backups = undo.0.lock().unwrap_or_else(|e| e.into_inner());
     backups.clear();
     let dir = undo_dir(app_data);
     let _ = fs::remove_dir_all(&dir);
     if let Err(err) = fs::create_dir_all(&dir) {
-        return files.iter().map(|file| (file.clone(), format!("undo copy: {err}"))).collect();
+        return jobs.iter().map(|(file, _)| (file.clone(), format!("undo copy: {err}"))).collect();
     }
 
     let mut failed = Vec::new();
-    for (index, file) in files.iter().enumerate() {
+    for (index, (file, edit)) in jobs.iter().enumerate() {
+        let cover = match decode_cover(edit) {
+            Ok(cover) => cover,
+            Err(err) => {
+                failed.push((file.clone(), format!("cover: {err}")));
+                continue;
+            }
+        };
         let copy = dir.join(index.to_string());
         let result = fs::copy(file, &copy).map_err(error).and_then(|_| {
             let file_type = FileType::from_path(file)

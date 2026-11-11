@@ -337,10 +337,8 @@ async fn change_files(
     .map_err(|err| StoreError::Invalid(err.to_string()))?
 }
 
-/// Write `edit` into the tags of the tracks at `paths`; undo puts them back.
-#[tauri::command]
-pub(crate) async fn edit_tracks(app: tauri::AppHandle, paths: Vec<String>, edit: MetadataEdit) -> Result<EditResult, StoreError> {
-    let files = with_store(&app.state::<StoreState>(), |store| {
+fn resolve_track_files(app: &tauri::AppHandle, paths: &[String]) -> Result<Vec<std::path::PathBuf>, StoreError> {
+    with_store(&app.state::<StoreState>(), |store| {
         paths
             .iter()
             .map(|path| {
@@ -349,10 +347,40 @@ pub(crate) async fn edit_tracks(app: tauri::AppHandle, paths: Vec<String>, edit:
                 if file.is_file() { Ok(file) } else { Err(StoreError::NotFound(format!("track {key}"))) }
             })
             .collect::<Result<Vec<_>, _>>()
-    })?;
+    })
+}
+
+/// Write `edit` into the tags of the tracks at `paths`; undo puts them back.
+#[tauri::command]
+pub(crate) async fn edit_tracks(app: tauri::AppHandle, paths: Vec<String>, edit: MetadataEdit) -> Result<EditResult, StoreError> {
+    let files = resolve_track_files(&app, &paths)?;
     let handle = app.clone();
     change_files(app, move |app_data| {
         metadata::edit_files(app_data, &handle.state::<EditUndo>(), &files, &edit)
+            .into_iter()
+            .map(|(file, reason)| format!("{}: {reason}", file_name(&file)))
+            .collect()
+    })
+    .await
+}
+
+/// One path with its own tag edit (bulk fill-from-name).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TrackEditSpec {
+    path: String,
+    edit: MetadataEdit,
+}
+
+/// Write a different edit into each track; one undo restores every file.
+#[tauri::command]
+pub(crate) async fn edit_tracks_each(app: tauri::AppHandle, edits: Vec<TrackEditSpec>) -> Result<EditResult, StoreError> {
+    let paths: Vec<String> = edits.iter().map(|item| item.path.clone()).collect();
+    let files = resolve_track_files(&app, &paths)?;
+    let handle = app.clone();
+    change_files(app, move |app_data| {
+        let jobs: Vec<_> = files.iter().zip(edits.iter()).map(|(file, item)| (file.clone(), &item.edit)).collect();
+        metadata::edit_files_each(app_data, &handle.state::<EditUndo>(), &jobs)
             .into_iter()
             .map(|(file, reason)| format!("{}: {reason}", file_name(&file)))
             .collect()

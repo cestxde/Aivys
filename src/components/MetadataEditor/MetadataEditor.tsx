@@ -9,6 +9,7 @@ import { clipboardImage, cropImage, pastedImage } from "../../utils/image";
 import { cropToSquare } from "../../utils/coverCrop";
 import { fileNameFromTags, parseFileNameVariants, type NameVariant } from "../../utils/fileName";
 import { notifyError, notifyInfo } from "../../utils/notify";
+import { useStoredState } from "../../hooks/useRemembered";
 
 const TEXT_FIELDS = ["title", "artist", "album", "albumArtist", "genre"] as const;
 const NUMBER_FIELDS = ["year", "trackNumber", "trackTotal", "discNumber"] as const;
@@ -56,17 +57,23 @@ interface MetadataEditorProps {
     onSave: (edit: MetadataEdit) => Promise<void>;
     /** Rename the single track's file (basename with extension). */
     onRename?: (name: string) => Promise<void>;
+    /** Rename every selected file from its tags (Artist - Title). */
+    onRenameMany?: () => Promise<void>;
+    /** Fill artist/title/track number from each file name automatically. */
+    onFillMany?: () => Promise<void>;
     onClose: () => void;
 }
 
-type FilePanel = "rename" | "fill" | null;
+type FilePanel = "rename" | "fill" | "warn-rename" | "warn-fill" | null;
 
 /**
  * Edit the tags of one or more tracks. With several, a field whose value
  * differs between them shows so, and only fields that were changed are
  * written.
  */
-export const MetadataEditor = ({ tracks, onSave, onRename, onClose }: MetadataEditorProps) => {
+export const MetadataEditor = ({
+    tracks, onSave, onRename, onRenameMany, onFillMany, onClose,
+}: MetadataEditorProps) => {
     useBackLayer(true, onClose);
     const fields: Field[] = [...TEXT_FIELDS, ...NUMBER_FIELDS];
     const [initial] = useState(() => {
@@ -89,6 +96,12 @@ export const MetadataEditor = ({ tracks, onSave, onRename, onClose }: MetadataEd
     const [renameName, setRenameName] = useState("");
     const [renaming, setRenaming] = useState(false);
     const [fillPick, setFillPick] = useState(0);
+    const [skipMultiWarn, setSkipMultiWarn] = useStoredState(
+        "edit.skipMultiFileWarn",
+        false,
+        (value): value is boolean => typeof value === "boolean",
+    );
+    const [dontShowAgain, setDontShowAgain] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -115,14 +128,48 @@ export const MetadataEditor = ({ tracks, onSave, onRename, onClose }: MetadataEd
     };
 
     const openRename = () => {
-        if (!single) return;
-        setRenameName(fileNameFromTags(single) ?? single.name);
-        setFilePanel("rename");
+        if (single) {
+            setRenameName(fileNameFromTags(single) ?? single.name);
+            setFilePanel("rename");
+            return;
+        }
+        if (!onRenameMany) return;
+        if (skipMultiWarn) void runBulk("rename");
+        else {
+            setDontShowAgain(false);
+            setFilePanel("warn-rename");
+        }
     };
 
     const openFill = () => {
-        setFillPick(0);
-        setFilePanel("fill");
+        if (single) {
+            setFillPick(0);
+            setFilePanel("fill");
+            return;
+        }
+        if (!onFillMany) return;
+        if (skipMultiWarn) void runBulk("fill");
+        else {
+            setDontShowAgain(false);
+            setFilePanel("warn-fill");
+        }
+    };
+
+    const runBulk = async (kind: "rename" | "fill") => {
+        if (renaming) return;
+        setRenaming(true);
+        try {
+            if (kind === "rename") await onRenameMany?.();
+            else await onFillMany?.();
+            setFilePanel(null);
+        } finally {
+            setRenaming(false);
+        }
+    };
+
+    const confirmBulk = async (kind: "rename" | "fill") => {
+        if (dontShowAgain) setSkipMultiWarn(true);
+        await runBulk(kind);
     };
 
     const applyRename = async () => {
@@ -250,13 +297,14 @@ export const MetadataEditor = ({ tracks, onSave, onRename, onClose }: MetadataEd
                     </button>
                 </div>
 
-                {single && (
-                    // The file name often holds the details: there to copy from,
-                    // rename from tags, or fill the fields from the name.
-                    <div className="metadata-file-block">
-                        <div className="metadata-file">
-                            <span className="metadata-file-label">{t("edit.file")}</span>
-                            <span className="metadata-file-name">{single.name}</span>
+                {/* File name ↔ tags: one track picks interactively; many use automation. */}
+                <div className="metadata-file-block">
+                    <div className="metadata-file">
+                        <span className="metadata-file-label">{t("edit.file")}</span>
+                        <span className="metadata-file-name">
+                            {single ? single.name : t("common.tracks", { count: tracks.length })}
+                        </span>
+                        {single && (
                             <button
                                 className="metadata-file-copy"
                                 title={t("edit.copyName")}
@@ -265,92 +313,119 @@ export const MetadataEditor = ({ tracks, onSave, onRename, onClose }: MetadataEd
                             >
                                 <Copy size={13} />
                             </button>
+                        )}
+                    </div>
+                    {filePanel === null && (
+                        <div className="metadata-file-actions">
+                            {(single ? onRename : onRenameMany) && (
+                                <button className="editor-button" disabled={saving || renaming} onClick={openRename}>
+                                    <FilePenLine size={14} /> {t("edit.renameFile")}
+                                </button>
+                            )}
+                            <button className="editor-button" disabled={saving || renaming || (!single && !onFillMany)} onClick={openFill}>
+                                <TextCursorInput size={14} /> {t("edit.fillFromName")}
+                            </button>
                         </div>
-                        {filePanel === null && (
-                            <div className="metadata-file-actions">
-                                {onRename && (
-                                    <button className="editor-button" disabled={saving || renaming} onClick={openRename}>
-                                        <FilePenLine size={14} /> {t("edit.renameFile")}
-                                    </button>
-                                )}
-                                <button className="editor-button" disabled={saving || renaming} onClick={openFill}>
-                                    <TextCursorInput size={14} /> {t("edit.fillFromName")}
+                    )}
+                    {(filePanel === "warn-rename" || filePanel === "warn-fill") && (
+                        <div className="metadata-file-panel">
+                            <span className="metadata-file-panel-hint">
+                                {filePanel === "warn-rename" ? t("edit.multiRenameWarn") : t("edit.multiFillWarn")}
+                            </span>
+                            <label className="metadata-file-dont-show">
+                                <input
+                                    type="checkbox"
+                                    checked={dontShowAgain}
+                                    onChange={(e) => setDontShowAgain(e.target.checked)}
+                                />
+                                {t("edit.dontShowAgain")}
+                            </label>
+                            <div className="metadata-file-panel-actions">
+                                <button className="editor-button" disabled={renaming} onClick={() => setFilePanel(null)}>
+                                    {t("common.cancel")}
+                                </button>
+                                <button
+                                    className="editor-button primary"
+                                    disabled={renaming}
+                                    onClick={() => void confirmBulk(filePanel === "warn-rename" ? "rename" : "fill")}
+                                >
+                                    {t("common.continue")}
                                 </button>
                             </div>
-                        )}
-                        {filePanel === "rename" && (
+                        </div>
+                    )}
+                    {filePanel === "rename" && single && (
+                        <div className="metadata-file-panel">
+                            <span className="metadata-file-panel-hint">{t("edit.renameHint")}</span>
+                            <input
+                                className="rule-input"
+                                value={renameName}
+                                disabled={renaming}
+                                autoFocus
+                                onChange={(e) => setRenameName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") applyRename();
+                                    if (e.key === "Escape") setFilePanel(null);
+                                }}
+                            />
+                            <div className="metadata-file-panel-actions">
+                                <button className="editor-button" disabled={renaming} onClick={() => setFilePanel(null)}>
+                                    {t("common.cancel")}
+                                </button>
+                                <button
+                                    className="editor-button primary"
+                                    disabled={renaming || !renameName.trim()}
+                                    onClick={applyRename}
+                                >
+                                    {t("edit.renameApply")}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    {filePanel === "fill" && single && (() => {
+                        const variants = parseFileNameVariants(single);
+                        return (
                             <div className="metadata-file-panel">
-                                <span className="metadata-file-panel-hint">{t("edit.renameHint")}</span>
-                                <input
-                                    className="rule-input"
-                                    value={renameName}
-                                    disabled={renaming}
-                                    autoFocus
-                                    onChange={(e) => setRenameName(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") applyRename();
-                                        if (e.key === "Escape") setFilePanel(null);
-                                    }}
-                                />
+                                <span className="metadata-file-panel-hint">
+                                    {variants.length > 0 ? t("edit.nameVariants") : t("edit.noVariants")}
+                                </span>
+                                {variants.length > 0 && (
+                                    <div className="metadata-name-variants" role="radiogroup">
+                                        {variants.map((variant, index) => (
+                                            <label key={`${variant.artist}\0${variant.title}\0${index}`} className="metadata-name-variant">
+                                                <input
+                                                    type="radio"
+                                                    name="name-variant"
+                                                    checked={fillPick === index}
+                                                    onChange={() => setFillPick(index)}
+                                                />
+                                                <span>
+                                                    {variant.trackNumber !== undefined && (
+                                                        <span className="metadata-name-variant-num">{variant.trackNumber}. </span>
+                                                    )}
+                                                    {variant.artist} — {variant.title}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
                                 <div className="metadata-file-panel-actions">
-                                    <button className="editor-button" disabled={renaming} onClick={() => setFilePanel(null)}>
+                                    <button className="editor-button" onClick={() => setFilePanel(null)}>
                                         {t("common.cancel")}
                                     </button>
-                                    <button
-                                        className="editor-button primary"
-                                        disabled={renaming || !renameName.trim()}
-                                        onClick={applyRename}
-                                    >
-                                        {t("edit.renameApply")}
-                                    </button>
+                                    {variants.length > 0 && (
+                                        <button
+                                            className="editor-button primary"
+                                            onClick={() => applyVariant(variants[fillPick] ?? variants[0])}
+                                        >
+                                            {t("edit.useVariant")}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
-                        )}
-                        {filePanel === "fill" && (() => {
-                            const variants = parseFileNameVariants(single);
-                            return (
-                                <div className="metadata-file-panel">
-                                    <span className="metadata-file-panel-hint">
-                                        {variants.length > 0 ? t("edit.nameVariants") : t("edit.noVariants")}
-                                    </span>
-                                    {variants.length > 0 && (
-                                        <div className="metadata-name-variants" role="radiogroup">
-                                            {variants.map((variant, index) => (
-                                                <label key={`${variant.artist}\0${variant.title}\0${index}`} className="metadata-name-variant">
-                                                    <input
-                                                        type="radio"
-                                                        name="name-variant"
-                                                        checked={fillPick === index}
-                                                        onChange={() => setFillPick(index)}
-                                                    />
-                                                    <span>
-                                                        {variant.trackNumber !== undefined && (
-                                                            <span className="metadata-name-variant-num">{variant.trackNumber}. </span>
-                                                        )}
-                                                        {variant.artist} — {variant.title}
-                                                    </span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    )}
-                                    <div className="metadata-file-panel-actions">
-                                        <button className="editor-button" onClick={() => setFilePanel(null)}>
-                                            {t("common.cancel")}
-                                        </button>
-                                        {variants.length > 0 && (
-                                            <button
-                                                className="editor-button primary"
-                                                onClick={() => applyVariant(variants[fillPick] ?? variants[0])}
-                                            >
-                                                {t("edit.useVariant")}
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })()}
-                    </div>
-                )}
+                        );
+                    })()}
+                </div>
 
                 <div className="metadata-body">
                     <div className="metadata-cover">

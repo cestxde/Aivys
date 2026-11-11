@@ -139,6 +139,7 @@ pub fn run() {
             search_tracks,
             delete_tracks,
             edit_tracks,
+            edit_tracks_each,
             undo_track_edit,
             rename_tracks
         ])
