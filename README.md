@@ -5,70 +5,86 @@
   </picture>
 </p>
 
-**Aivys** is a cross-platform offline music player built with **Rust** and **Tauri 2.0**. The project focuses on complete independence from cloud services, providing a high-performance environment for managing local music libraries with a focus on data integrity.
+<p align="center">
+  <strong>English</strong> · <a href="README.ru.md">Русский</a>
+</p>
 
-## 📡 Core Concept
-Unlike traditional streaming services or simple players, **Aivys** aims to implement a seamless **local synchronization engine**. It allows users to keep their music tracks and playlists in sync across Android and Desktop devices within a local network, ensuring that your library remains consistent without relying on external servers.
+**Aivys** is a cross-platform offline music player built with **Rust** and **Tauri 2**. It stays independent of cloud services and focuses on a fast local library: scanning, playback, tags, playlists, and statistics — with library data kept next to your music in a portable `.aivys/` folder.
 
-## 🛠 Tech Stack
-* **Backend:** [Rust](https://www.rust-lang.org/) — ensures memory safety and high performance for file processing.
-* **Frontend:** [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) — a modern, responsive UI.
-* **Build Tool:** [Vite](https://vitejs.dev/) & [Tauri 2.0](https://v2.tauri.app/) — bridging native capabilities with web technologies.
-* **Database:** [SQLite](https://www.sqlite.org/) — reliable local storage for metadata and sync states.
+## Library data & sync-friendly format
 
-## 📱 Platform Support
-| Platform | Status | Environment |
+Aivys does **not** ship its own sync network. Instead, user data (play counts, listening time, favorites, tags, playlists, …) lives in **`.aivys/`** beside the music files, in a layout meant to be copied by tools you already use — [Syncthing](https://syncthing.net/), a shared folder, NAS, and so on.
+
+The format is **file-first** and documented in [`docs/aivys-format.md`](docs/aivys-format.md): per-device append-only event journals, per-entity playlist/tag files, and built-in handling of **Syncthing conflict copies** so concurrent use across devices does not silently corrupt the library. SQLite on each device is a rebuildable **index/cache**, not the source of truth.
+
+## Tech stack
+
+* **Backend:** [Rust](https://www.rust-lang.org/) — file scanning, metadata, and the `.aivys/` store.
+* **Frontend:** [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/).
+* **Shell:** [Vite](https://vitejs.dev/) & [Tauri 2](https://v2.tauri.app/).
+* **Index:** [SQLite](https://www.sqlite.org/) — local search and derived state from the journals.
+
+## Platform support
+
+| Platform | Status | Notes |
 | :--- | :--- | :--- |
-| **Android** | 🛠 Development | Tested on Samsung A55 |
-| **Windows** | 🛠 Development | Windows 11 |
-| **Linux/macOS** | 📅 Planned | — |
+| **Android** | In development | Tested on Samsung A55 |
+| **Windows** | In development | Windows 11 |
+| **Linux / macOS** | Planned | — |
 
-## 🧪 Project Status & Experiments
-Aivys is currently in an **experimental phase**. The primary goal is to explore:
-- High-performance file system scanning on Android using Rust.
-- Reliable local data synchronization without centralized servers.
-- Minimalist and efficient UI for large offline music collections.
+## Project status
 
-## 🏗 Development Setup
+Aivys is **experimental**. Current focus:
 
-### 1. Prerequisites
-Before running the project, ensure you have the following installed:
-* **Rust:** [rustup](https://rustup.rs/) (stable channel).
+- Solid offline library UX on desktop and Android.
+- A durable, sync-friendly on-disk format for multi-device libraries.
+- Performance of large folder scans (especially on Android).
+
+## Development setup
+
+### Prerequisites
+
+* **Rust:** [rustup](https://rustup.rs/) (stable).
 * **Node.js:** v18 or newer.
-* **Android Studio:** * **SDK Platform:** API 34 or 35.
-    * **SDK Tools:** Android SDK Build-Tools, NDK (Side by side), and CMake.
-* **Environment Variables:**
-    * `ANDROID_HOME` pointing to your SDK location.
-    * `NDK_HOME` pointing to the specific NDK version (e.g., `...\ndk\26.x.x`).
+* **Android Studio** (for Android builds):
+    * SDK Platform API 34 or 35.
+    * SDK Build-Tools, NDK (side by side), and CMake.
+* **Environment:**
+    * `ANDROID_HOME` → Android SDK.
+    * `NDK_HOME` → NDK version (e.g. `...\ndk\26.x.x`).
 
-### 2. Initial Setup
+### Initial setup
+
 ```powershell
-# Clone the repository
-git clone [https://github.com/cestxde/aivys.git](https://github.com/cestxde/aivys.git)
-cd aivys
+git clone https://github.com/cestxde/Aivys.git
+cd Aivys
 
-# Install dependencies
 npm install
 
-# Initialize Android project files (required once after cloning)
+# Android project files (once after cloning, if you build for Android)
 npm run tauri android init
 ```
 
-### 3. Running the App
+### Running
 
-#### **Windows**
+**Windows**
+
 ```powershell
 npm run tauri dev
 ```
 
-#### **Android**
-To run on a physical device (e.g., Samsung A55), ensure it is connected via USB with Debugging enabled.
+**Android** — device on USB with debugging enabled:
+
 ```powershell
 npm run tauri android dev
 ```
-> **Note:** If you have multiple network adapters (VPN, Radmin, VM bridges), ensure your primary Wi-Fi/Ethernet adapter has the highest priority (lowest Metric) in Windows settings.
 
-## ⚖️ License & Trademark
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+> If you have several network adapters (VPN, Radmin, VM bridges), give the primary Wi‑Fi/Ethernet the highest priority (lowest metric) so the Android dev connection reaches the machine.
 
-**Branding Notice:** The "Aivys Player" name, logos, and all graphical assets are protected. Their use is subject to the guidelines outlined in [BRANDING.md](BRANDING.md).
+Release process: [`docs/releasing.md`](docs/releasing.md).
+
+## License & trademark
+
+Licensed under the **MIT License** — see [LICENSE](LICENSE).
+
+The "Aivys Player" name, logos, and related graphics are subject to [BRANDING.md](BRANDING.md).
