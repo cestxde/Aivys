@@ -69,15 +69,12 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     max-width: 760px;
+    width: 100%;
 }
 
-@media (min-width: 720px) {
-    .stats-metrics {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
-@media (min-width: 980px) {
+/* Four tiles fit in one row once the page pane is wide enough; skip a
+   3-column step so four metrics do not leave a clipped orphan. */
+@container page (min-width: 900px) {
     .stats-metrics {
         grid-template-columns: repeat(4, minmax(0, 1fr));
     }
@@ -88,6 +85,7 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
+    min-width: 0;
     padding: 0.85rem 1rem;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -106,14 +104,27 @@ button.stats-metric:hover {
 }
 
 .stats-metric-label {
-    display: inline-flex;
-    align-items: center;
+    display: flex;
+    align-items: flex-start;
     gap: 6px;
+    min-width: 0;
+    max-width: 100%;
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text);
+    line-height: 1.25;
+}
+
+.stats-metric-label > svg {
+    flex-shrink: 0;
+    margin-top: 0.1em;
+}
+
+.stats-metric-label > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .stats-metric-value {

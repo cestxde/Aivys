@@ -41,7 +41,7 @@ const Metric = ({
 }) => {
     const body = (
         <>
-            <span className="stats-metric-label">{icon}{label}</span>
+            <span className="stats-metric-label">{icon}<span>{label}</span></span>
             <span className="stats-metric-value">{value.toLocaleString()}</span>
         </>
     );
