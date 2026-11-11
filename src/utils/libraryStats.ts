@@ -49,12 +49,12 @@ export const STATS_PREVIEW = 3;
 
 /**
  * Overview numbers and rankings. `periodPlays` is per-path counts for the
- * chosen window (`null` = use all-time `playCount` from `stats`).
+ * chosen window (including paths no longer in the library).
  */
 export const libraryOverview = (
     files: Track[],
     stats: Record<string, TrackStats>,
-    periodPlays: Record<string, number> | null = null,
+    periodPlays: Record<string, number>,
     nowSec = Math.floor(Date.now() / 1000),
 ): LibraryOverview => {
     let favorites = 0;
@@ -66,7 +66,7 @@ export const libraryOverview = (
         const st = stats[track.relPath];
         if (st?.favorite) favorites += 1;
 
-        const count = periodPlays ? (periodPlays[track.relPath] ?? 0) : (st?.playCount ?? 0);
+        const count = periodPlays[track.relPath] ?? 0;
         plays += count;
 
         if (count > 0) {
@@ -90,11 +90,9 @@ export const libraryOverview = (
     }
 
     // Plays of paths no longer in the library still count toward the total.
-    if (periodPlays) {
-        const known = new Set(files.map(track => track.relPath));
-        for (const [path, count] of Object.entries(periodPlays)) {
-            if (!known.has(path)) plays += count;
-        }
+    const known = new Set(files.map(track => track.relPath));
+    for (const [path, count] of Object.entries(periodPlays)) {
+        if (!known.has(path)) plays += count;
     }
 
     const byPlays = (a: RankedTrack, b: RankedTrack) =>

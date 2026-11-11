@@ -141,7 +141,6 @@ export const StatsPage = ({
     const [listenLoaded, setListenLoaded] = useState<{ period: StatsPeriod; seconds: number } | null>(null);
 
     useEffect(() => {
-        if (period === "all") return;
         let cancelled = false;
         const since = sinceOf(period);
         invoke<Record<string, number>>("get_play_counts", { since })
@@ -171,9 +170,9 @@ export const StatsPage = ({
         };
     }, [period, files]);
 
-    const periodPlays = period === "all"
-        ? null
-        : loaded?.period === period ? loaded.counts : {};
+    // Always from journals (incl. paths no longer in the library). Using
+    // per-file `playCount` for "all" undercounted deleted/renamed tracks.
+    const periodPlays = loaded?.period === period ? loaded.counts : {};
 
     const overview = useMemo(
         () => libraryOverview(files, stats, periodPlays),
@@ -181,9 +180,7 @@ export const StatsPage = ({
     );
 
     const trackQueue = (rows: RankedTrack[]) => rows.map(row => row.track);
-    const playsWaiting = period !== "all" && loaded?.period !== period;
-    const listenWaiting = listenLoaded?.period !== period;
-    const waiting = playsWaiting || listenWaiting;
+    const waiting = loaded?.period !== period || listenLoaded?.period !== period;
     const listenMinutes = listenLoaded?.period === period
         ? listenMinutesOf(listenLoaded.seconds)
         : 0;
