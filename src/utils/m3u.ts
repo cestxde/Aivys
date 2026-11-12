@@ -74,6 +74,9 @@ export const normalizePathKey = (path: string): string => {
     return key.toLowerCase();
 };
 
+/** File name of a path (keeps the extension). */
+export const pathFileName = (path: string): string => path.replace(/^.*[/\\]/, "");
+
 /** Candidates for matching an M3U entry against the open library. */
 const resolveCandidates = (entry: string, m3uDir: string, libraryRoot: string): string[] => {
     const out: string[] = [];
@@ -88,19 +91,23 @@ const resolveCandidates = (entry: string, m3uDir: string, libraryRoot: string): 
         if (libraryRoot) add(joinDirFile(libraryRoot, rel));
         add(rel.replace(/\\/g, "/"));
     }
+    // Samsung / phone exports often keep a foreign folder prefix; the file
+    // name alone may still match a flat (or uniquely named) library track.
+    add(pathFileName(entry));
     return out;
 };
 
 export interface M3uMatchResult {
     /** Library tracks in M3U order (duplicates kept if the file listed them twice). */
     tracks: Track[];
-    missing: number;
+    /** Path lines from the M3U that did not match any library track. */
+    missingEntries: string[];
 }
 
 /**
  * Match M3U path lines to library tracks. Tries absolute path, path relative to
- * the playlist file, then relative to the library root; compares against both
- * `path` and `relPath`.
+ * the playlist file, then relative to the library root, then the file name when
+ * it uniquely identifies a track; compares against both `path` and `relPath`.
  */
 export const matchM3uTracks = (
     entries: string[],
@@ -109,6 +116,8 @@ export const matchM3uTracks = (
     libraryRoot: string,
 ): M3uMatchResult => {
     const byKey = new Map<string, Track>();
+    // File name → track, or `null` when several library tracks share the name.
+    const byFileName = new Map<string, Track | null>();
     for (const track of files) {
         byKey.set(normalizePathKey(track.path), track);
         byKey.set(normalizePathKey(track.relPath), track);
@@ -116,19 +125,23 @@ export const matchM3uTracks = (
         if (libraryRoot) {
             byKey.set(normalizePathKey(joinDirFile(libraryRoot, track.relPath)), track);
         }
+        const base = normalizePathKey(pathFileName(track.relPath));
+        if (!base) continue;
+        byFileName.set(base, byFileName.has(base) ? null : track);
     }
 
     const m3uDir = parentDir(m3uPath);
     const tracks: Track[] = [];
-    let missing = 0;
+    const missingEntries: string[] = [];
     for (const entry of entries) {
         let found: Track | undefined;
         for (const candidate of resolveCandidates(entry, m3uDir, libraryRoot)) {
-            found = byKey.get(normalizePathKey(candidate));
+            const key = normalizePathKey(candidate);
+            found = byKey.get(key) ?? byFileName.get(key) ?? undefined;
             if (found) break;
         }
         if (found) tracks.push(found);
-        else missing++;
+        else missingEntries.push(entry);
     }
-    return { tracks, missing };
+    return { tracks, missingEntries };
 };

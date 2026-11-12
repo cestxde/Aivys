@@ -60,6 +60,7 @@ import { checkForUpdates, useChangelogOpen, useUpdateDialogOpen } from "./utils/
 import { savePosition } from "./utils/session";
 import { FolderGrid, GroupHeader, type Crumb } from "./components/GroupHeader/GroupHeader";
 import { AddToDialog } from "./components/AddToDialog/AddToDialog";
+import { M3uMissingDialog, type M3uMissingGroup } from "./components/M3uImportDialog/M3uMissingDialog";
 import { TagsPage } from "./components/TagsPage/TagsPage";
 import { TagHeader } from "./components/TagHeader/TagHeader";
 import { UntaggedHeader } from "./components/UntaggedHeader/UntaggedHeader";
@@ -255,6 +256,7 @@ function App() {
 	const [editor, setEditor] = useState<EditorState | null>(null);
 	// Tracks the "Add to…" dialog is open for.
 	const [addTo, setAddTo] = useState<Track[] | null>(null);
+	const [m3uMissing, setM3uMissing] = useState<M3uMissingGroup[] | null>(null);
 	const [tagDialog, setTagDialog] = useState<TagDialogState | null>(null);
 	const [categoryDialog, setCategoryDialog] = useState<CategoryDialogState | null>(null);
 	// The album or artist whose cover is being written now (a spinner shows on its cover).
@@ -847,34 +849,54 @@ function App() {
 		setRenamingId(created.id);
 	};
 
-	/** Import an M3U/M3U8 as a new manual playlist of tracks found in the library. */
+	/** Import one or more M3U/M3U8 files as new manual playlists. */
 	const importM3uPlaylist = async () => {
 		try {
 			const selected = await open({
 				title: t("import.m3u"),
-				multiple: false,
+				multiple: true,
 				filters: [{ name: "M3U", extensions: ["m3u", "m3u8"] }],
 				defaultPath: settings.lastPath || undefined,
 			});
-			if (typeof selected !== "string") return;
-			const text = await invoke<string>("read_text_file", { path: selected });
-			const entries = parseM3u(text);
-			const { tracks, missing } = matchM3uTracks(entries, files, selected, settings.lastPath);
-			if (tracks.length === 0) {
+			const paths = Array.isArray(selected) ? selected : typeof selected === "string" ? [selected] : [];
+			if (paths.length === 0) return;
+
+			let playlistsOk = 0;
+			let tracksOk = 0;
+			let lastId: string | null = null;
+			const missingGroups: M3uMissingGroup[] = [];
+
+			for (const path of paths) {
+				const text = await invoke<string>("read_text_file", { path });
+				const entries = parseM3u(text);
+				const { tracks, missingEntries } = matchM3uTracks(entries, files, path, settings.lastPath);
+				const name = sanitizeFileName(fileStem(path)) || t("playlists.defaultName");
+				if (missingEntries.length > 0) {
+					console.warn(`[m3u] ${name}: ${missingEntries.length} not in library`, missingEntries);
+					missingGroups.push({ name, entries: missingEntries });
+				}
+				if (tracks.length === 0) continue;
+				const created = await playlists.createManual(name);
+				if (!created) continue;
+				const added = await playlists.addTracks(created.id, tracks.map(track => track.relPath));
+				if (!added) continue;
+				playlistsOk += 1;
+				tracksOk += tracks.length;
+				lastId = created.id;
+			}
+
+			if (playlistsOk === 0) {
 				notifyInfo(t("import.m3uNone"));
+				if (missingGroups.length > 0) setM3uMissing(missingGroups);
 				return;
 			}
-			const name = sanitizeFileName(fileStem(selected)) || t("playlists.defaultName");
-			const created = await playlists.createManual(name);
-			if (!created) return;
-			const added = await playlists.addTracks(created.id, tracks.map(track => track.relPath));
-			if (!added) return;
-			if (missing > 0) {
-				notifyInfo(t("import.m3uPartial", { count: tracks.length, added: tracks.length, missing }));
+			if (paths.length === 1) {
+				notifyInfo(t("import.m3uAdded", { count: tracksOk }));
 			} else {
-				notifyInfo(t("import.m3uAdded", { count: tracks.length }));
+				notifyInfo(t("import.m3uBatch", { count: playlistsOk, playlists: playlistsOk, tracks: tracksOk }));
 			}
-			showView({ kind: "playlist", id: created.id });
+			if (missingGroups.length > 0) setM3uMissing(missingGroups);
+			if (lastId) showView({ kind: "playlist", id: lastId });
 		} catch (e) {
 			notifyError(t("error.importM3u"), e);
 		}
@@ -2431,6 +2453,10 @@ function App() {
 					onFillMany={editing.length > 1 ? () => fillManyFromNames(editing) : undefined}
 					onClose={() => setEditing(null)}
 				/>
+			)}
+
+			{m3uMissing && (
+				<M3uMissingDialog groups={m3uMissing} onClose={() => setM3uMissing(null)} />
 			)}
 
 			{addTo && (
