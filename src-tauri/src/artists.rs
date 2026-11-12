@@ -14,7 +14,7 @@ const DEFAULT_SPLIT_ON: [&str; 14] =
 
 /// Bump when the way artists are derived changes, so indexes derive them
 /// again (the tags need not be read again).
-const GROUPING_VERSION: u32 = 2;
+const GROUPING_VERSION: u32 = 3;
 
 /// Separators that introduce guests ("A feat. B"); the others join the
 /// members of a group of artists ("A & B").
@@ -357,17 +357,27 @@ struct Seen {
 /// A track's segments without values that only repeat an artist of another
 /// one: tags often hold the full credit and then each artist separately
 /// ("A & B feat. C", "A", "B", "C"), which must not count as solo tracks.
+/// Also drops a long single credit that only wraps other artists named on
+/// the same track ("Połoz as Łotr" next to "Połoz" and "Łotr").
 fn without_repeats(segments: &[Segment]) -> Vec<&Segment> {
     segments
         .iter()
         .enumerate()
         .filter(|(index, segment)| {
             let [part] = segment.parts.as_slice() else { return true };
+            let part_lower = part.to_lowercase();
             !segments.iter().enumerate().any(|(other_index, other)| {
-                other_index != *index
-                    // An earlier copy of the same value keeps its place.
-                    && (other.parts.len() > 1 || !other.lead || other_index < *index)
-                    && other.parts.iter().any(|known| same_name(known, part))
+                if other_index == *index {
+                    return false;
+                }
+                // Short value already listed as a part of another segment.
+                let in_other_parts = (other.parts.len() > 1 || !other.lead || other_index < *index)
+                    && other.parts.iter().any(|known| same_name(known, part));
+                // Long credit that contains another artist named on this track.
+                let wraps_other = other.parts.iter().any(|known| {
+                    !same_name(known, part) && contains_word(&part_lower, &known.to_lowercase())
+                });
+                in_other_parts || wraps_other
             })
         })
         .map(|(_, segment)| segment)
@@ -466,15 +476,22 @@ fn matches_at(text: &[char], at: usize, pattern: &[char]) -> bool {
 }
 
 /// The artist line to show for a track: its tag values, without values that
-/// repeat names of an earlier one ("1tbsp & Mietze Conte", "1tbsp").
+/// repeat names of an earlier one ("1tbsp & Mietze Conte", "1tbsp"). A longer
+/// credit that arrives later replaces the shorter names it already contains.
 pub(crate) fn display_line(values: &[String]) -> String {
-    let mut shown: Vec<&str> = Vec::new();
+    let mut shown: Vec<String> = Vec::new();
     for value in values {
         let value = value.trim();
+        if value.is_empty() {
+            continue;
+        }
         let lower = value.to_lowercase();
-        let repeated = shown.iter().any(|earlier| contains_word(&earlier.to_lowercase(), &lower));
-        if !value.is_empty() && !repeated {
-            shown.push(value);
+        if shown.iter().any(|earlier| contains_word(&earlier.to_lowercase(), &lower)) {
+            continue;
+        }
+        shown.retain(|earlier| !contains_word(&lower, &earlier.to_lowercase()) || same_name(earlier, value));
+        if !shown.iter().any(|known| same_name(known, value)) {
+            shown.push(value.to_owned());
         }
     }
     shown.join(", ")
@@ -662,9 +679,17 @@ mod tests {
     #[test]
     fn display_line_skips_repeats() {
         assert_eq!(display_line(&owned(&["1tbsp & Mietze Conte", "1tbsp", "Mietze Conte"])), "1tbsp & Mietze Conte");
+        assert_eq!(display_line(&owned(&["1tbsp", "Mietze Conte", "1tbsp & Mietze Conte"])), "1tbsp & Mietze Conte");
+        assert_eq!(display_line(&owned(&["Połoz as Łotr", "Połoz", "Łotr"])), "Połoz as Łotr");
         assert_eq!(display_line(&owned(&["A", "B"])), "A, B");
         assert_eq!(display_line(&owned(&["Kanye West", "Westside Gunn"])), "Kanye West, Westside Gunn");
         assert_eq!(display_line(&owned(&[])), "");
+    }
+
+    #[test]
+    fn alias_credit_does_not_duplicate_named_artists() {
+        let credits = credit(&[&["Połoz as Łotr", "Połoz", "Łotr", "107.5 Darkstar Radio"]]);
+        assert_eq!(artists_of(&credits[0]), ["Połoz", "Łotr", "107.5 Darkstar Radio"]);
     }
 
     #[test]

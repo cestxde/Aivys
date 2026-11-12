@@ -15,10 +15,20 @@ type Part = { text: string; artist: string | null };
 
 const isWordChar = (c: string | undefined) => !!c && /[\p{L}\p{N}]/u.test(c);
 
+/** Whether `part` occurs in `text` as whole Unicode letters/digits words. */
+const containsWholeWord = (text: string, part: string) => {
+    if (!part) return false;
+    for (let at = text.indexOf(part); at >= 0; at = text.indexOf(part, at + 1)) {
+        if (!isWordChar(text[at - 1]) && !isWordChar(text[at + part.length])) return true;
+    }
+    return false;
+};
+
 /**
  * `line` with every artist that occurs in it as a link to the artist's page,
  * separators left as text. Artists not found in the line (or a line that is
- * empty) are listed after it.
+ * empty) are listed after it — unless they already appear as words in `line`
+ * (a longer credit may have consumed that span).
  */
 const partsOf = (line: string, artists: string[]): Part[] => {
     const lower = line.toLowerCase();
@@ -48,9 +58,11 @@ const partsOf = (line: string, artists: string[]): Part[] => {
     }
     if (index < line.length) parts.push({ text: line.slice(index), artist: null });
 
-    for (const artist of artists.filter(name => !listed.has(name))) {
+    for (const artist of artists) {
+        if (listed.has(artist) || containsWholeWord(lower, artist.toLowerCase())) continue;
         if (parts.length > 0) parts.push({ text: ", ", artist: null });
         parts.push({ text: artist, artist });
+        listed.add(artist);
     }
     return parts;
 };
