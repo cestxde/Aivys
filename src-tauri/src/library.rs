@@ -1,9 +1,10 @@
 use crate::artists::{ArtistRules, Splitter};
-use crate::db::{LibraryDb, ScannedTrack};
-use crate::store::commands::{artist_rules, include_mp4, open_store};
+use crate::db::{CachedFile, LibraryDb, ScannedTrack};
+use crate::store::commands::{artist_rules, include_mp4, open_store, with_library_index};
 use crate::store::fsio::now_unix;
 use crate::store::index::{added_at_path, load_added_at, save_added_at};
 use crate::track::{read_modified, read_track, Track};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 use std::time::UNIX_EPOCH;
@@ -148,19 +149,22 @@ fn read_found(file: &FoundFile, covers_dir: &Path, splitter: &Splitter) -> Optio
     Some(track)
 }
 
-/// Scan through the index: only files that are new or changed since the last
-/// scan (by mtime and size), or whose cached cover is gone, have their tags
-/// read again. Artists of cached files follow `rules` without a re-read.
-fn scan_cached(
-    db: &mut LibraryDb,
-    base: &Path,
+/// What a scan must write into the index after reading tags of changed files.
+struct ScanPlan {
+    upserts: Vec<ScannedTrack>,
+    added_at_updates: Vec<(String, u64)>,
+    removed: Vec<String>,
+}
+
+/// Decide which files to re-read and read their tags. Does not touch the index,
+/// so the store lock need not be held across slow tag I/O.
+fn plan_scan(
+    mut cached: HashMap<String, CachedFile>,
     files: &[FoundFile],
     covers_dir: &Path,
     rules: &ArtistRules,
-) -> rusqlite::Result<Vec<Track>> {
+) -> ScanPlan {
     let splitter = Splitter::new(rules);
-    let mut cached = db.cached_files()?;
-
     let mut upserts = Vec::new();
     let mut added_at_updates = Vec::new();
     // Files that vanished, plus files that changed but can no longer be read.
@@ -198,17 +202,83 @@ fn scan_cached(
         upserts.len(),
         removed.len()
     );
+    ScanPlan { upserts, added_at_updates, removed }
+}
+
+fn apply_scan_plan(
+    db: &mut LibraryDb,
+    base: &Path,
+    plan: &ScanPlan,
+    rules: &ArtistRules,
+) -> rusqlite::Result<Vec<Track>> {
     let started = std::time::Instant::now();
-    db.apply_scan(&upserts, &added_at_updates, &removed)?;
-    db.derive_artists(rules, !upserts.is_empty() || !removed.is_empty())?;
+    db.apply_scan(&plan.upserts, &plan.added_at_updates, &plan.removed)?;
+    db.derive_artists(rules, !plan.upserts.is_empty() || !plan.removed.is_empty())?;
     let tracks = db.load_tracks(base)?;
     log::info!("scan: index updated and read in {:?}", started.elapsed());
     Ok(tracks)
 }
 
-/// The blocking part of a scan: walks the folder, reads tags and covers, and
-/// updates the "added-at" store and the local index. Kept synchronous so it can
-/// run on a blocking thread pool via [`scan_directory`], never on the UI thread.
+/// Scan through the index: only files that are new or changed since the last
+/// scan (by mtime and size), or whose cached cover is gone, have their tags
+/// read again. Artists of cached files follow `rules` without a re-read.
+fn scan_cached(
+    db: &mut LibraryDb,
+    base: &Path,
+    files: &[FoundFile],
+    covers_dir: &Path,
+    rules: &ArtistRules,
+) -> rusqlite::Result<Vec<Track>> {
+    let plan = plan_scan(db.cached_files()?, files, covers_dir, rules);
+    apply_scan_plan(db, base, &plan, rules)
+}
+
+fn scan_without_index(files: &[FoundFile], covers_dir: &Path, rules: &ArtistRules) -> Vec<Track> {
+    let splitter = Splitter::new(rules);
+    files.iter().filter_map(|file| read_found(file, covers_dir, &splitter)).collect()
+}
+
+/// Walk + update using the open library's index connection (no second `open`).
+fn do_scan_with_open_index(
+    app: &tauri::AppHandle,
+    base_path: &str,
+    covers_dir: &Path,
+    rules: &ArtistRules,
+    include_mp4: bool,
+) -> Vec<Track> {
+    let base = Path::new(base_path);
+    let started = std::time::Instant::now();
+    let files = find_files(base, include_mp4);
+    log::info!("scan: walked {} files in {:?}", files.len(), started.elapsed());
+
+    let cached = match with_library_index(app, |db| db.cached_files()) {
+        Some(Ok(cached)) => cached,
+        Some(Err(err)) => {
+            log::warn!("library index failed, scanning without it: {err}");
+            return scan_without_index(&files, covers_dir, rules);
+        }
+        None => {
+            log::warn!("library index unavailable, scanning without it");
+            return scan_without_index(&files, covers_dir, rules);
+        }
+    };
+
+    let plan = plan_scan(cached, &files, covers_dir, rules);
+    match with_library_index(app, |db| apply_scan_plan(db, base, &plan, rules)) {
+        Some(Ok(tracks)) => tracks,
+        Some(Err(err)) => {
+            log::warn!("library index failed, scanning without it: {err}");
+            scan_without_index(&files, covers_dir, rules)
+        }
+        None => {
+            log::warn!("library index unavailable, scanning without it");
+            scan_without_index(&files, covers_dir, rules)
+        }
+    }
+}
+
+/// The blocking part of a scan for tests (and any caller without an open store):
+/// may open its own index connection under `app_data`.
 fn do_scan(
     base_path: &str,
     covers_dir: &Path,
@@ -235,8 +305,7 @@ fn do_scan(
         }
     }
 
-    let splitter = Splitter::new(rules);
-    files.iter().filter_map(|file| read_found(file, covers_dir, &splitter)).collect()
+    scan_without_index(&files, covers_dir, rules)
 }
 
 /// Opens the library's `.aivys/` store and lets the page load the files of the
@@ -264,7 +333,6 @@ fn open_library(app: &tauri::AppHandle, base_path: &str, covers_dir: &Path) {
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String, reuse_store: Option<bool>) -> Vec<Track> {
     let covers_dir = resolve_covers_dir(&app);
-    let app_data = app.path().app_data_dir().ok();
 
     // Run the blocking filesystem/tag work off the UI thread so the webview
     // stays responsive (spinner keeps animating) during a large scan.
@@ -273,10 +341,10 @@ pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String, reu
         if !reuse_store.unwrap_or(false) {
             open_library(&app, &base_path, &covers_dir);
         }
-        do_scan(
+        do_scan_with_open_index(
+            &app,
             &base_path,
             &covers_dir,
-            app_data.as_deref(),
             &artist_rules(&app),
             include_mp4(&app),
         )
@@ -292,26 +360,22 @@ pub(crate) async fn scan_directory(app: tauri::AppHandle, base_path: String, reu
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn cached_tracks(app: tauri::AppHandle, base_path: String) -> Vec<Track> {
     let covers_dir = resolve_covers_dir(&app);
-    let app_data = app.path().app_data_dir().ok();
 
     tauri::async_runtime::spawn_blocking(move || {
         let _scanning = scan_lock();
         open_library(&app, &base_path, &covers_dir);
-        let Some(app_data) = app_data else {
-            return Vec::new();
-        };
         let base = Path::new(&base_path);
         let started = std::time::Instant::now();
-        let tracks = match LibraryDb::open(&app_data, base) {
-            Ok(db) => db.load_tracks(base).unwrap_or_else(|err| {
+        let tracks = with_library_index(&app, |db| {
+            db.load_tracks(base).unwrap_or_else(|err| {
                 log::warn!("cannot read the library index: {err}");
                 Vec::new()
-            }),
-            Err(err) => {
-                log::warn!("cannot open library index: {err}");
-                Vec::new()
-            }
-        };
+            })
+        })
+        .unwrap_or_else(|| {
+            log::warn!("library index unavailable");
+            Vec::new()
+        });
         log::info!("scan: {} tracks from the index in {:?}", tracks.len(), started.elapsed());
         tracks
     })
@@ -323,11 +387,10 @@ pub(crate) async fn cached_tracks(app: tauri::AppHandle, base_path: String) -> V
 /// index re-reads just those. The caller holds [`scan_lock`].
 pub(crate) fn rescan_library(app: &tauri::AppHandle, root: &Path) -> Vec<Track> {
     let covers_dir = resolve_covers_dir(app);
-    let app_data = app.path().app_data_dir().ok();
-    do_scan(
+    do_scan_with_open_index(
+        app,
         &root.to_string_lossy(),
         &covers_dir,
-        app_data.as_deref(),
         &artist_rules(app),
         include_mp4(app),
     )

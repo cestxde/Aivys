@@ -203,7 +203,7 @@ pub(crate) struct ScannedTrack {
 pub(crate) struct LibraryDb {
     conn: Connection,
     /// Latin-key vocabulary for typo correction, with the `data_version` it
-    /// was read at (the scan writes through another connection).
+    /// was read at (invalidated when the scan writes through this connection).
     vocab: std::cell::RefCell<Option<(i64, search::Vocab)>>,
 }
 
@@ -218,7 +218,22 @@ fn remove_db_files(path: &Path) {
     for suffix in ["", "-wal", "-shm"] {
         let mut name = path.as_os_str().to_os_string();
         name.push(suffix);
-        let _ = std::fs::remove_file(PathBuf::from(name));
+        let file = PathBuf::from(name);
+        match std::fs::remove_file(&file) {
+            Ok(()) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => log::warn!("cannot remove {}: {err}", file.display()),
+        }
+    }
+}
+
+fn db_files_gone(path: &Path) -> bool {
+    !path.exists() && {
+        let mut wal = path.as_os_str().to_os_string();
+        wal.push("-wal");
+        let mut shm = path.as_os_str().to_os_string();
+        shm.push("-shm");
+        !PathBuf::from(wal).exists() && !PathBuf::from(shm).exists()
     }
 }
 
@@ -232,8 +247,9 @@ fn table_exists(conn: &Connection, name: &str) -> rusqlite::Result<bool> {
 
 fn connect(path: &Path) -> rusqlite::Result<Connection> {
     let conn = Connection::open(path)?;
-    // The scan and the store each hold a connection; wait for the other's
-    // write to finish instead of failing with "database is locked".
+    // Wait out a brief writer instead of failing with "database is locked".
+    // The app keeps a single open connection per library; this still helps
+    // when a previous process left a lingering lock.
     conn.busy_timeout(std::time::Duration::from_secs(10))?;
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "synchronous", "NORMAL")?;
@@ -299,6 +315,8 @@ impl LibraryDb {
                 if found != 0 {
                     log::info!("index schema {found} != {SCHEMA_VERSION}, rebuilding");
                 }
+                // Flush WAL so Windows is more likely to let us delete the files.
+                let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
                 drop(conn);
                 Self::rebuild(&path, library_root)?
             }
@@ -313,28 +331,44 @@ impl LibraryDb {
         })
     }
 
-    /// Delete the old files and create a fresh index. If delete fails (common
-    /// on Windows while a WAL handle lingers), move the file aside and retry.
+    /// Delete the old files and create a fresh index. Retries and, if the old
+    /// file is still locked (common on Windows), renames it aside.
     fn rebuild(path: &Path, library_root: &Path) -> Result<Connection, Box<dyn std::error::Error>> {
-        remove_db_files(path);
-        match Self::create(path, library_root) {
-            Ok(conn) => Ok(conn),
-            Err(err) => {
-                log::warn!("index rebuild create failed ({err}), moving old file aside");
-                remove_db_files(path);
-                let broken = path.with_extension("sqlite.broken");
-                let _ = std::fs::remove_file(&broken);
-                if path.exists() {
-                    std::fs::rename(path, &broken)?;
-                    remove_db_files(path);
+        for attempt in 1..=3 {
+            remove_db_files(path);
+            if db_files_gone(path) {
+                match Self::create(path, library_root) {
+                    Ok(conn) => return Ok(conn),
+                    Err(err) => log::warn!("index create failed on attempt {attempt}: {err}"),
                 }
-                Ok(Self::create(path, library_root)?)
+            } else {
+                log::warn!("index files still present after remove (attempt {attempt})");
             }
+            // Brief pause before retrying a locked delete.
+            std::thread::sleep(std::time::Duration::from_millis(50 * attempt));
         }
+
+        log::warn!("index rebuild: moving undeleted file aside");
+        remove_db_files(path);
+        if path.exists() {
+            let broken = path.with_extension(format!(
+                "sqlite.broken-{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0)
+            ));
+            let _ = std::fs::remove_file(&broken);
+            std::fs::rename(path, &broken)?;
+            remove_db_files(path);
+        }
+        Ok(Self::create(path, library_root)?)
     }
 
     fn create(path: &Path, library_root: &Path) -> rusqlite::Result<Connection> {
         let conn = connect(path)?;
+        // Fails if delete left an old file (tables already exist); `rebuild`
+        // then renames that file aside and retries.
         conn.execute_batch(SCHEMA)?;
         ensure_events_play_ts(&conn)?;
         conn.execute(
@@ -694,6 +728,57 @@ mod tests {
 
         let db = LibraryDb::open(&base, &root).unwrap();
         assert!(db.cached_files().unwrap().is_empty());
+
+        drop(db);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn rebuild_recovers_when_create_hits_existing_tables() {
+        let base = std::env::temp_dir().join(format!("aivys-db-test-{}", crate::store::new_uuid()));
+        let root = base.join("library");
+        std::fs::create_dir_all(&root).unwrap();
+
+        let mut db = LibraryDb::open(&base, &root).unwrap();
+        db.apply_scan(&[track("a/1.flac", "One")], &[], &[]).unwrap();
+        drop(db);
+
+        let path = db_path(&base, &root);
+        // Create must not succeed on a live file (the Windows failure mode when
+        // delete is skipped); rebuild must still produce a fresh empty index.
+        assert!(LibraryDb::create(&path, &root).is_err());
+
+        let conn = LibraryDb::rebuild(&path, &root).unwrap();
+        let version: i32 = conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, SCHEMA_VERSION);
+        let db = LibraryDb {
+            conn,
+            vocab: Default::default(),
+        };
+        assert!(db.cached_files().unwrap().is_empty());
+
+        drop(db);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn additive_artist_links_table_on_existing_index() {
+        let base = std::env::temp_dir().join(format!("aivys-db-test-{}", crate::store::new_uuid()));
+        let root = base.join("library");
+        std::fs::create_dir_all(&root).unwrap();
+
+        let mut db = LibraryDb::open(&base, &root).unwrap();
+        db.apply_scan(&[track("a/1.flac", "One")], &[], &[]).unwrap();
+        // Pretend an older build: drop the additive table, keep schema version.
+        db.conn.execute_batch("DROP TABLE track_artist_links;").unwrap();
+        drop(db);
+
+        let db = LibraryDb::open(&base, &root).unwrap();
+        assert!(table_exists(&db.conn, "track_artist_links").unwrap());
+        // Tracks survived; only journal-derived state was cleared for re-ingest.
+        assert_eq!(db.cached_files().unwrap().len(), 1);
 
         drop(db);
         let _ = std::fs::remove_dir_all(&base);

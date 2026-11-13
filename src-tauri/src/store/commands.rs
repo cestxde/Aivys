@@ -48,7 +48,8 @@ impl Library {
 pub(crate) struct StoreState(Mutex<Option<Library>>);
 
 /// Open the store for `base_path` and make it current. Called by the scan, so
-/// the store always matches the library on screen.
+/// the store always matches the library on screen. Opens the index once here;
+/// the scan must reuse this connection (a second open blocks rebuilds on Windows).
 pub(crate) fn open_store(app: &tauri::AppHandle, base_path: &Path) -> Result<(), StoreError> {
     let app_data = app
         .path()
@@ -58,7 +59,9 @@ pub(crate) fn open_store(app: &tauri::AppHandle, base_path: &Path) -> Result<(),
     let db = match LibraryDb::open(&app_data, base_path) {
         Ok(db) => Some(db),
         Err(err) => {
-            log::warn!("cannot open library index: {err}");
+            log::warn!(
+                "cannot open library index ({err}); search and writing-system filter unavailable until restart"
+            );
             None
         }
     };
@@ -74,6 +77,17 @@ pub(crate) fn open_store(app: &tauri::AppHandle, base_path: &Path) -> Result<(),
     let mut guard = state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     *guard = Some(library);
     Ok(())
+}
+
+/// Borrow the open library's index. Prefer this over `LibraryDb::open` so the
+/// scan and the store share one connection.
+pub(crate) fn with_library_index<R>(
+    app: &tauri::AppHandle,
+    f: impl FnOnce(&mut LibraryDb) -> R,
+) -> Option<R> {
+    let state = app.state::<StoreState>();
+    let mut guard = state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    Some(f(guard.as_mut()?.db.as_mut()?))
 }
 
 fn with_library<R>(
