@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
     ChevronDown, ClipboardCopy, ClipboardPaste, Disc3, Heart, Info, ListMusic, ListPlus, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Tag,
 } from "lucide-react";
@@ -18,6 +18,8 @@ import { rgbCss } from "../../utils/coverColor";
 import { SleepTimerButton } from "../SleepTimer/SleepTimerButton";
 import type { SleepTimer } from "../../hooks/useSleepTimer";
 import "./MobilePlayer.css";
+import { useNowPlayingSwipe } from "./useNowPlayingSwipe";
+import { NowPlayingNeighbour } from "./NowPlayingNeighbour";
 
 interface NowPlayingProps {
     track: Track;
@@ -64,147 +66,6 @@ interface NowPlayingProps {
     onOpenArtist: (name: string) => void;
 }
 
-/** How far, in a fraction of its width, the track is swiped to change it. */
-const SWIPE_FRACTION = 0.22;
-
-/** A quicker flick changes it too (px per ms). */
-const FLICK_SPEED = 0.5;
-
-/** How long the strip takes to settle after the finger lets go (ms). */
-const SLIDE_MS = 200;
-
-/**
- * The previous, current and next tracks side by side, the current one on
- * screen: the strip follows a finger swiping sideways. Let go far (or fast)
- * enough, it slides on to the neighbour, which then becomes the current
- * track; otherwise, or with no neighbour there, it slides back.
- */
-const useSwipe = (onNext: (() => void) | null, onPrevious: (() => void) | null) => {
-    const [offset, setOffset] = useState(0);
-    const [animated, setAnimated] = useState(false);
-    const start = useRef<{ x: number; y: number; id: number; horizontal: boolean | null } | null>(null);
-    const last = useRef({ x: 0, time: 0, speed: 0 });
-    const settling = useRef(false);
-    // The strip's width, for how far the swipe has gone.
-    const [width, setWidth] = useState(1);
-    // A swipe is no tap: the click that ends it opens nothing.
-    const swiped = useRef(false);
-
-    const onPointerDown = (e: PointerEvent<HTMLElement>) => {
-        if (e.button !== 0 || settling.current) return;
-        start.current = { x: e.clientX, y: e.clientY, id: e.pointerId, horizontal: null };
-        last.current = { x: e.clientX, time: e.timeStamp, speed: 0 };
-        swiped.current = false;
-    };
-
-    const onPointerMove = (e: PointerEvent<HTMLElement>) => {
-        const from = start.current;
-        if (!from || from.id !== e.pointerId) return;
-        const dx = e.clientX - from.x;
-        const dy = e.clientY - from.y;
-        if (from.horizontal === null) {
-            if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-            from.horizontal = Math.abs(dx) > Math.abs(dy);
-            if (!from.horizontal) {
-                start.current = null;
-                return;
-            }
-            e.currentTarget.setPointerCapture(e.pointerId);
-            setWidth(e.currentTarget.offsetWidth || 1);
-            swiped.current = true;
-            setAnimated(false);
-        }
-        const elapsed = e.timeStamp - last.current.time;
-        if (elapsed > 0) {
-            last.current = { x: e.clientX, time: e.timeStamp, speed: (e.clientX - last.current.x) / elapsed };
-        }
-        // Toward no neighbour, it gives only a little.
-        const blocked = dx < 0 ? !onNext : !onPrevious;
-        setOffset(blocked ? dx * 0.25 : dx);
-    };
-
-    const settle = (to: number, then?: () => void) => {
-        settling.current = true;
-        setAnimated(true);
-        setOffset(to);
-        setTimeout(() => {
-            // The neighbour becomes the current track and the strip is back
-            // in place under it, in one render.
-            then?.();
-            setAnimated(false);
-            setOffset(0);
-            settling.current = false;
-        }, SLIDE_MS);
-    };
-
-    const onPointerUp = (e: PointerEvent<HTMLElement>) => {
-        const from = start.current;
-        start.current = null;
-        if (!from?.horizontal) return;
-        const width = e.currentTarget.offsetWidth;
-        const dx = e.clientX - from.x;
-        const go = dx < 0 ? onNext : onPrevious;
-        const far = Math.abs(dx) >= width * SWIPE_FRACTION || Math.abs(last.current.speed) >= FLICK_SPEED;
-        // A finger turned back before letting go stays.
-        const backward = last.current.speed !== 0 && Math.sign(last.current.speed) !== Math.sign(dx);
-        if (!go || !far || backward) {
-            settle(0);
-            return;
-        }
-        settle(dx < 0 ? -width : width, go);
-    };
-
-    const onPointerCancel = () => {
-        if (start.current?.horizontal) settle(0);
-        start.current = null;
-    };
-
-    return {
-        /**
-         * What lies under the strip (the tags) fades out as the swipe goes,
-         * gone by a third of the way (a taller neighbour would run over it),
-         * and fades back in under the new track.
-         */
-        underStyle: {
-            opacity: Math.max(0, 1 - Math.abs(offset) / (width / 3)),
-            transition: animated || offset === 0 ? `opacity ${SLIDE_MS}ms ease-out` : "none",
-        },
-        style: {
-            transform: offset ? `translateX(${offset}px)` : undefined,
-            transition: animated ? `transform ${SLIDE_MS}ms ease-out` : undefined,
-        },
-        handlers: {
-            onPointerDown,
-            onPointerMove,
-            onPointerUp,
-            onPointerCancel,
-            onClickCapture: (e: { stopPropagation: () => void; preventDefault: () => void }) => {
-                if (!swiped.current) return;
-                swiped.current = false;
-                e.stopPropagation();
-                e.preventDefault();
-            },
-        },
-    };
-};
-
-/** A track beside the current one in the strip: its cover and name, nothing to press. */
-const Neighbour = ({ track, side }: { track: Track | null; side: "previous" | "next" }) => (
-    <div className={`now-playing-panel neighbour ${side}`} aria-hidden>
-        {track && (
-            <>
-                <div className="now-playing-cover-wrap">
-                    <CoverArt path={track.coverPath} size={320} className="now-playing-cover" />
-                </div>
-                <div className="now-playing-heading">
-                    <h2 className="now-playing-title">{displayTitle(track)}</h2>
-                    <span className="now-playing-artist">{displayArtists(track)}</span>
-                </div>
-            </>
-        )}
-    </div>
-);
-
 /**
  * Phones: the full-screen player, from the mini player. The track with its
  * tags, the ways to the queue and to the track's details, and the controls.
@@ -217,7 +78,7 @@ export const NowPlaying = (props: NowPlayingProps) => {
     const artist = displayArtists(track);
     const tags = tagsOf(stats?.tags, props.tagsById);
     const favorite = stats?.favorite ?? false;
-    const swipe = useSwipe(props.next ? props.onNext : null, props.previous ? props.onSwipePrevious : null);
+    const swipe = useNowPlayingSwipe(props.next ? props.onNext : null, props.previous ? props.onSwipePrevious : null);
     const tint = useCoverColor(track.coverPath);
     const tintStyle = {
         // No cover: a dull gray wash, not the bright accent.
@@ -288,7 +149,7 @@ export const NowPlaying = (props: NowPlayingProps) => {
             <div className="now-playing-body">
                 <div className="now-playing-swipe" {...swipe.handlers}>
                     <div className="now-playing-strip" style={swipe.style}>
-                        <Neighbour track={props.previous} side="previous" />
+                        <NowPlayingNeighbour track={props.previous} side="previous" />
                         <div className="now-playing-panel">
                             <div className="now-playing-cover-wrap">
                                 <CoverArt
@@ -308,7 +169,7 @@ export const NowPlaying = (props: NowPlayingProps) => {
                                 )}
                             </div>
                         </div>
-                        <Neighbour track={props.next} side="next" />
+                        <NowPlayingNeighbour track={props.next} side="next" />
                     </div>
                 </div>
 

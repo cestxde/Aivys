@@ -1,487 +1,315 @@
 import "./TrackList.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Check, ChevronRight, GripVertical, MoreVertical } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { ListRow, Track } from "../../types";
-import { displayArtists, displayTitle } from "../../utils/track";
-import { formatDuration } from "../../utils/format";
 import type { SortSection } from "../../utils/sort";
-import { CoverArt } from "../CoverArt";
 import { t } from "../../i18n";
+import {
+	AUTOSCROLL_EDGE, NO_SELECTION, OVERSCAN, SPAN_EDGE, SPAN_SPEED, entryAt, measuredTrackListHeights,
+	moveItem, setMeasuredTrackListHeights, type TrackListEntry, type TrackListHeights,
+} from "./trackListLayout";
+import { TrackListRow } from "./TrackListRow";
 
 interface TrackListProps {
-    rows: ListRow[];
-    activePath: string | null;
-    /** Index from which results are loose search matches (-1: none). */
-    looseFromIndex?: number;
-    emptyText?: string;
-    /** Split the rows into collapsible sections (consecutive rows with the same key). */
-    sectionOf?: ((track: Track) => SortSection) | null;
-    /** Gray detail next to each track (the value it is sorted by). */
-    hintOf?: ((track: Track) => string | null) | null;
-    /** A number before each track, e.g. its position on the album. */
-    numberOf?: ((track: Track) => string) | null;
-
-    onPlay: (track: Track, row: ListRow) => void;
-    /** Open the track menu at a viewport position (right click or the ⋮ button). */
-    onOpenMenu?: (row: ListRow, x: number, y: number) => void;
-    /** Rows can be dragged into a new order (manual playlist, manual sort). */
-    onReorder?: (itemIds: string[]) => void;
-    /** Keys of the selected rows. */
-    selected?: Set<string>;
-    /**
-     * Select a row instead of playing it: Ctrl/Cmd+click adds or removes it,
-     * Shift+click takes the range from the last one, and by touch a long press
-     * starts selecting and taps go on.
-     */
-    onSelect?: (row: ListRow, index: number, how: { range: boolean; additive: boolean }) => void;
-    /**
-     * By touch, a long press held and moved up or down: `base` (what was
-     * selected before) and the rows from `from` to `to` are the selection.
-     */
-    onSelectSpan?: (base: Set<string>, from: number, to: number) => void;
+	rows: ListRow[];
+	activePath: string | null;
+	looseFromIndex?: number;
+	emptyText?: string;
+	sectionOf?: ((track: Track) => SortSection) | null;
+	hintOf?: ((track: Track) => string | null) | null;
+	numberOf?: ((track: Track) => string) | null;
+	onPlay: (track: Track, row: ListRow) => void;
+	onOpenMenu?: (row: ListRow, x: number, y: number) => void;
+	onReorder?: (itemIds: string[]) => void;
+	selected?: Set<string>;
+	onSelect?: (row: ListRow, index: number, how: { range: boolean; additive: boolean }) => void;
+	onSelectSpan?: (base: Set<string>, from: number, to: number) => void;
 }
-
-/** What a row press does when nothing is selected yet. */
-const NO_SELECTION: Set<string> = new Set();
 
 interface DropTarget {
-    key: string;
-    after: boolean;
+	key: string;
+	after: boolean;
 }
 
-/** `ids` with `moved` placed before/after `target`. */
-const moveItem = (ids: string[], moved: string, target: string, after: boolean): string[] => {
-    const rest = ids.filter(id => id !== moved);
-    const index = rest.indexOf(target);
-    if (index < 0) return ids;
-    rest.splice(after ? index + 1 : index, 0, moved);
-    return rest;
-};
-
-/** Distance from the scroll container's edge that scrolls while dragging. */
-const AUTOSCROLL_EDGE = 48;
-
-/** Selecting with a finger: how near the list's edge it scrolls, and how fast at most (px a frame). */
-const SPAN_EDGE = 72;
-const SPAN_SPEED = 18;
-
-/** What the list shows, top to bottom. */
-type Entry =
-    | { kind: "separator"; key: string }
-    | { kind: "section"; key: string; section: SortSection; count: number; hidden: boolean }
-    | { kind: "row"; key: string; row: ListRow; index: number };
-
-type Heights = Record<Entry["kind"], number>;
-
-/**
- * Height of each kind of entry, gap included, as last measured; shared by all
- * lists, so a list opens at the right height. Rough until the first measure.
- */
-let measured: Heights = { row: 62, section: 34, separator: 30 };
-
-/** Rows rendered beyond the visible part, in pixels, so scrolling never shows a gap. */
-const OVERSCAN = 800;
-
-/** Index of the first entry whose bottom is below `y` (offsets are entry tops plus the end). */
-const entryAt = (offsets: number[], y: number): number => {
-    let low = 0;
-    let high = offsets.length - 1;
-    while (low < high) {
-        const middle = (low + high) >> 1;
-        if (offsets[middle + 1] <= y) low = middle + 1;
-        else high = middle;
-    }
-    return low;
-};
-
 export const TrackList = ({
-    rows,
-    activePath,
-    looseFromIndex = -1,
-    emptyText = t("empty.library"),
-    sectionOf,
-    hintOf,
-    numberOf,
-    onPlay,
-    onOpenMenu,
-    onReorder,
-    selected = NO_SELECTION,
-    onSelect,
-    onSelectSpan,
+	rows,
+	activePath,
+	looseFromIndex = -1,
+	emptyText = t("empty.library"),
+	sectionOf,
+	hintOf,
+	numberOf,
+	onPlay,
+	onOpenMenu,
+	onReorder,
+	selected = NO_SELECTION,
+	onSelect,
+	onSelectSpan,
 }: TrackListProps) => {
-    // Touch and mouse differ: a long press (contextmenu by touch) selects.
-    const lastPointer = useRef<string>("mouse");
-    // Reordering with pointer events (mouse and touch alike): the handle
-    // captures the pointer, the row under it becomes the drop target.
-    const [dragging, setDragging] = useState<string | null>(null);
-    const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
-    const dropRef = useRef<DropTarget | null>(null);
+	const lastPointer = useRef<string>("mouse");
+	const [dragging, setDragging] = useState<string | null>(null);
+	const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+	const dropRef = useRef<DropTarget | null>(null);
 
-    const startDrag = (e: ReactPointerEvent<HTMLElement>, row: ListRow) => {
-        if (!row.itemId || e.button !== 0) return;
-        e.preventDefault();
-        e.stopPropagation();
-        e.currentTarget.setPointerCapture(e.pointerId);
-        setDragging(row.key);
-    };
+	const startDrag = (e: ReactPointerEvent<HTMLElement>, row: ListRow) => {
+		if (!row.itemId || e.button !== 0) return;
+		e.preventDefault();
+		e.stopPropagation();
+		e.currentTarget.setPointerCapture(e.pointerId);
+		setDragging(row.key);
+	};
 
-    const moveDrag = (e: ReactPointerEvent<HTMLElement>) => {
-        if (!dragging) return;
-        const scroller = e.currentTarget.closest(".track-list-wrapper");
-        if (scroller) {
-            const box = scroller.getBoundingClientRect();
-            if (e.clientY < box.top + AUTOSCROLL_EDGE) scroller.scrollBy(0, -12);
-            else if (e.clientY > box.bottom - AUTOSCROLL_EDGE) scroller.scrollBy(0, 12);
-        }
+	const moveDrag = (e: ReactPointerEvent<HTMLElement>) => {
+		if (!dragging) return;
+		const scroller = e.currentTarget.closest(".track-list-wrapper");
+		if (scroller) {
+			const box = scroller.getBoundingClientRect();
+			if (e.clientY < box.top + AUTOSCROLL_EDGE) scroller.scrollBy(0, -12);
+			else if (e.clientY > box.bottom - AUTOSCROLL_EDGE) scroller.scrollBy(0, 12);
+		}
+		const rowElement = document
+			.elementFromPoint(e.clientX, e.clientY)
+			?.closest<HTMLElement>("[data-row-key]");
+		const key = rowElement?.dataset.rowKey;
+		if (!rowElement || !key) return;
+		const box = rowElement.getBoundingClientRect();
+		const next = { key, after: e.clientY > box.top + box.height / 2 };
+		if (dropRef.current?.key !== next.key || dropRef.current.after !== next.after) {
+			dropRef.current = next;
+			setDropTarget(next);
+		}
+	};
 
-        const rowElement = document
-            .elementFromPoint(e.clientX, e.clientY)
-            ?.closest<HTMLElement>("[data-row-key]");
-        const key = rowElement?.dataset.rowKey;
-        if (!rowElement || !key) return;
-        const box = rowElement.getBoundingClientRect();
-        const next = { key, after: e.clientY > box.top + box.height / 2 };
-        if (dropRef.current?.key !== next.key || dropRef.current.after !== next.after) {
-            dropRef.current = next;
-            setDropTarget(next);
-        }
-    };
+	const endDrag = (commit: boolean) => {
+		const target = dropRef.current;
+		const moved = rows.find(r => r.key === dragging)?.itemId;
+		const onto = target && rows.find(r => r.key === target.key)?.itemId;
+		setDragging(null);
+		setDropTarget(null);
+		dropRef.current = null;
+		if (commit && onReorder && moved && onto && target && moved !== onto) {
+			const ids = rows.flatMap(r => r.itemId ?? []);
+			onReorder(moveItem(ids, moved, onto, target.after));
+		}
+	};
 
-    const endDrag = (commit: boolean) => {
-        const target = dropRef.current;
-        const moved = rows.find(r => r.key === dragging)?.itemId;
-        const onto = target && rows.find(r => r.key === target.key)?.itemId;
-        setDragging(null);
-        setDropTarget(null);
-        dropRef.current = null;
-        if (commit && onReorder && moved && onto && target && moved !== onto) {
-            const ids = rows.flatMap(r => r.itemId ?? []);
-            onReorder(moveItem(ids, moved, onto, target.after));
-        }
-    };
+	const { starts, keys } = useMemo(() => {
+		const starts = new Map<number, { section: SortSection; count: number }>();
+		const keys: (string | null)[] = [];
+		let current: { section: SortSection; count: number } | null = null;
+		rows.forEach((row, index) => {
+			const section = sectionOf?.(row.track) ?? null;
+			keys.push(section?.key ?? null);
+			if (!section) return;
+			if (current && current.section.key === section.key) {
+				current.count++;
+				return;
+			}
+			current = { section, count: 1 };
+			starts.set(index, current);
+		});
+		return { starts, keys };
+	}, [rows, sectionOf]);
+	const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+	const toggleSection = (key: string) => setCollapsed(prev => {
+		const next = new Set(prev);
+		if (!next.delete(key)) next.add(key);
+		return next;
+	});
 
-    // Sections start where the key changes: `starts` maps a row index to its
-    // section and size, `keys` holds every row's section key. Collapsing a key
-    // hides every section with that key.
-    const { starts, keys } = useMemo(() => {
-        const starts = new Map<number, { section: SortSection; count: number }>();
-        const keys: (string | null)[] = [];
-        let current: { section: SortSection; count: number } | null = null;
-        rows.forEach((row, index) => {
-            const section = sectionOf?.(row.track) ?? null;
-            keys.push(section?.key ?? null);
-            if (!section) return;
-            if (current && current.section.key === section.key) {
-                current.count++;
-                return;
-            }
-            current = { section, count: 1 };
-            starts.set(index, current);
-        });
-        return { starts, keys };
-    }, [rows, sectionOf]);
-    const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
-    const toggleSection = (key: string) => setCollapsed(prev => {
-        const next = new Set(prev);
-        if (!next.delete(key)) next.add(key);
-        return next;
-    });
+	const entries = useMemo(() => {
+		const list: TrackListEntry[] = [];
+		rows.forEach((row, index) => {
+			const start = starts.get(index);
+			const key = keys[index];
+			const hidden = key !== null && collapsed.has(key);
+			if (index === looseFromIndex && !hidden) list.push({ kind: "separator", key: "~similar" });
+			if (start) list.push({ kind: "section", key: `~section:${index}`, ...start, hidden });
+			if (!hidden) list.push({ kind: "row", key: row.key, row, index });
+		});
+		return list;
+	}, [rows, starts, keys, collapsed, looseFromIndex]);
 
-    const openMenuAt = (row: ListRow, x: number, y: number) => onOpenMenu?.(row, x, y);
+	const rootRef = useRef<HTMLDivElement>(null);
+	const span = useRef<{ base: Set<string>; from: number; to: number; x: number; y: number } | null>(null);
+	const followTouch = useRef<(target: EventTarget) => void>(() => {});
+	const touchTarget = useRef<EventTarget | null>(null);
+	const latestSpan = useRef({ rows, onSelectSpan });
+	useEffect(() => {
+		latestSpan.current = { rows, onSelectSpan };
+	});
+	useEffect(() => {
+		let frame = 0;
+		const scroller = () => rootRef.current?.closest<HTMLElement>(".track-list-wrapper") ?? null;
+		const follow = () => {
+			const current = span.current;
+			if (!current) return;
+			const key = document.elementFromPoint(current.x, current.y)?.closest<HTMLElement>("[data-row-key]")?.dataset.rowKey;
+			const { rows, onSelectSpan } = latestSpan.current;
+			const index = key ? rows.findIndex(row => row.key === key) : -1;
+			if (index < 0 || index === current.to) return;
+			current.to = index;
+			onSelectSpan?.(current.base, current.from, index);
+		};
+		const scroll = () => {
+			frame = 0;
+			const current = span.current;
+			const element = scroller();
+			if (!current || !element) return;
+			const box = element.getBoundingClientRect();
+			const bottom = box.bottom - (parseFloat(getComputedStyle(element).paddingBottom) || 0);
+			const step = current.y < box.top + SPAN_EDGE ? -(box.top + SPAN_EDGE - current.y)
+				: current.y > bottom - SPAN_EDGE ? current.y - (bottom - SPAN_EDGE) : 0;
+			if (step === 0) return;
+			element.scrollBy(0, Math.sign(step) * Math.min(SPAN_SPEED, Math.abs(step) / 3 + 2));
+			follow();
+			frame = requestAnimationFrame(scroll);
+		};
+		const onMove = (e: TouchEvent) => {
+			const current = span.current;
+			if (!current) return;
+			e.preventDefault();
+			current.x = e.touches[0].clientX;
+			current.y = e.touches[0].clientY;
+			follow();
+			if (!frame) frame = requestAnimationFrame(scroll);
+		};
+		let touched: EventTarget | null = null;
+		const unlisten = () => {
+			touched?.removeEventListener("touchmove", onMove as EventListener);
+			touched?.removeEventListener("touchend", onEnd);
+			touched?.removeEventListener("touchcancel", onEnd);
+			touched = null;
+		};
+		function onEnd() {
+			span.current = null;
+			cancelAnimationFrame(frame);
+			frame = 0;
+			unlisten();
+		}
+		followTouch.current = (target) => {
+			unlisten();
+			touched = target;
+			target.addEventListener("touchmove", onMove as EventListener, { passive: false });
+			target.addEventListener("touchend", onEnd);
+			target.addEventListener("touchcancel", onEnd);
+		};
+		return onEnd;
+	}, []);
 
-    const entries = useMemo(() => {
-        const list: Entry[] = [];
-        rows.forEach((row, index) => {
-            const start = starts.get(index);
-            const key = keys[index];
-            const hidden = key !== null && collapsed.has(key);
-            if (index === looseFromIndex && !hidden) list.push({ kind: "separator", key: "~similar" });
-            if (start) list.push({ kind: "section", key: `~section:${index}`, ...start, hidden });
-            if (!hidden) list.push({ kind: "row", key: row.key, row, index });
-        });
-        return list;
-    }, [rows, starts, keys, collapsed, looseFromIndex]);
+	const [heights, setHeights] = useState<TrackListHeights>(measuredTrackListHeights());
+	const [visible, setVisible] = useState({ top: 0, height: 1000 });
 
-    // Only the entries near the visible part of the scroll container are
-    // rendered; spacers keep the full height. A long library would otherwise
-    // build thousands of rows on every view change.
-    const rootRef = useRef<HTMLDivElement>(null);
+	const offsets = useMemo(() => {
+		const result = [0];
+		for (const entry of entries) result.push(result[result.length - 1] + heights[entry.kind]);
+		return result;
+	}, [entries, heights]);
 
-    // Selecting with a finger: a long press selects its row, and while the
-    // finger stays down, moving it up or down selects every row from there to
-    // the one under it; near the list's top or bottom the list scrolls.
-    const span = useRef<{ base: Set<string>; from: number; to: number; x: number; y: number } | null>(null);
-    // Starts following the finger: on the element it touched first, which
-    // gets its touch events even after the list drops it (scrolled far away)
-    // and they no longer reach the window.
-    const followTouch = useRef<(target: EventTarget) => void>(() => {});
-    // What the last touch began on (touch events stay with it).
-    const touchTarget = useRef<EventTarget | null>(null);
-    const latestSpan = useRef({ rows, onSelectSpan });
-    useEffect(() => {
-        latestSpan.current = { rows, onSelectSpan };
-    });
-    useEffect(() => {
-        let frame = 0;
-        const scroller = () => rootRef.current?.closest<HTMLElement>(".track-list-wrapper") ?? null;
+	useLayoutEffect(() => {
+		const root = rootRef.current;
+		const scroller = root?.closest<HTMLElement>(".track-list-wrapper");
+		if (!root || !scroller) return;
+		const update = () => {
+			const listTop = root.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+			const top = scroller.scrollTop - listTop;
+			const height = scroller.clientHeight;
+			setVisible(prev => (Math.abs(prev.top - top) < 1 && prev.height === height ? prev : { top, height }));
+		};
+		update();
+		scroller.addEventListener("scroll", update, { passive: true });
+		const resize = new ResizeObserver(update);
+		resize.observe(scroller);
+		for (const child of scroller.children) {
+			if (child !== root) resize.observe(child);
+		}
+		return () => {
+			scroller.removeEventListener("scroll", update);
+			resize.disconnect();
+		};
+	}, []);
 
-        // The row under the finger joins the span.
-        const follow = () => {
-            const current = span.current;
-            if (!current) return;
-            const key = document.elementFromPoint(current.x, current.y)?.closest<HTMLElement>("[data-row-key]")?.dataset.rowKey;
-            const { rows, onSelectSpan } = latestSpan.current;
-            const index = key ? rows.findIndex(row => row.key === key) : -1;
-            if (index < 0 || index === current.to) return;
-            current.to = index;
-            onSelectSpan?.(current.base, current.from, index);
-        };
+	useLayoutEffect(() => {
+		const root = rootRef.current;
+		if (!root) return;
+		const next = { ...heights };
+		let changed = false;
+		for (const [kind, selector] of [["row", ".audio-item"], ["section", ".list-section"], ["separator", ".list-separator"]] as const) {
+			const element = root.querySelector(`:scope > ${selector}`);
+			const height = element ? element.getBoundingClientRect().height + 1 : null;
+			if (height !== null && Math.abs(height - next[kind]) > 0.5) {
+				next[kind] = height;
+				changed = true;
+			}
+		}
+		if (changed) {
+			setMeasuredTrackListHeights(next);
+			setHeights(next);
+		}
+	}, [heights, entries, visible]);
 
-        // Near an edge (the bottom above the mini player), the list scrolls,
-        // faster nearer the edge.
-        const scroll = () => {
-            frame = 0;
-            const current = span.current;
-            const element = scroller();
-            if (!current || !element) return;
-            const box = element.getBoundingClientRect();
-            const bottom = box.bottom - (parseFloat(getComputedStyle(element).paddingBottom) || 0);
-            const step = current.y < box.top + SPAN_EDGE ? -(box.top + SPAN_EDGE - current.y)
-                : current.y > bottom - SPAN_EDGE ? current.y - (bottom - SPAN_EDGE) : 0;
-            if (step === 0) return;
-            element.scrollBy(0, Math.sign(step) * Math.min(SPAN_SPEED, Math.abs(step) / 3 + 2));
-            follow();
-            frame = requestAnimationFrame(scroll);
-        };
+	const first = dragging ? 0 : entryAt(offsets, visible.top - OVERSCAN);
+	const last = dragging ? entries.length : Math.min(entries.length, entryAt(offsets, visible.top + visible.height + OVERSCAN) + 1);
+	const total = offsets[offsets.length - 1];
+	const padTop = Math.max(0, offsets[first] - 1);
+	const padBottom = Math.max(0, total - offsets[last] - 1);
 
-        const onMove = (e: TouchEvent) => {
-            const current = span.current;
-            if (!current) return;
-            // The finger selects; the list does not scroll under it.
-            e.preventDefault();
-            current.x = e.touches[0].clientX;
-            current.y = e.touches[0].clientY;
-            follow();
-            if (!frame) frame = requestAnimationFrame(scroll);
-        };
-        let touched: EventTarget | null = null;
-        const unlisten = () => {
-            touched?.removeEventListener("touchmove", onMove as EventListener);
-            touched?.removeEventListener("touchend", onEnd);
-            touched?.removeEventListener("touchcancel", onEnd);
-            touched = null;
-        };
-        function onEnd() {
-            span.current = null;
-            cancelAnimationFrame(frame);
-            frame = 0;
-            unlisten();
-        }
-        followTouch.current = (target) => {
-            unlisten();
-            touched = target;
-            target.addEventListener("touchmove", onMove as EventListener, { passive: false });
-            target.addEventListener("touchend", onEnd);
-            target.addEventListener("touchcancel", onEnd);
-        };
-        return onEnd;
-    }, []);
-    const [heights, setHeights] = useState<Heights>(measured);
-    const [visible, setVisible] = useState({ top: 0, height: 1000 });
+	const renderEntry = (entry: TrackListEntry) => {
+		if (entry.kind === "separator") {
+			return <div key={entry.key} className="list-separator">{t("list.similar")}</div>;
+		}
+		if (entry.kind === "section") {
+			return (
+				<button
+					key={entry.key}
+					className={`list-section ${entry.hidden ? "" : "open"}`}
+					aria-expanded={!entry.hidden}
+					onClick={() => toggleSection(entry.section.key)}
+				>
+					<ChevronRight size={14} className="list-section-chevron" />
+					<span className="list-section-label">{entry.section.label}</span>
+					<span className="list-section-count">{entry.count}</span>
+				</button>
+			);
+		}
+		const { row, index } = entry;
+		return (
+			<TrackListRow
+				key={row.key}
+				row={row}
+				index={index}
+				activePath={activePath}
+				selected={selected}
+				dragging={dragging}
+				dropTarget={dropTarget}
+				hintOf={hintOf}
+				numberOf={numberOf}
+				onPlay={onPlay}
+				onOpenMenu={onOpenMenu}
+				onReorder={onReorder}
+				onSelect={onSelect}
+				lastPointer={lastPointer}
+				touchTarget={touchTarget}
+				span={span}
+				followTouch={followTouch}
+				startDrag={startDrag}
+				moveDrag={moveDrag}
+				endDrag={endDrag}
+			/>
+		);
+	};
 
-    const offsets = useMemo(() => {
-        const result = [0];
-        for (const entry of entries) result.push(result[result.length - 1] + heights[entry.kind]);
-        return result;
-    }, [entries, heights]);
-
-    // Follow the scroll container (the track list wrapper).
-    useLayoutEffect(() => {
-        const root = rootRef.current;
-        const scroller = root?.closest<HTMLElement>(".track-list-wrapper");
-        if (!root || !scroller) return;
-        const update = () => {
-            // The list may sit below other content (a folder's subfolders).
-            const listTop = root.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
-            const top = scroller.scrollTop - listTop;
-            const height = scroller.clientHeight;
-            setVisible(prev => (Math.abs(prev.top - top) < 1 && prev.height === height ? prev : { top, height }));
-        };
-        update();
-        scroller.addEventListener("scroll", update, { passive: true });
-        const resize = new ResizeObserver(update);
-        resize.observe(scroller);
-        // Content above the list (album cards, subfolders) moves it when it grows.
-        for (const child of scroller.children) {
-            if (child !== root) resize.observe(child);
-        }
-        return () => {
-            scroller.removeEventListener("scroll", update);
-            resize.disconnect();
-        };
-    }, []);
-
-    // Measure the real heights once entries of a kind are on screen.
-    useLayoutEffect(() => {
-        const root = rootRef.current;
-        if (!root) return;
-        const next = { ...heights };
-        let changed = false;
-        for (const [kind, selector] of [["row", ".audio-item"], ["section", ".list-section"], ["separator", ".list-separator"]] as const) {
-            const element = root.querySelector(`:scope > ${selector}`);
-            // + the 1px gap between entries
-            const height = element ? element.getBoundingClientRect().height + 1 : null;
-            if (height !== null && Math.abs(height - next[kind]) > 0.5) {
-                next[kind] = height;
-                changed = true;
-            }
-        }
-        if (changed) {
-            measured = next;
-            setHeights(next);
-        }
-    }, [heights, entries, visible]);
-
-    // While dragging everything stays rendered: the dragged row must not
-    // disappear when the list scrolls under it.
-    const first = dragging ? 0 : entryAt(offsets, visible.top - OVERSCAN);
-    const last = dragging ? entries.length : Math.min(entries.length, entryAt(offsets, visible.top + visible.height + OVERSCAN) + 1);
-    const total = offsets[offsets.length - 1];
-    // A spacer is one entry more, so one gap less.
-    const padTop = Math.max(0, offsets[first] - 1);
-    const padBottom = Math.max(0, total - offsets[last] - 1);
-
-    const renderEntry = (entry: Entry) => {
-        if (entry.kind === "separator") {
-            return <div key={entry.key} className="list-separator">{t("list.similar")}</div>;
-        }
-        if (entry.kind === "section") {
-            return (
-                <button
-                    key={entry.key}
-                    className={`list-section ${entry.hidden ? "" : "open"}`}
-                    aria-expanded={!entry.hidden}
-                    onClick={() => toggleSection(entry.section.key)}
-                >
-                    <ChevronRight size={14} className="list-section-chevron" />
-                    <span className="list-section-label">{entry.section.label}</span>
-                    <span className="list-section-count">{entry.count}</span>
-                </button>
-            );
-        }
-        const { row, index } = entry;
-        const isSelected = selected.has(row.key);
-        const file = row.track;
-        const hint = hintOf?.(file);
-        const title = displayTitle(file);
-        const artist = displayArtists(file) ?? t("common.unknownArtist");
-        const drop = dropTarget?.key === row.key && dragging !== row.key
-            ? (dropTarget.after ? "drop-after" : "drop-before")
-            : "";
-        return (
-            <div
-                key={row.key}
-                data-row-key={row.key}
-                onPointerDown={(e) => {
-                    lastPointer.current = e.pointerType;
-                }}
-                onTouchStart={(e) => {
-                    touchTarget.current = e.target;
-                }}
-                // Shift+click would also select text.
-                onMouseDown={(e) => e.shiftKey && e.preventDefault()}
-                onClick={(e) => {
-                    const additive = e.ctrlKey || e.metaKey;
-                    const touchSelecting = selected.size > 0 && lastPointer.current === "touch";
-                    if (onSelect && (additive || e.shiftKey || touchSelecting)) {
-                        onSelect(row, index, { range: e.shiftKey, additive: additive || touchSelecting });
-                        return;
-                    }
-                    onPlay(file, row);
-                }}
-                onContextMenu={(e) => {
-                    e.preventDefault();
-                    if (onSelect && lastPointer.current === "touch") {
-                        span.current = { base: new Set(selected), from: index, to: index, x: e.clientX, y: e.clientY };
-                        followTouch.current(touchTarget.current ?? e.target);
-                        onSelect(row, index, { range: false, additive: true });
-                        return;
-                    }
-                    openMenuAt(row, e.clientX, e.clientY);
-                }}
-                aria-selected={onSelect ? isSelected : undefined}
-                className={`audio-item ${activePath === file.path ? 'active' : ''} ${isSelected ? 'selected' : ''} ${dragging === row.key ? 'dragging' : ''} ${drop}`}
-            >
-                {onReorder && row.itemId && (
-                    <span
-                        className="drag-handle"
-                        title={t("list.dragToReorder")}
-                        onClick={(e) => e.stopPropagation()}
-                        onPointerDown={(e) => startDrag(e, row)}
-                        onPointerMove={moveDrag}
-                        onPointerUp={() => endDrag(true)}
-                        onPointerCancel={() => endDrag(false)}
-                    >
-                        <GripVertical size={14} />
-                    </span>
-                )}
-                {onSelect && (
-                    // Slides in while selecting; pressing it adds or removes the row.
-                    <span
-                        className={`row-check ${selected.size > 0 ? "shown" : ""}`}
-                        role="checkbox"
-                        aria-checked={isSelected}
-                        aria-hidden={selected.size === 0}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onSelect(row, index, { range: e.shiftKey, additive: true });
-                        }}
-                    >
-                        <span className={`row-check-box ${isSelected ? "checked" : ""}`}>
-                            {isSelected && <Check size={14} strokeWidth={3} />}
-                        </span>
-                    </span>
-                )}
-                {numberOf && <span className="track-number">{numberOf(file)}</span>}
-                <CoverArt path={file.coverPath} size={42} className="track-cover" />
-                <div className="track-main-info">
-                    <span className="track-title">{title}</span>
-                    <span className="track-artist">{artist}</span>
-                </div>
-                {hint && <span className="track-hint" title={hint}>{hint}</span>}
-                <span className="duration-tag">
-                    {formatDuration(file.duration)}
-                </span>
-                {onOpenMenu && (
-                    <button
-                        className="row-button menu-button"
-                        title={t("common.more")}
-                        aria-haspopup="menu"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            const box = e.currentTarget.getBoundingClientRect();
-                            // Right-aligned under the button (the menu clamps to the window).
-                            openMenuAt(row, box.right - 200, box.bottom + 2);
-                        }}
-                    >
-                        <MoreVertical size={16} />
-                    </button>
-                )}
-            </div>
-        );
-    };
-
-    return (
-        <div ref={rootRef} className={`music-grid ${dragging ? "is-reordering" : ""}`}>
-            {rows.length === 0 ? (
-                <div className="empty-state">{emptyText}</div>
-            ) : (
-                <>
-                    {padTop > 0 && <div className="list-spacer" style={{ height: padTop }} />}
-                    {entries.slice(first, last).map(renderEntry)}
-                    {padBottom > 0 && <div className="list-spacer" style={{ height: padBottom }} />}
-                </>
-            )}
-        </div>
-    );
+	return (
+		<div ref={rootRef} className={`music-grid ${dragging ? "is-reordering" : ""}`}>
+			{rows.length === 0 ? (
+				<div className="empty-state">{emptyText}</div>
+			) : (
+				<>
+					{padTop > 0 && <div className="list-spacer" style={{ height: padTop }} />}
+					{entries.slice(first, last).map(renderEntry)}
+					{padBottom > 0 && <div className="list-spacer" style={{ height: padBottom }} />}
+				</>
+			)}
+		</div>
+	);
 };

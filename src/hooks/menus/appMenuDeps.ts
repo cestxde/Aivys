@@ -1,0 +1,75 @@
+import type { MenuEntry } from "../../components/ContextMenu/ContextMenu";
+import type { MetadataEdit } from "../../components/MetadataEditor/MetadataEditor";
+import type { CoverKind } from "../useGroupCovers";
+import type { PinKind } from "../usePins";
+import type { ListRow, Playlist, TagCategory, Track, UserTag, View } from "../../types";
+import type { M3uPathMode } from "../../utils/m3u";
+import type { TrackGroup } from "../../utils/groups";
+import type { TagDialogState, CategoryDialogState } from "../../app/types";
+
+export interface AppMenuDeps {
+	listView: View;
+	viewKey: string;
+	settingsLastPath: string;
+	showFolders: boolean;
+	artistsByKey: Map<string, TrackGroup>;
+	albumsByKey: Map<string, TrackGroup>;
+	trackStats: {
+		stats: Record<string, import("../../types").TrackStats>;
+		toggleFavorite: (track: Track) => void;
+		setTrackTag: (tracks: Track[], tagId: string, on: boolean) => void;
+	};
+	files: Track[];
+	tags: {
+		categories: TagCategory[];
+		tags: UserTag[];
+		byId: Map<string, UserTag>;
+	};
+	currentTag: UserTag | null;
+	manualPlaylist: Playlist | null;
+	pins: { isPinned: (kind: PinKind, key: string) => boolean; setPinned: (kind: PinKind, key: string, on: boolean) => void };
+	playlists: { removeItems: (id: string, itemIds: string[]) => void };
+	groupCoverStore: {
+		setCover: (kind: CoverKind, key: string, data: string | null) => Promise<void>;
+	};
+	displayFiles: Track[];
+	displayRows: ListRow[];
+	selectedTracks: Track[];
+	selectedRows: ListRow[];
+	m3uDesktop: boolean;
+	showView: (next: View, from?: View) => void;
+	openArtist: (name: string) => void;
+	openAlbum: (track: Track) => void;
+	playFrom: (source: string, track: Track, tracks: Track[]) => void;
+	playTracks: (tracks: Track[], source: View) => void;
+	playAt: (position: number) => void;
+	removeFromQueue: (position: number) => void;
+	playPlaylist: (target: Playlist) => void | Promise<void>;
+	tracksOf: (target: Playlist) => Promise<Track[]>;
+	exportTracksAsM3u: (tracks: Track[], name: string, mode: M3uPathMode) => Promise<void>;
+	deletePlaylist: (target: Playlist) => Promise<void>;
+	deleteTracks: (tracks: Track[]) => Promise<void>;
+	deleteTag: (target: UserTag) => Promise<void>;
+	deleteCategory: (target: TagCategory) => Promise<void>;
+	moveCategory: (target: TagCategory, step: number) => void;
+	toggleTagCategory: (target: UserTag, category: TagCategory) => void;
+	tracksOfCategory: (category: TagCategory) => Track[];
+	saveMetadata: (tracks: Track[], edit: MetadataEdit) => Promise<void>;
+	setMenu: (menu: { x: number; y: number; entries: MenuEntry[] } | null) => void;
+	setTagPicker: (tracks: Track[] | null) => void;
+	setAddTo: (tracks: Track[] | null) => void;
+	setEditing: (tracks: Track[] | null) => void;
+	setTagDialog: (state: TagDialogState | null) => void;
+	setCategoryDialog: (state: CategoryDialogState | null) => void;
+	setMergeTag: (tag: UserTag | null) => void;
+	setSettingCover: (state: { kind: CoverKind; key: string } | null) => void;
+	copyTrackTags: (track: Track) => void;
+	pasteTrackTags: (tracks: Track[]) => void;
+	addTrackTags: (tracks: Track[]) => void;
+	liveClipboardTags: () => string[];
+	selectRow: (row: ListRow, index: number, how: { range: boolean; additive: boolean }) => void;
+	toggleFavorites: (tracks: Track[]) => void;
+	removeRowsFromPlaylist: (rows: ListRow[]) => void;
+	deleteSelected: () => Promise<void>;
+	clearSelection: () => void;
+}
