@@ -38,13 +38,25 @@ const USER_TAG_CATEGORIES: &str = "CREATE TABLE IF NOT EXISTS user_tag_categorie
 /// Speeds up play counts for a time window (stats page). Additive.
 const EVENTS_PLAY_TS: &str = "CREATE INDEX IF NOT EXISTS events_play_ts ON events(event, ts);";
 
+/// Manual artist links from `artistLink`/`artistUnlink` events. Additive: an
+/// existing index gets the table without a full rebuild (which can fail on
+/// Windows when the WAL file is still locked). Creating it clears journal
+/// ingest state so those events are folded in on the next sync.
+const TRACK_ARTIST_LINKS: &str = "CREATE TABLE IF NOT EXISTS track_artist_links (
+    rel_path TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    PRIMARY KEY (rel_path, position)
+);";
+
 /// Bump on any schema change. A database with another version is deleted and
 /// rebuilt from scratch: it only holds rebuildable data, so no migrations.
 /// Also bump when the event vocabulary changes, so journals are re-ingested,
 /// or when reading tags changes, so files are read again (9: `listen` events;
 /// 8: writing-system bitmask on tracks; 7: the album's track total; 6: raw
 /// artist tags kept, artists derived from them by the library's rules; 4 and
-/// 5 were development builds).
+/// 5 were development builds). `track_artist_links` is additive (see
+/// `TRACK_ARTIST_LINKS`), not a schema bump.
 const SCHEMA_VERSION: i32 = 9;
 
 const SCHEMA: &str = "
@@ -148,6 +160,15 @@ CREATE TABLE track_tags (
 );
 CREATE INDEX track_tags_tag ON track_tags(tag_id);
 
+-- Manual artist links from artistLink/artistUnlink events (tag_id = name).
+-- IF NOT EXISTS: `connect` may already have created it on an older index.
+CREATE TABLE IF NOT EXISTS track_artist_links (
+    rel_path TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    PRIMARY KEY (rel_path, position)
+);
+
 -- Copy of tags.json definitions, refreshed on every sync.
 CREATE TABLE user_tags (
     id TEXT PRIMARY KEY,
@@ -201,6 +222,14 @@ fn remove_db_files(path: &Path) {
     }
 }
 
+fn table_exists(conn: &Connection, name: &str) -> rusqlite::Result<bool> {
+    conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+        [name],
+        |row| row.get(0),
+    )
+}
+
 fn connect(path: &Path) -> rusqlite::Result<Connection> {
     let conn = Connection::open(path)?;
     // The scan and the store each hold a connection; wait for the other's
@@ -218,14 +247,22 @@ fn connect(path: &Path) -> rusqlite::Result<Connection> {
     ensure_events_play_ts(&conn)?;
     // A new table in an existing index: forget the fingerprints, so the next
     // sync reads tags.json (and fills it) even though nothing changed.
-    let had_categories: bool = conn.query_row(
-        "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'user_tag_categories')",
-        [],
-        |row| row.get(0),
-    )?;
+    let had_categories = table_exists(&conn, "user_tag_categories")?;
     conn.execute_batch(USER_TAG_CATEGORIES)?;
     if !had_categories {
         conn.execute("DELETE FROM sync_fingerprints", [])?;
+    }
+    // Same idea for artist links: add the table, then re-ingest journals so
+    // existing artistLink lines fill it (without deleting the whole index).
+    let had_artist_links = table_exists(&conn, "track_artist_links")?;
+    conn.execute_batch(TRACK_ARTIST_LINKS)?;
+    if !had_artist_links && table_exists(&conn, "events")? {
+        log::info!("track_artist_links added; re-ingesting journals on next sync");
+        conn.execute_batch(
+            "DELETE FROM events; DELETE FROM journals;
+             DELETE FROM track_state; DELETE FROM track_tags;
+             DELETE FROM track_artist_links; DELETE FROM sync_fingerprints;",
+        )?;
     }
     Ok(conn)
 }
@@ -263,19 +300,37 @@ impl LibraryDb {
                     log::info!("index schema {found} != {SCHEMA_VERSION}, rebuilding");
                 }
                 drop(conn);
-                remove_db_files(&path);
-                Self::create(&path, library_root)?
+                Self::rebuild(&path, library_root)?
             }
             Err(err) => {
                 log::warn!("index unreadable ({err}), rebuilding");
-                remove_db_files(&path);
-                Self::create(&path, library_root)?
+                Self::rebuild(&path, library_root)?
             }
         };
         Ok(LibraryDb {
             conn,
             vocab: Default::default(),
         })
+    }
+
+    /// Delete the old files and create a fresh index. If delete fails (common
+    /// on Windows while a WAL handle lingers), move the file aside and retry.
+    fn rebuild(path: &Path, library_root: &Path) -> Result<Connection, Box<dyn std::error::Error>> {
+        remove_db_files(path);
+        match Self::create(path, library_root) {
+            Ok(conn) => Ok(conn),
+            Err(err) => {
+                log::warn!("index rebuild create failed ({err}), moving old file aside");
+                remove_db_files(path);
+                let broken = path.with_extension("sqlite.broken");
+                let _ = std::fs::remove_file(&broken);
+                if path.exists() {
+                    std::fs::rename(path, &broken)?;
+                    remove_db_files(path);
+                }
+                Ok(Self::create(path, library_root)?)
+            }
+        }
     }
 
     fn create(path: &Path, library_root: &Path) -> rusqlite::Result<Connection> {

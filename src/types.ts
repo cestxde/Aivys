@@ -52,6 +52,8 @@ export interface TrackStats {
     favoritedAt: number | null;
     // Assigned user tag ids
     tags: string[];
+    // Artists linked by hand (not from file tags)
+    linkedArtists: string[];
 }
 
 export const EMPTY_STATS: TrackStats = {
@@ -61,6 +63,7 @@ export const EMPTY_STATS: TrackStats = {
     favorite: false,
     favoritedAt: null,
     tags: [],
+    linkedArtists: [],
 };
 
 /** How a search result matched: as typed, via transliteration/keyboard layout, or with typos. */

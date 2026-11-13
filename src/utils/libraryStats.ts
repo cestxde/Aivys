@@ -75,7 +75,12 @@ export const libraryOverview = (
                 plays: count,
                 lastPlayedAt: st?.lastPlayedAt ?? null,
             });
-            for (const name of track.artists) {
+            const names = [
+                ...track.artists,
+                ...(st?.linkedArtists ?? []).filter(linked =>
+                    !track.artists.some(tag => artistKey(tag) === artistKey(linked))),
+            ];
+            for (const name of names) {
                 const key = artistKey(name);
                 if (!key) continue;
                 const row = artists.get(key);

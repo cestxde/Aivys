@@ -1,6 +1,7 @@
 import { useCallback, useState, type CSSProperties, type ReactNode } from "react";
-import { ChevronDown, ClipboardCopy, ClipboardPaste, Heart, ListPlus, PencilLine, Star, Tag } from "lucide-react";
+import { ChevronDown, ClipboardCopy, ClipboardPaste, Heart, ListPlus, PencilLine, Star, Tag, X } from "lucide-react";
 import type { Track, TrackStats, UserTag } from "../../types";
+import { artistKey } from "../../utils/groups";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { formatDateTime, formatDuration, formatFileSize } from "../../utils/format";
 import { tagsOf } from "../../utils/tags";
@@ -42,6 +43,8 @@ interface TrackDetailPanelProps {
     onRemoveTag: (track: Track, tag: UserTag) => void;
     /** The menu of a tag chip (right click). */
     onOpenTagMenu: (track: Track, tag: UserTag, x: number, y: number) => void;
+    /** Remove a manual artist link. */
+    onUnlinkArtist: (track: Track, name: string) => void;
     canOpenArtist: (name: string) => boolean;
     onOpenArtist: (name: string) => void;
     canOpenAlbum: (track: Track) => boolean;
@@ -107,6 +110,7 @@ export const TrackDetailPanel = ({
     onOpenTag,
     onRemoveTag,
     onOpenTagMenu,
+    onUnlinkArtist,
     canOpenArtist,
     onOpenArtist,
     canOpenAlbum,
@@ -244,6 +248,27 @@ export const TrackDetailPanel = ({
                     value={track.albumArtist && (
                         <ArtistLinks line={track.albumArtist} artists={[track.albumArtist]} canOpen={canOpenArtist} onOpen={onOpenArtist} />
                     )}
+                />
+                <DetailRow
+                    label={t("detail.linkedArtists")}
+                    value={(stats?.linkedArtists?.length ?? 0) > 0 ? (
+                        <span className="detail-linked-artists">
+                            {stats!.linkedArtists.map(name => (
+                                <span key={artistKey(name)} className="detail-linked-artist">
+                                    {canOpenArtist(name)
+                                        ? <button className="artist-link" onClick={() => onOpenArtist(name)}>{name}</button>
+                                        : <span>{name}</span>}
+                                    <button
+                                        className="detail-linked-remove"
+                                        title={t("detail.unlinkArtist", { name })}
+                                        onClick={() => onUnlinkArtist(track, name)}
+                                    >
+                                        <X size={11} />
+                                    </button>
+                                </span>
+                            ))}
+                        </span>
+                    ) : null}
                 />
                 <DetailRow label={t("detail.year")} value={track.year != null ? String(track.year) : null} />
                 <DetailRow label={t("detail.trackDisc")} value={trackDisc || null} />

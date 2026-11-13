@@ -17,7 +17,7 @@ use crate::db::LibraryDb;
 use crate::library::{rescan_library, scan_lock};
 use crate::metadata::{self, EditUndo, MetadataEdit};
 use crate::track::Track;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path};
 use std::sync::Mutex;
 use tauri::{Manager, State};
@@ -240,6 +240,40 @@ pub(crate) async fn set_track_tag(
             events::append(store, &key, EventKind::Tag, None, Some(id))?;
         }
         Ok(())
+    })
+}
+
+/// Link or unlink a track to an artist by hand (`tagId` in the journal holds
+/// the artist name). Does not change file tags.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn set_track_artist_link(
+    state: State<'_, StoreState>,
+    path: String,
+    artist: String,
+    linked: bool,
+) -> Result<(), StoreError> {
+    let name = artist.trim().to_owned();
+    if name.is_empty() {
+        return Err(StoreError::Invalid("artist name is empty".into()));
+    }
+    with_store(&state, |store| {
+        let key = store.track_key(&path)?;
+        let current = events::derive(&events::read_all(store)?, &HashSet::new())
+            .remove(&key)
+            .map(|stats| stats.linked_artists)
+            .unwrap_or_default();
+        let known = current.iter().find(|have| have.eq_ignore_ascii_case(&name));
+        if linked {
+            if known.is_some() {
+                return Ok(());
+            }
+            events::append(store, &key, EventKind::ArtistLink, None, Some(name))
+        } else {
+            let Some(stored) = known else {
+                return Ok(());
+            };
+            events::append(store, &key, EventKind::ArtistUnlink, None, Some(stored.clone()))
+        }
     })
 }
 

@@ -77,7 +77,7 @@ import {
 	compareBy, hintOf, sectionOf, sortSpecOf, viewSortOf, DEFAULT_SORT, type SortSection, type ViewSort,
 } from "./utils/sort";
 import {
-	albumKeyOf, artistKey, folderOf, folderTracks, groupAlbums, groupArtists, groupCovers, hasFolders, subfolders, type TrackGroup,
+	albumKeyOf, artistKey, artistsOf, folderOf, folderTracks, groupAlbums, groupArtists, groupCovers, hasFolders, subfolders, type TrackGroup,
 } from "./utils/groups";
 import { nextTagColor } from "./utils/tags";
 import { notifyError, notifyInfo, notifyUndoable } from "./utils/notify";
@@ -359,8 +359,18 @@ function App() {
 	const groupCoverStore = useGroupCovers(files);
 	const { withCovers } = groupCoverStore;
 
+	const linkedByPath = useMemo(() => {
+		const linked: Record<string, string[]> = {};
+		for (const [path, st] of Object.entries(trackStats.stats)) {
+			if (st.linkedArtists?.length) linked[path] = st.linkedArtists;
+		}
+		return linked;
+	}, [trackStats.stats]);
 	// eslint-disable-next-line react-hooks/exhaustive-deps -- names are translated
-	const artists = useMemo(() => withCovers("artist", groupArtists(files)), [files, language, withCovers]);
+	const artists = useMemo(
+		() => withCovers("artist", groupArtists(files, linkedByPath)),
+		[files, language, withCovers, linkedByPath],
+	);
 	// eslint-disable-next-line react-hooks/exhaustive-deps -- names are translated
 	const albums = useMemo(() => withCovers("album", groupAlbums(files)), [files, language, withCovers]);
 	const artistsByKey = useMemo(() => new Map(artists.map(g => [g.key, g])), [artists]);
@@ -1195,7 +1205,7 @@ function App() {
 		const here = (kind: View["kind"], id: string) =>
 			!everywhere && listView.kind === kind && "id" in listView && listView.id === id;
 		const entries: MenuEntry[] = [];
-		for (const name of track.artists) {
+		for (const name of artistsOf(track, trackStats.stats[track.relPath]?.linkedArtists)) {
 			const key = artistKey(name);
 			const artist = artistsByKey.get(key);
 			if (artist && !here("artist", key)) {
@@ -1910,6 +1920,7 @@ function App() {
 			}}
 			onRemoveTag={(track, target) => trackStats.setTrackTag([track], target.id, false)}
 			onOpenTagMenu={(track, target, x, y) => setMenu({ x, y, entries: tagChipMenu(track, target) })}
+			onUnlinkArtist={(track, name) => trackStats.setTrackArtistLink([track], name, false)}
 			canOpenArtist={canOpenArtist}
 			onOpenArtist={(name) => {
 				leavePlayer();
@@ -2464,6 +2475,8 @@ function App() {
 					tracks={addTo}
 					playlists={playlists.playlists.filter(p => p.type === "manual" && !p.readOnly)}
 					tracksByPath={tracksByPath}
+					artists={artists}
+					linkedByPath={linkedByPath}
 					allFavorite={addTo.every(t => trackStats.stats[t.relPath]?.favorite)}
 					onPlayNext={() => {
 						// With nothing playing this starts playback, not from any view.
@@ -2491,6 +2504,11 @@ function App() {
 					onCreatePlaylist={(name) => {
 						setAddTo(null);
 						createPlaylistWith(name, addTo);
+					}}
+					onLinkArtist={(name) => {
+						trackStats.setTrackArtistLink(addTo, name, true);
+						setAddTo(null);
+						notifyInfo(t("notice.linkedToArtist", { name }));
 					}}
 					onClose={() => setAddTo(null)}
 				/>

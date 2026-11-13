@@ -85,6 +85,35 @@
     background: var(--surface);
 }
 
+.add-to-mode {
+    display: flex;
+    margin-top: 0.2rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.add-to-mode button {
+    flex: 1;
+    padding: 7px 10px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.add-to-mode button + button {
+    border-left: 1px solid var(--border);
+}
+
+.add-to-mode button.active {
+    background: var(--surface);
+    color: var(--text-h);
+    font-weight: 600;
+}
+
 .add-to-list {
     display: flex;
     flex-direction: column;

@@ -249,6 +249,40 @@
     color: var(--text-h);
 }
 
+.detail-linked-artists {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.detail-linked-artist {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    max-width: 100%;
+    padding: 1px 2px 1px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.detail-linked-remove {
+    display: inline-flex;
+    padding: 2px;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.detail-linked-remove:hover {
+    background: color-mix(in srgb, var(--text) 12%, transparent);
+    color: var(--text-h);
+}
+
 /* File facts sit at the bottom of the panel when there is room. */
 .detail-file {
     margin-top: auto;

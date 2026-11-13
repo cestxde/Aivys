@@ -29,7 +29,8 @@ const albumTotal = (tracks: Track[]): number | null => {
 };
 
 // Tracks without an artist; a fixed key, so an open view survives a language change.
-const UNKNOWN_ARTIST_KEY = "\u0000unknown";
+/** Synthetic group for tracks with no artist tags (and no manual links). */
+export const UNKNOWN_ARTIST_KEY = "\u0000unknown";
 
 const byName = (a: TrackGroup, b: TrackGroup) => compareText(a.name, b.name);
 
@@ -56,21 +57,58 @@ export const compareByAlbum = (a: Track, b: Track): number =>
 /** Id of the artist group `name` belongs to. */
 export const artistKey = (name: string) => name.trim().toLowerCase();
 
+/**
+ * Tag artists plus manual links for a track, de-duplicated (case-insensitive).
+ * Linked names that already appear in tags are skipped.
+ */
+export const artistsOf = (track: Track, linked: string[] = []): string[] => {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const name of track.artists) {
+        const key = artistKey(name);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push(name.trim());
+    }
+    for (const name of linked) {
+        const key = artistKey(name);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push(name.trim());
+    }
+    return out;
+};
+
 /** One group per artist (a track with several artists is in each of them). */
-export const groupArtists = (files: Track[]): TrackGroup[] => {
+export const groupArtists = (
+    files: Track[],
+    linkedByPath: Record<string, string[]> = {},
+): TrackGroup[] => {
     const groups = new Map<string, TrackGroup>();
+    const add = (track: Track, name: string | null, listed: boolean) => {
+        const key = name === null ? UNKNOWN_ARTIST_KEY : artistKey(name);
+        if (!key) return;
+        const group = groups.get(key)
+            ?? { key, name: name?.trim() ?? t("common.unknownArtist"), subtitle: null, year: null, tracks: [], listed: false };
+        if (!group.tracks.includes(track)) group.tracks.push(track);
+        group.listed ||= listed;
+        groups.set(key, group);
+    };
+
     for (const track of files) {
-        const names = track.artists.length > 0 ? track.artists : [null];
-        for (const name of names) {
-            const key = name === null ? UNKNOWN_ARTIST_KEY : artistKey(name);
-            if (!key) continue;
-            const group = groups.get(key)
-                ?? { key, name: name?.trim() ?? t("common.unknownArtist"), subtitle: null, year: null, tracks: [], listed: false };
-            group.tracks.push(track);
-            // Listed as soon as one track does not leave it out.
-            group.listed ||= name === null || !track.unlistedArtists.some(unlisted => artistKey(unlisted) === key);
-            groups.set(key, group);
+        const linked = linkedByPath[track.relPath] ?? [];
+        const tagNames = track.artists.length > 0 ? track.artists : [];
+        if (tagNames.length === 0 && linked.length === 0) {
+            add(track, null, true);
+            continue;
         }
+        for (const name of tagNames) {
+            const key = artistKey(name);
+            // Listed as soon as one track does not leave it out.
+            const listed = !track.unlistedArtists.some(unlisted => artistKey(unlisted) === key);
+            add(track, name, listed);
+        }
+        for (const name of linked) add(track, name, true);
     }
     for (const group of groups.values()) {
         group.tracks.sort(compareByAlbum);

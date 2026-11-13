@@ -15,6 +15,7 @@ const FAILED_MESSAGES: Record<string, MessageKey> = {
     record_complete: "error.recordPlay",
     record_listen: "error.recordPlay",
     set_track_tag: "error.saveTag",
+    set_track_artist_link: "error.saveArtistLink",
 };
 
 const nowUnix = () => Math.floor(Date.now() / 1000);
@@ -136,6 +137,27 @@ export const useTrackStats = (files: Track[], tagById: Map<string, UserTag> = ne
         for (const tagId of tagIds) setTrackTag(tracks, tagId, true);
     }, [setTrackTag]);
 
+    /** Link or unlink a track to an artist by hand (does not change file tags). */
+    const setTrackArtistLink = useCallback((tracks: Track[], artist: string, linked: boolean) => {
+        const name = artist.trim();
+        if (!name) return;
+        const keyOf = (value: string) => value.trim().toLowerCase();
+        for (const track of tracks) {
+            // Tag artists already group the track; a manual link would be redundant.
+            if (linked && track.artists.some(have => keyOf(have) === keyOf(name))) continue;
+            const current = statsRef.current[track.relPath]?.linkedArtists ?? [];
+            const already = current.some(have => keyOf(have) === keyOf(name));
+            if (already === linked) continue;
+            patch(track.relPath, ({ linkedArtists }) => {
+                if (!linked) {
+                    return { linkedArtists: linkedArtists.filter(have => keyOf(have) !== keyOf(name)) };
+                }
+                return { linkedArtists: [...linkedArtists, name] };
+            });
+            persist("set_track_artist_link", { path: track.relPath, artist: name, linked });
+        }
+    }, [patch, persist]);
+
     const recordPlay = useCallback((track: Track) => {
         patch(track.relPath, current => ({ playCount: current.playCount + 1, lastPlayedAt: nowUnix() }));
         persist("record_play", { path: track.relPath });
@@ -181,6 +203,7 @@ export const useTrackStats = (files: Track[], tagById: Map<string, UserTag> = ne
         setTrackTag,
         replaceTags,
         addTags,
+        setTrackArtistLink,
         recordPlay,
         recordComplete,
         recordListen,

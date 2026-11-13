@@ -286,6 +286,8 @@ device appends **only to its own file**; all devices read **all** files in
 {"schemaVersion":1,"ts":1730000300,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"tag","tagId":"8f1c...uuid"}
 {"schemaVersion":1,"ts":1730000400,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"untag","tagId":"8f1c...uuid"}
 {"schemaVersion":1,"ts":1730000500,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"unfavorite"}
+{"schemaVersion":1,"ts":1730000600,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"artistLink","tagId":"Remix Artist"}
+{"schemaVersion":1,"ts":1730000700,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"artistUnlink","tagId":"Remix Artist"}
 ```
 
 #### 8.2.1 Event vocabulary (v1)
@@ -300,6 +302,8 @@ device appends **only to its own file**; all devices read **all** files in
 | `unfavorite` | —           | track removed from favorites |
 | `tag`        | `tagId`     | user tag assigned to track |
 | `untag`      | `tagId`     | user tag removed from track |
+| `artistLink` | `tagId` (artist name) | track linked to an artist by hand; does not change file tags |
+| `artistUnlink` | `tagId` (artist name) | manual artist link removed |
 
 `device` MUST equal the journal's filename `deviceId` (it makes a line
 self-describing when copied around, e.g. inside a conflict copy).
@@ -328,10 +332,11 @@ Computed at read time from the merged, ordered events; **never stored**:
 | `favorite`    | the latest of `favorite`/`unfavorite` for the path is `favorite` |
 | `favoritedAt` | `ts` of that latest `favorite` event (for "recently favorited") |
 | assigned tags | for each `(path, tagId)`, the latest of `tag`/`untag` is `tag`, and the tag is not deleted in `tags.json` |
+| `linkedArtists` | for each `(path, artist name)`, the latest of `artistLink`/`artistUnlink` (case-insensitive name) is `artistLink`; order is first link |
 
-Deletions are therefore just events: `unfavorite` / `untag` win over earlier
-`favorite` / `tag` regardless of which device produced which, and nothing is
-resurrected by a merge.
+Deletions are therefore just events: `unfavorite` / `untag` / `artistUnlink`
+win over earlier `favorite` / `tag` / `artistLink` regardless of which device
+produced which, and nothing is resurrected by a merge.
 
 #### 8.2.4 Merge, duplicates, growth
 
@@ -833,6 +838,9 @@ Still open (to settle before Iteration 1, non-blocking):
 
 ## 15. Change log
 
+- **v1 (draft, rev 6)** — `artistLink` / `artistUnlink` events; `tagId` holds
+  the artist display name. Derived `linkedArtists` merges into artist grouping
+  and navigation without changing file tags (§8.2).
 - **v1 (draft, rev 5)** — `listen` event with `value` = wall-clock listening
   seconds (§8.2.1); chunks may be appended periodically while playing.
 - **v1 (draft, rev 4)** — de-duplication of journal lines is a union with

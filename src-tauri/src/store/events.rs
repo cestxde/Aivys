@@ -21,6 +21,10 @@ pub(crate) enum EventKind {
     Unfavorite,
     Tag,
     Untag,
+    /// Manual link of a track to an artist (`tag_id` holds the artist name).
+    ArtistLink,
+    /// Remove a manual artist link (`tag_id` holds the artist name).
+    ArtistUnlink,
 }
 
 impl EventKind {
@@ -34,6 +38,8 @@ impl EventKind {
             EventKind::Unfavorite => "unfavorite",
             EventKind::Tag => "tag",
             EventKind::Untag => "untag",
+            EventKind::ArtistLink => "artistLink",
+            EventKind::ArtistUnlink => "artistUnlink",
         }
     }
 
@@ -47,6 +53,8 @@ impl EventKind {
             "unfavorite" => EventKind::Unfavorite,
             "tag" => EventKind::Tag,
             "untag" => EventKind::Untag,
+            "artistLink" => EventKind::ArtistLink,
+            "artistUnlink" => EventKind::ArtistUnlink,
             _ => return None,
         })
     }
@@ -269,6 +277,8 @@ pub(crate) struct TrackStats {
     pub(crate) favorited_at: Option<u64>,
     /// Assigned user tag ids, in order of first assignment.
     pub(crate) tags: Vec<String>,
+    /// Artists linked by hand (not from file tags), in order of first link.
+    pub(crate) linked_artists: Vec<String>,
 }
 
 impl TrackStats {
@@ -278,6 +288,7 @@ impl TrackStats {
             && self.rating.is_none()
             && !self.favorite
             && self.tags.is_empty()
+            && self.linked_artists.is_empty()
     }
 }
 
@@ -287,6 +298,8 @@ pub(crate) fn derive(events: &[Event], deleted_tags: &HashSet<String>) -> HashMa
     let mut stats: HashMap<String, TrackStats> = HashMap::new();
     // Per track: (tagId, assigned) in order of first appearance.
     let mut tag_state: HashMap<String, Vec<(String, bool)>> = HashMap::new();
+    // Per track: (artist name, linked) in order of first appearance.
+    let mut artist_state: HashMap<String, Vec<(String, bool)>> = HashMap::new();
 
     for Event { line, kind } in events {
         let entry = stats.entry(line.path.clone()).or_default();
@@ -325,6 +338,18 @@ pub(crate) fn derive(events: &[Event], deleted_tags: &HashSet<String>) -> HashMa
                     None => state.push((tag_id.clone(), assigned)),
                 }
             }
+            EventKind::ArtistLink | EventKind::ArtistUnlink => {
+                let Some(name) = line.tag_id.as_deref().map(str::trim).filter(|name| !name.is_empty()) else {
+                    log::warn!("{} event without artist name for {}", line.event, line.path);
+                    continue;
+                };
+                let linked = *kind == EventKind::ArtistLink;
+                let state = artist_state.entry(line.path.clone()).or_default();
+                match state.iter_mut().find(|(known, _)| known.eq_ignore_ascii_case(name)) {
+                    Some(slot) => slot.1 = linked,
+                    None => state.push((name.to_owned(), linked)),
+                }
+            }
         }
     }
 
@@ -334,6 +359,15 @@ pub(crate) fn derive(events: &[Event], deleted_tags: &HashSet<String>) -> HashMa
                 .into_iter()
                 .filter(|(id, assigned)| *assigned && !deleted_tags.contains(id))
                 .map(|(id, _)| id)
+                .collect();
+        }
+    }
+    for (path, state) in artist_state {
+        if let Some(entry) = stats.get_mut(&path) {
+            entry.linked_artists = state
+                .into_iter()
+                .filter(|(_, linked)| *linked)
+                .map(|(name, _)| name)
                 .collect();
         }
     }
@@ -533,6 +567,25 @@ mod tests {
         let stats = derive(&read_all(&store).unwrap(), &HashSet::new());
         assert_eq!(stats["a.flac"].play_count, 2);
         assert!(stats["a.flac"].favorite);
+    }
+
+    #[test]
+    fn artist_link_and_unlink_are_derived() {
+        let lib = TempLibrary::new();
+        let store = lib.open();
+        let device = store.device_id().to_owned();
+        write_journal(
+            &store,
+            &device,
+            &[
+                line(1, &device, "a.flac", "artistLink", None, Some("Remixer")),
+                line(2, &device, "a.flac", "artistLink", None, Some("remixer")),
+                line(3, &device, "a.flac", "artistLink", None, Some("Feature")),
+                line(4, &device, "a.flac", "artistUnlink", None, Some("REMIXER")),
+            ],
+        );
+        let stats = derive(&read_all(&store).unwrap(), &HashSet::new());
+        assert_eq!(stats["a.flac"].linked_artists, vec!["Feature".to_owned()]);
     }
 
     #[test]

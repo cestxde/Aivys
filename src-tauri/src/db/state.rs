@@ -105,7 +105,8 @@ impl LibraryDb {
             log::info!("journals changed underneath the index, re-ingesting");
             tx.execute_batch(
                 "DELETE FROM events; DELETE FROM journals;
-                 DELETE FROM track_state; DELETE FROM track_tags;",
+                 DELETE FROM track_state; DELETE FROM track_tags;
+                 DELETE FROM track_artist_links;",
             )?;
         }
 
@@ -256,6 +257,7 @@ impl LibraryDb {
                     favorite: row.get(4)?,
                     favorited_at: row.get(5)?,
                     tags: Vec::new(),
+                    linked_artists: Vec::new(),
                 },
             );
         }
@@ -269,6 +271,15 @@ impl LibraryDb {
         while let Some(row) = rows.next()? {
             let path: String = row.get(0)?;
             stats.entry(path).or_default().tags.push(row.get(1)?);
+        }
+
+        let mut stmt = self.conn.prepare(
+            "SELECT rel_path, name FROM track_artist_links ORDER BY rel_path, position",
+        )?;
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            let path: String = row.get(0)?;
+            stats.entry(path).or_default().linked_artists.push(row.get(1)?);
         }
         Ok(stats)
     }
@@ -320,7 +331,8 @@ fn ingest(
     Ok(inserted)
 }
 
-/// Re-derive `track_state` / `track_tags` of the given paths from their events.
+/// Re-derive `track_state` / `track_tags` / `track_artist_links` of the given
+/// paths from their events.
 fn recompute(tx: &Transaction, paths: &HashSet<String>) -> rusqlite::Result<()> {
     let mut select = tx.prepare(
         "SELECT ts, device, event, value, tag_id, file FROM events WHERE path = ?1
@@ -331,6 +343,8 @@ fn recompute(tx: &Transaction, paths: &HashSet<String>) -> rusqlite::Result<()> 
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
     )?;
     let mut insert_tag = tx.prepare("INSERT INTO track_tags (rel_path, position, tag_id) VALUES (?1, ?2, ?3)")?;
+    let mut insert_artist =
+        tx.prepare("INSERT INTO track_artist_links (rel_path, position, name) VALUES (?1, ?2, ?3)")?;
 
     for path in paths {
         let rows = select.query_map([path], |row| {
@@ -364,6 +378,7 @@ fn recompute(tx: &Transaction, paths: &HashSet<String>) -> rusqlite::Result<()> 
 
         tx.execute("DELETE FROM track_state WHERE rel_path = ?1", [path])?;
         tx.execute("DELETE FROM track_tags WHERE rel_path = ?1", [path])?;
+        tx.execute("DELETE FROM track_artist_links WHERE rel_path = ?1", [path])?;
 
         // Deleted tags are filtered at query time: tags.json changes on its own.
         let Some(stats) = events::derive(&ordered, &HashSet::new()).remove(path) else {
@@ -379,6 +394,9 @@ fn recompute(tx: &Transaction, paths: &HashSet<String>) -> rusqlite::Result<()> 
         ])?;
         for (position, tag_id) in stats.tags.iter().enumerate() {
             insert_tag.execute(params![path, position as i64, tag_id])?;
+        }
+        for (position, name) in stats.linked_artists.iter().enumerate() {
+            insert_artist.execute(params![path, position as i64, name])?;
         }
     }
     Ok(())
