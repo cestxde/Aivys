@@ -222,6 +222,7 @@ fn apply_scan_plan(
 /// Scan through the index: only files that are new or changed since the last
 /// scan (by mtime and size), or whose cached cover is gone, have their tags
 /// read again. Artists of cached files follow `rules` without a re-read.
+#[cfg(test)]
 fn scan_cached(
     db: &mut LibraryDb,
     base: &Path,
@@ -279,6 +280,7 @@ fn do_scan_with_open_index(
 
 /// The blocking part of a scan for tests (and any caller without an open store):
 /// may open its own index connection under `app_data`.
+#[cfg(test)]
 fn do_scan(
     base_path: &str,
     covers_dir: &Path,
