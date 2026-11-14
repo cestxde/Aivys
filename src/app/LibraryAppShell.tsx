@@ -13,7 +13,7 @@ export function LibraryAppShell(props: LibraryAppShellProps) {
 	const {
 		listView, settings, setDrawerOpen, viewSummary, isPhone, hasTrackList, searchQuery, setSearchQuery,
 		scriptMask, availableScripts, toggleScript, setScriptMask, cardFilter, cardLayout, phoneSelecting,
-		selectedRows, clearSelection, displayRows, selectAll, goToPicker, showView, showFolders, playingKey,
+		selectedRows, clearSelection, displayRows, selectAll, goToPicker, showView, tabHasContent, playingKey,
 		drawerOpen, t,
 	} = props;
 
@@ -49,7 +49,7 @@ export function LibraryAppShell(props: LibraryAppShellProps) {
 					onChangeLibrary={goToPicker}
 					view={listView}
 					onViewChange={showView}
-					showFolders={showFolders}
+					tabHasContent={tabHasContent}
 					playingKey={playingKey}
 					drawerOpen={drawerOpen}
 					onOpenDrawer={() => setDrawerOpen(true)}

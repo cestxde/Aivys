@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Search, Settings, X, CheckCheck, Languages, Check, ChartColumn, ListChecks, EyeOff } from "lucide-react";
+import { useCallback, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Search, Settings, Settings2, X, CheckCheck, Languages, Check, ChartColumn, ListChecks, EyeOff } from "lucide-react";
 import { ThemedLogo } from "../ThemedLogo";
 import { PlayingMark } from "../CardPlayButton/CardPlayButton";
 import type { View } from "../../types";
@@ -10,39 +10,64 @@ import { SearchInput } from "../SearchInput/SearchInput";
 import { ContextMenu, type MenuEntry } from "../ContextMenu/ContextMenu";
 import { FILTER_SCRIPTS } from "../../utils/scripts";
 import { LayoutToggle, type PlaylistsLayout } from "../PlaylistsPage/PlaylistsPage";
+import {
+    loadSidebarNav,
+    normalizeSidebarNav,
+    saveSidebarNav,
+    sidebarItemLabel,
+    sidebarItemView,
+    sidebarTabVisible,
+    type SidebarItemId,
+    type SidebarNavEntry,
+} from "../../utils/sidebarNav";
+import { SidebarMenuDialog } from "./SidebarMenuDialog";
 import "./Sidebar.css";
 
 interface SidebarItem {
+    id: string;
     label: MessageKey;
     icon: ReactNode;
     view: View;
 }
 
-const SETTINGS: SidebarItem = { label: "nav.settings", icon: <Settings size={18} />, view: { kind: "settings" } };
+const SETTINGS: SidebarItem = { id: "settings", label: "nav.settings", icon: <Settings size={18} />, view: { kind: "settings" } };
 
-const FOLDERS: SidebarItem = { label: "nav.folders", icon: <Folder size={18} />, view: { kind: "folder", id: "" } };
+const SIDEBAR_ICONS: Record<SidebarItemId, ReactNode> = {
+    library: <Library size={18} />,
+    favorites: <Heart size={18} />,
+    playlists: <ListMusic size={18} />,
+    artists: <MicVocal size={18} />,
+    albums: <Disc3 size={18} />,
+    tags: <Tag size={18} />,
+    folders: <Folder size={18} />,
+    stats: <ChartColumn size={18} />,
+    incomplete: <ListChecks size={18} />,
+    mostPlayed: <TrendingUp size={18} />,
+    recentlyPlayed: <History size={18} />,
+    hidden: <EyeOff size={18} />,
+};
 
-/** Groups of items, separated by dividers. */
-const SECTIONS: SidebarItem[][] = [
-    [
-        { label: "nav.library", icon: <Library size={18} />, view: { kind: "system", id: "library" } },
-        { label: "nav.favorites", icon: <Heart size={18} />, view: { kind: "system", id: "favorites" } },
-    ],
-    [
-        { label: "nav.playlists", icon: <ListMusic size={18} />, view: { kind: "playlists" } },
-        { label: "nav.artists", icon: <MicVocal size={18} />, view: { kind: "artists" } },
-        { label: "nav.albums", icon: <Disc3 size={18} />, view: { kind: "albums" } },
-        { label: "nav.tags", icon: <Tag size={18} />, view: { kind: "tags" } },
-        FOLDERS,
-    ],
-    [
-        { label: "nav.stats", icon: <ChartColumn size={18} />, view: { kind: "stats" } },
-        { label: "nav.incomplete", icon: <ListChecks size={18} />, view: { kind: "incomplete" } },
-        { label: "nav.mostPlayed", icon: <TrendingUp size={18} />, view: { kind: "system", id: "mostPlayed" } },
-        { label: "nav.recentlyPlayed", icon: <History size={18} />, view: { kind: "system", id: "recentlyPlayed" } },
-        { label: "nav.hidden", icon: <EyeOff size={18} />, view: { kind: "system", id: "hidden" } },
-    ],
-];
+const DIALOG_ICONS: Record<SidebarItemId, ReactNode> = {
+    library: <Library size={16} />,
+    favorites: <Heart size={16} />,
+    playlists: <ListMusic size={16} />,
+    artists: <MicVocal size={16} />,
+    albums: <Disc3 size={16} />,
+    tags: <Tag size={16} />,
+    folders: <Folder size={16} />,
+    stats: <ChartColumn size={16} />,
+    incomplete: <ListChecks size={16} />,
+    mostPlayed: <TrendingUp size={16} />,
+    recentlyPlayed: <History size={16} />,
+    hidden: <EyeOff size={16} />,
+};
+
+const toSidebarItem = (id: SidebarItemId): SidebarItem => ({
+    id,
+    label: sidebarItemLabel(id),
+    icon: SIDEBAR_ICONS[id],
+    view: sidebarItemView(id),
+});
 
 interface SidebarProps {
     /** Full path of the currently open library folder. */
@@ -51,8 +76,8 @@ interface SidebarProps {
     onChangeLibrary: () => void;
     view: View;
     onViewChange: (view: View) => void;
-    /** The library has subfolders with tracks. */
-    showFolders: boolean;
+    /** Whether auto-visibility tabs currently have something to show. */
+    tabHasContent: Partial<Record<SidebarItemId, boolean>>;
     /** Key of the view playback was started from ("album:<key>"), if playing. */
     playingKey: string | null;
     /** Narrow screens: the rail is a drawer, shown while this is true. */
@@ -102,17 +127,25 @@ const folderName = (path: string): string => {
 
 /**
  * Left navigation rail: brand, the current library folder + a "change folder"
- * action, and the views in groups: the library, its collections, history.
+ * action, a customizable list of views, and Settings pinned at the bottom.
  * On narrow screens (phones) a drawer over the content, opened from the
  * `MobileHeader` or a swipe right, and closed by picking something, tapping
  * beside it or a swipe left.
  */
 export const Sidebar = ({
-    libraryPath, onChangeLibrary, view, onViewChange, showFolders, playingKey, drawerOpen, onOpenDrawer, onCloseDrawer, swipeDrawer,
+    libraryPath, onChangeLibrary, view, onViewChange, tabHasContent, playingKey, drawerOpen, onOpenDrawer, onCloseDrawer, swipeDrawer,
 }: SidebarProps) => {
     const drawer = useRef<HTMLElement>(null);
     const backdrop = useRef<HTMLDivElement>(null);
     useDrawerSwipe(swipeDrawer, drawerOpen, drawer, backdrop, onOpenDrawer, onCloseDrawer);
+    const [sidebarNav, setSidebarNav] = useState<SidebarNavEntry[]>(loadSidebarNav);
+    const [customizeOpen, setCustomizeOpen] = useState(false);
+
+    const updateNav = useCallback((next: SidebarNavEntry[]) => {
+        const normalized = normalizeSidebarNav(next);
+        setSidebarNav(normalized);
+        saveSidebarNav(normalized);
+    }, []);
 
     const go = (next: View) => {
         onViewChange(next);
@@ -121,7 +154,7 @@ export const Sidebar = ({
 
     const renderItem = (item: SidebarItem) => (
         <button
-            key={item.label}
+            key={item.id}
             className={`sidebar-item ${isCurrent(item.view, view) ? "active" : ""}`}
             title={t(item.label)}
             aria-current={isCurrent(item.view, view) ? "page" : undefined}
@@ -132,6 +165,21 @@ export const Sidebar = ({
             {playsFrom(item.view, playingKey) && <PlayingMark />}
         </button>
     );
+
+    const rail: ReactNode[] = [];
+    let pendingDivider = false;
+    for (const entry of sidebarNav) {
+        if (entry.kind === "separator") {
+            pendingDivider = true;
+            continue;
+        }
+        if (!sidebarTabVisible(entry, tabHasContent)) continue;
+        if (pendingDivider && rail.length > 0) {
+            rail.push(<div key={`div-${entry.id}`} className="sidebar-divider" />);
+        }
+        pendingDivider = false;
+        rail.push(renderItem(toSidebarItem(entry.id)));
+    }
 
     return (
         <>
@@ -158,18 +206,35 @@ export const Sidebar = ({
                 </span>
             </button>
 
-            {SECTIONS.map((items, index) => (
-                <Fragment key={index}>
-                    <div className="sidebar-divider" />
-                    {items.filter(item => item !== FOLDERS || showFolders).map(renderItem)}
-                </Fragment>
-            ))}
+            <div className="sidebar-menu-heading">
+                <span className="sidebar-menu-heading-label">{t("nav.menu")}</span>
+                <button
+                    type="button"
+                    className="sidebar-menu-gear"
+                    title={t("sidebar.customizeTitle")}
+                    aria-label={t("sidebar.customizeTitle")}
+                    onClick={() => setCustomizeOpen(true)}
+                >
+                    <Settings2 size={14} />
+                </button>
+            </div>
+            <div className="sidebar-divider" />
+
+            {rail}
 
             <div className="sidebar-bottom">
                 <div className="sidebar-divider" />
                 {renderItem(SETTINGS)}
             </div>
         </nav>
+        {customizeOpen && (
+            <SidebarMenuDialog
+                nav={sidebarNav}
+                icons={DIALOG_ICONS}
+                onChange={updateNav}
+                onClose={() => setCustomizeOpen(false)}
+            />
+        )}
         </>
     );
 };

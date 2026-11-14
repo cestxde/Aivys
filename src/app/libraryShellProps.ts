@@ -20,6 +20,7 @@ import type { M3uPathMode } from "../utils/m3u";
 import type { ThemePreference } from "../utils/theme";
 import type { ListDisplay, SortSection, ViewSort } from "../utils/sort";
 import type { MessageKey } from "../i18n";
+import type { SidebarItemId } from "../utils/sidebarNav";
 import type { EditorState, TagDialogState, CategoryDialogState } from "./types";
 
 type TrackStatsStore = ReturnType<typeof useTrackStats>;
@@ -71,6 +72,8 @@ export type LibraryAppShellProps = {
 	goToPicker: () => void;
 	showView: (next: View, from?: View) => void;
 	showFolders: boolean;
+	/** Auto-visibility tabs: true when the tab has something to show. */
+	tabHasContent: Partial<Record<SidebarItemId, boolean>>;
 	playingKey: string | null;
 	drawerOpen: boolean;
 	pinned: PinnedPlaylist[];

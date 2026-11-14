@@ -1,6 +1,8 @@
 import { androidStorage } from "../utils/androidStorage";
+import { incompleteCounts } from "../utils/incomplete";
 import { notifyInfo } from "../utils/notify";
 import { savePosition } from "../utils/session";
+import type { SidebarItemId } from "../utils/sidebarNav";
 import { t } from "../i18n";
 import type { ListRow, Track, UserTag } from "../types";
 import type { LibraryAppShellProps, CardFilter, CardLayout } from "./libraryShellProps";
@@ -186,6 +188,21 @@ export function libraryShellPropsFromModel(a: LibraryShellPropsFromModelArgs): L
 		goToPicker: a.goToPicker,
 		showView: a.showView,
 		showFolders: a.catalog.showFolders,
+		tabHasContent: (() => {
+			const pinnedCount = (id: string) => a.catalog.pinned.find(p => p.id === id)?.count ?? 0;
+			const gaps = incompleteCounts(a.files, a.trackStats.stats);
+			const content: Partial<Record<SidebarItemId, boolean>> = {
+				folders: a.catalog.showFolders,
+				favorites: pinnedCount("favorites") > 0,
+				mostPlayed: pinnedCount("mostPlayed") > 0,
+				recentlyPlayed: pinnedCount("recentlyPlayed") > 0,
+				hidden: pinnedCount("hidden") > 0,
+				playlists: a.playlists.playlists.length > 0,
+				tags: a.tags.tags.length > 0,
+				incomplete: Object.values(gaps).some(n => n > 0),
+			};
+			return content;
+		})(),
 		playingKey: a.playingKey,
 		drawerOpen: a.drawerOpen,
 		pinned: a.catalog.pinned,
