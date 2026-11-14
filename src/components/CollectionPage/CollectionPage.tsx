@@ -1,5 +1,5 @@
 import { useCallback, useState, type ComponentType, type MouseEvent } from "react";
-import { ArrowUpDown, Check, ChevronDown, ChevronRight, MoreVertical } from "lucide-react";
+import { ArrowUpDown, Check, ChevronDown, ChevronRight, MoreVertical, Plus } from "lucide-react";
 import type { TrackGroup } from "../../utils/groups";
 import { groupCovers } from "../../utils/groups";
 import { CoverMosaic } from "../PlaylistCover/PlaylistCover";
@@ -68,6 +68,9 @@ interface CollectionPageProps {
     sorts: CollectionSort[];
     /** Split into parts (otherwise one list). */
     sections?: CollectionSection[];
+    /** Optional create action in the toolbar (e.g. new album). */
+    onCreate?: () => void;
+    createLabel?: string;
 }
 
 /** How many cards are rendered before "Show more" (big libraries). */
@@ -96,6 +99,8 @@ export const CollectionPage = ({
     isPinned,
     sorts,
     sections,
+    onCreate,
+    createLabel,
 }: CollectionPageProps) => {
     const [limits, setLimits] = useRememberedState<Record<string, number>>(`${memoryKey}.limits`, {});
     // Sections whose folding the user flipped from their default.
@@ -242,6 +247,11 @@ export const CollectionPage = ({
                     <ChevronDown size={14} />
                 </button>
                 <LayoutToggle layout={layout} onChange={onLayoutChange} />
+                {onCreate && createLabel && (
+                    <button type="button" className="toolbar-button play-button playlists-create" onClick={onCreate}>
+                        <Plus size={14} /> {createLabel}
+                    </button>
+                )}
                 {sortMenuAt && <ContextMenu x={sortMenuAt.x} y={sortMenuAt.y} entries={sortEntries} onClose={closeSortMenu} />}
             </div>
 

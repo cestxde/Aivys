@@ -142,6 +142,7 @@ pub fn run() {
             preview_smart_playlist,
             search_tracks,
             delete_tracks,
+            check_tracks_writable,
             edit_tracks,
             edit_tracks_each,
             undo_track_edit,

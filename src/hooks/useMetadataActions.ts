@@ -1,7 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
+import type { AlbumEditorSave } from "../components/AlbumEditorDialog/AlbumEditorDialog";
 import type { MetadataEdit } from "../components/MetadataEditor/MetadataEditor";
 import type { Track } from "../types";
+import { albumKeyOf } from "../utils/groups";
 import { displayTitle } from "../utils/track";
 import { fileNameFromTags, preferredFileNameVariant } from "../utils/fileName";
 import { notifyError, notifyInfo, notifyUndoable } from "../utils/notify";
@@ -123,6 +125,67 @@ export function useMetadataActions({
 		notifyInfo(t("edit.renamedMany", { count: written }));
 	};
 
+	/**
+	 * Write shared album fields (and optional per-track numbers) onto `payload.tracks`.
+	 * Cover goes in `shared` once so IPC stays small. Returns the album view key
+	 * when at least one file succeeded.
+	 */
+	const saveAlbumPackage = async (payload: AlbumEditorSave): Promise<string | null> => {
+		const ordered = payload.tracks;
+		if (ordered.length === 0) return null;
+		const shared: MetadataEdit = {
+			album: payload.album,
+			albumArtist: payload.albumArtist,
+			year: payload.year,
+			genre: payload.genre,
+		};
+		if (payload.cover !== undefined) shared.cover = payload.cover;
+		if (payload.writeNumbers) shared.trackTotal = payload.trackTotal;
+		const edits = ordered.map(track => {
+			const edit: MetadataEdit = {};
+			if (payload.writeNumbers) {
+				edit.trackNumber = payload.trackNumbers[track.path] ?? null;
+			}
+			return { path: track.path, edit };
+		});
+		const paths = edits.map(item => item.path);
+		let result: EditResult;
+		try {
+			result = await releaseWhile(paths, async () => {
+				const busy = await invoke<string[]>("check_tracks_writable", { paths });
+				if (busy.length > 0) {
+					const shown = busy.slice(0, 6).join(", ");
+					const more = busy.length > 6 ? t("album.filesBusyMore", { count: busy.length - 6 }) : "";
+					notifyError(t("album.filesBusy", { list: shown + more }));
+					return null;
+				}
+				return invoke<EditResult>("edit_tracks_each", { edits, shared });
+			});
+		} catch (e) {
+			notifyError(t("edit.failed"), e);
+			return null;
+		}
+		if (!result) return null;
+		library.setFiles(result.tracks);
+		if (result.failed.length > 0) {
+			notifyError(t("edit.someFailed", { count: result.failed.length, list: result.failed.join("; ") }));
+		}
+		const written = edits.length - result.failed.length;
+		if (written === 0) return null;
+		setUndoablePaths(paths);
+		notifyUndoable(
+			t("album.saved", { count: written }),
+			t("edit.undo"),
+			() => undoEdit(paths),
+		);
+		for (const track of ordered) {
+			const updated = result.tracks.find(item => item.path === track.path);
+			const key = updated ? albumKeyOf(updated) : null;
+			if (key) return key;
+		}
+		return null;
+	};
+
 	/** Fill artist/title/track number from each file name automatically. */
 	const fillManyFromNames = async (tracks: Track[]) => {
 		const edits = tracks.flatMap(track => {
@@ -142,7 +205,10 @@ export function useMetadataActions({
 		const paths = edits.map(item => item.path);
 		let result: EditResult;
 		try {
-			result = await releaseWhile(paths, () => invoke<EditResult>("edit_tracks_each", { edits }));
+			result = await releaseWhile(
+				paths,
+				() => invoke<EditResult>("edit_tracks_each", { edits, shared: null }),
+			);
 		} catch (e) {
 			notifyError(t("edit.failed"), e);
 			return;
@@ -206,6 +272,7 @@ export function useMetadataActions({
 
 	return {
 		saveMetadata,
+		saveAlbumPackage,
 		renameTrack,
 		renameManyFromTags,
 		fillManyFromNames,

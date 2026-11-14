@@ -1,4 +1,4 @@
-import { EyeOff, Heart, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, X } from "lucide-react";
+import { Disc3, EyeOff, Heart, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, X } from "lucide-react";
 import type { MenuEntry } from "../../components/ContextMenu/ContextMenu";
 import type { ListRow } from "../../types";
 import { t } from "../../i18n";
@@ -11,7 +11,7 @@ export function createTrackMenus(
 ) {
 	const {
 		viewKey, trackStats, displayFiles, displayRows, selectedTracks, selectedRows,
-		currentTag, manualPlaylist, playlists, playFrom, setAddTo, setEditing,
+		currentTag, manualPlaylist, playlists, playFrom, setAddTo, setEditing, setAlbumEditor,
 		selectRow, toggleFavorites, removeRowsFromPlaylist, deleteSelected, deleteTracks,
 	} = deps;
 
@@ -117,6 +117,12 @@ export function createTrackMenus(
 				onSelect: () => toggleFavorites(tracks),
 			},
 			{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo(tracks) },
+			{
+				kind: "item",
+				label: t("album.new"),
+				icon: <Disc3 size={16} />,
+				onSelect: () => setAlbumEditor({ tracks, mode: "create" }),
+			},
 			{ kind: "item", label: t("edit.menu"), icon: <PencilLine size={16} />, onSelect: () => setEditing(tracks) },
 			{ kind: "separator" },
 			...hideEntries(tracks),

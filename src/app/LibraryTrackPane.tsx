@@ -1,4 +1,4 @@
-import { MicVocal, Disc3, Folder } from "lucide-react";
+import { MicVocal, Disc3, Folder, PencilLine } from "lucide-react";
 import { TagHeader } from "../components/TagHeader/TagHeader";
 import { UntaggedHeader } from "../components/UntaggedHeader/UntaggedHeader";
 import { GapHeader } from "../components/GapHeader/GapHeader";
@@ -9,6 +9,7 @@ import { Toolbar } from "../components/ToolBar/ToolBar";
 import { AlbumStrip } from "../components/AlbumStrip/AlbumStrip";
 import { TrackList } from "../components/TrackList/TrackList";
 import { UNTAGGED_KEY } from "../utils/views";
+import { albumEditorSeedFromGroup } from "../utils/albumEditor";
 import { groupCovers, folderTracks } from "../utils/groups";
 import { androidStorage } from "../utils/androidStorage";
 import { t } from "../i18n";
@@ -26,7 +27,7 @@ export function LibraryTrackPane(props: LibraryAppShellProps) {
 		rowSection, isSearching, sortLocked, handleShuffleView, handlePlayAll, listRef, onListScroll, isFiltering,
 		artistAlbums, playingIn, playTracks, groupMenu, files, currentSubfolders, activePath, looseFromIndex,
 		rowHint, albumNumber, emptyText, selectedKeys, selectRow, selectSpan, selectionMenu, trackMenu, setMenu, setAddTo,
-		setTagPicker, setEditing,
+		setTagPicker, setEditing, setAlbumEditor,
 	} = props;
 
 	return (
@@ -85,7 +86,19 @@ export function LibraryTrackPane(props: LibraryAppShellProps) {
 					rows={viewRows}
 					backTitle={t("group.allAlbums")}
 					onBack={goBack}
-					actions={exportHeaderAction(displayFiles, currentGroup.name)}
+					actions={[
+						{
+							kind: "item",
+							label: t("album.edit"),
+							icon: <PencilLine size={16} />,
+							onSelect: () => setAlbumEditor({
+								tracks: currentGroup.tracks,
+								mode: "edit",
+								seed: albumEditorSeedFromGroup(currentGroup),
+							}),
+						},
+						...exportHeaderAction(displayFiles, currentGroup.name),
+					]}
 					coverActions={coverEntries("album", currentGroup)}
 					loading={settingCover?.kind === "album" && settingCover.key === currentGroup.key}
 				/>

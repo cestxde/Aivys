@@ -10,7 +10,8 @@ import type { LibraryGroupCatalog, LibraryViewGroup } from "../hooks/useLibraryC
 import type { LibraryListState } from "../hooks/useLibraryListState";
 import type { ThemePreference } from "../utils/theme";
 import type { PlayerSettings } from "../types";
-import type { EditorState, TagDialogState, CategoryDialogState } from "./types";
+import type { AlbumEditorSave } from "../components/AlbumEditorDialog/AlbumEditorDialog";
+import type { AlbumEditorState, EditorState, TagDialogState, CategoryDialogState } from "./types";
 import type { CoverKind } from "../hooks/useGroupCovers";
 import type { MenuEntry } from "../components/ContextMenu/ContextMenu";
 import type { M3uMissingGroup } from "../components/M3uImportDialog/M3uMissingDialog";
@@ -131,10 +132,13 @@ export type LibraryShellPropsFromModelArgs = {
 	changelogOpen: boolean;
 	editing: Track[] | null;
 	saveMetadata: (tracks: Track[], edit: import("../components/MetadataEditor/MetadataEditor").MetadataEdit) => Promise<void>;
+	saveAlbumPackage: (payload: AlbumEditorSave) => Promise<string | null>;
 	renameTrack: (track: Track, name: string) => Promise<void>;
 	renameManyFromTags: (tracks: Track[]) => Promise<void>;
 	fillManyFromNames: (tracks: Track[]) => Promise<void>;
 	setEditing: React.Dispatch<React.SetStateAction<Track[] | null>>;
+	albumEditor: AlbumEditorState | null;
+	setAlbumEditor: React.Dispatch<React.SetStateAction<AlbumEditorState | null>>;
 	m3uMissing: M3uMissingGroup[] | null;
 	setM3uMissing: React.Dispatch<React.SetStateAction<M3uMissingGroup[] | null>>;
 	addTo: Track[] | null;
@@ -337,10 +341,13 @@ export function libraryShellPropsFromModel(a: LibraryShellPropsFromModelArgs): L
 		savePosition,
 		editing: a.editing,
 		saveMetadata: a.saveMetadata,
+		saveAlbumPackage: a.saveAlbumPackage,
 		renameTrack: a.renameTrack,
 		renameManyFromTags: a.renameManyFromTags,
 		fillManyFromNames: a.fillManyFromNames,
 		setEditing: a.setEditing,
+		albumEditor: a.albumEditor,
+		setAlbumEditor: a.setAlbumEditor,
 		m3uMissing: a.m3uMissing,
 		setM3uMissing: a.setM3uMissing,
 		addTo: a.addTo,

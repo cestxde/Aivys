@@ -150,4 +150,6 @@ pub(crate) use tags::{
     create_tag, create_tag_category, delete_tag, delete_tag_category, list_tag_categories, list_tags, merge_tags,
     rename_tag_category, reorder_tag_categories, update_tag,
 };
-pub(crate) use tracks::{delete_tracks, edit_tracks, edit_tracks_each, rename_tracks, undo_track_edit};
+pub(crate) use tracks::{
+    check_tracks_writable, delete_tracks, edit_tracks, edit_tracks_each, rename_tracks, undo_track_edit,
+};

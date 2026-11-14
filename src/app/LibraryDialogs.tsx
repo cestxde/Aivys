@@ -1,8 +1,11 @@
 import { UpdateDialog } from "../components/UpdateDialog/UpdateDialog";
 import { ChangelogDialog } from "../components/UpdateDialog/ChangelogDialog";
+import { AlbumEditorDialog } from "../components/AlbumEditorDialog/AlbumEditorDialog";
 import { MetadataEditor } from "../components/MetadataEditor/MetadataEditor";
 import { M3uMissingDialog } from "../components/M3uImportDialog/M3uMissingDialog";
 import { AddToDialog } from "../components/AddToDialog/AddToDialog";
+import { mergeIntoAlbumTracks } from "../utils/albumAddWarn";
+import { albumEditorSeedFromGroup } from "../utils/albumEditor";
 import { SmartPlaylistEditor } from "../components/SmartPlaylistEditor/SmartPlaylistEditor";
 import { TagPicker } from "../components/TagPicker/TagPicker";
 import { TagDialog } from "../components/TagDialog/TagDialog";
@@ -17,12 +20,13 @@ import type { LibraryAppShellProps } from "./libraryShellProps";
 
 export function LibraryDialogs(props: LibraryAppShellProps) {
 	const {
-		updateDialogOpen, changelogOpen, editing, saveMetadata, renameTrack, renameManyFromTags, fillManyFromNames,
-		setEditing, m3uMissing, setM3uMissing, addTo, playlists, tracksByPath, artists, linkedByPath, trackStats,
-		activePath, playNext, setPlayingFrom, addToQueue, addToPlaylist, createPlaylistWith, editor, saveSmartPlaylist,
-		setEditor, tagPicker, tagDialog, setTagPicker, tags, tagCounts, pins, mergeTag, setMergeTag, mergeTags, saveTag,
-		saveCategory, categoryDialog, setTagDialog, setCategoryDialog, element, copyTrackTags, pasteTrackTags,
-		addTrackTags, liveClipboardTags, setAddTo,
+		updateDialogOpen, changelogOpen, editing, saveMetadata, saveAlbumPackage, renameTrack, renameManyFromTags,
+		fillManyFromNames, setEditing, albumEditor, setAlbumEditor, showView, files, m3uMissing, setM3uMissing, addTo,
+		playlists, tracksByPath, artists, albums, linkedByPath, trackStats, activePath, playNext, setPlayingFrom,
+		addToQueue, addToPlaylist, createPlaylistWith, editor, saveSmartPlaylist, setEditor, tagPicker, tagDialog,
+		setTagPicker, tags, tagCounts, pins, mergeTag, setMergeTag, mergeTags, saveTag, saveCategory, categoryDialog,
+		setTagDialog, setCategoryDialog, element, copyTrackTags, pasteTrackTags, addTrackTags, liveClipboardTags,
+		setAddTo,
 	} = props;
 
 	return (
@@ -48,6 +52,23 @@ export function LibraryDialogs(props: LibraryAppShellProps) {
 				/>
 			)}
 
+			{albumEditor && (
+				<AlbumEditorDialog
+					mode={albumEditor.mode}
+					initialTracks={albumEditor.tracks}
+					seed={albumEditor.seed}
+					libraryTracks={files}
+					onSave={async (payload) => {
+						const key = await saveAlbumPackage(payload);
+						// Keep the editor open on failure so a long setup is not lost.
+						if (!key) return;
+						setAlbumEditor(null);
+						showView({ kind: "album", id: key });
+					}}
+					onClose={() => setAlbumEditor(null)}
+				/>
+			)}
+
 			{m3uMissing && (
 				<M3uMissingDialog groups={m3uMissing} onClose={() => setM3uMissing(null)} />
 			)}
@@ -58,6 +79,7 @@ export function LibraryDialogs(props: LibraryAppShellProps) {
 					playlists={playlists.playlists.filter(p => p.type === "manual" && !p.readOnly)}
 					tracksByPath={tracksByPath}
 					artists={artists}
+					albums={albums}
 					linkedByPath={linkedByPath}
 					allFavorite={addTo.every(tr => trackStats.stats[tr.relPath]?.favorite)}
 					onPlayNext={() => {
@@ -84,6 +106,20 @@ export function LibraryDialogs(props: LibraryAppShellProps) {
 					onCreatePlaylist={(name) => {
 						setAddTo(null);
 						createPlaylistWith(name, addTo);
+					}}
+					onCreateAlbum={() => {
+						const tracks = addTo;
+						setAddTo(null);
+						setAlbumEditor({ tracks, mode: "create" });
+					}}
+					onAddToAlbum={(album) => {
+						const incoming = addTo;
+						setAddTo(null);
+						setAlbumEditor({
+							tracks: mergeIntoAlbumTracks(album.tracks, incoming),
+							mode: "edit",
+							seed: albumEditorSeedFromGroup(album),
+						});
 					}}
 					onLinkArtist={(name) => {
 						trackStats.setTrackArtistLink(addTo, name, true);

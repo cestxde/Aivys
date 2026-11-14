@@ -35,7 +35,7 @@ fn present<'de, D: Deserializer<'de>, T: Deserialize<'de>>(input: D) -> Result<O
 }
 
 /// The fields to change: an absent field is kept, `null` (or empty text) clears it.
-#[derive(Deserialize, Default)]
+#[derive(Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MetadataEdit {
     #[serde(default, deserialize_with = "present")]
@@ -247,6 +247,47 @@ fn write_tags(target: &Path, file_type: FileType, edit: &MetadataEdit, cover: &C
     }
 }
 
+/// Whether another process is likely holding `path` so a tag rewrite would fail.
+/// On Windows we ask for exclusive access (no share) — the same class of lock
+/// that blocks replacing the file after a successful temp write.
+pub(crate) fn ensure_replaceable(path: &Path) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        OpenOptions::new()
+            .read(true)
+            .write(true)
+            .share_mode(0)
+            .open(path)
+            .map(|_| ())
+            .map_err(|err| busy_or_io(err))
+    }
+    #[cfg(not(windows))]
+    {
+        OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)
+            .map(|_| ())
+            .map_err(|err| busy_or_io(err))
+    }
+}
+
+fn busy_or_io(err: impl std::error::Error) -> String {
+    let message = error(err);
+    let lower = message.to_ascii_lowercase();
+    if lower.contains("os error 32")
+        || lower.contains("os error 33")
+        || lower.contains("being used by another process")
+        || lower.contains("resource busy")
+        || lower.contains("text file busy")
+    {
+        "file is in use by another program".into()
+    } else {
+        message
+    }
+}
+
 /// Replace `path` with a copy of it changed by `fill`; on failure the file
 /// stays as it was.
 fn replace_file(path: &Path, fill: impl FnOnce(&Path) -> Result<(), String>) -> Result<(), String> {
@@ -254,9 +295,9 @@ fn replace_file(path: &Path, fill: impl FnOnce(&Path) -> Result<(), String>) -> 
     // Not an audio extension: a scan running meanwhile skips it.
     let temp = path.with_file_name(format!(".{name}.aivys-edit"));
     let result = fs::copy(path, &temp)
-        .map_err(error)
+        .map_err(busy_or_io)
         .and_then(|_| fill(&temp))
-        .and_then(|_| fs::rename(&temp, path).map_err(error));
+        .and_then(|_| fs::rename(&temp, path).map_err(busy_or_io));
     if result.is_err() {
         let _ = fs::remove_file(&temp);
     }
@@ -302,6 +343,22 @@ fn decode_cover(edit: &MetadataEdit) -> Result<CoverChange, String> {
         None => Ok(None),
         Some(None) => Ok(Some(None)),
         Some(Some(data)) => Ok(Some(Some(read_picture(data)?))),
+    }
+}
+
+/// Prefer per-track fields; fill gaps from `shared` (so a cover can be sent once).
+pub(crate) fn merge_edit(shared: &MetadataEdit, overlay: &MetadataEdit) -> MetadataEdit {
+    MetadataEdit {
+        title: overlay.title.clone().or_else(|| shared.title.clone()),
+        artist: overlay.artist.clone().or_else(|| shared.artist.clone()),
+        album: overlay.album.clone().or_else(|| shared.album.clone()),
+        album_artist: overlay.album_artist.clone().or_else(|| shared.album_artist.clone()),
+        genre: overlay.genre.clone().or_else(|| shared.genre.clone()),
+        year: overlay.year.clone().or_else(|| shared.year.clone()),
+        track_number: overlay.track_number.clone().or_else(|| shared.track_number.clone()),
+        track_total: overlay.track_total.clone().or_else(|| shared.track_total.clone()),
+        disc_number: overlay.disc_number.clone().or_else(|| shared.disc_number.clone()),
+        cover: overlay.cover.clone().or_else(|| shared.cover.clone()),
     }
 }
 

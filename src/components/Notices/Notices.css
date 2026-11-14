@@ -42,7 +42,10 @@
 .notice-message {
     flex: 1;
     min-width: 0;
+    max-height: 7.5rem;
+    overflow: auto;
     word-break: break-word;
+    white-space: pre-wrap;
 }
 
 .notice-close {

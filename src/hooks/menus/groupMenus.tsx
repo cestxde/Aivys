@@ -1,12 +1,13 @@
 import { ask } from "@tauri-apps/plugin-dialog";
 import {
-	ClipboardPaste, FolderOpen, ImageOff, ImagePlus, Images, ListPlus, Play,
+	ClipboardPaste, FolderOpen, ImageOff, ImagePlus, Images, ListPlus, PencilLine, Play,
 } from "lucide-react";
 import type { MenuEntry } from "../../components/ContextMenu/ContextMenu";
 import type { Track, View } from "../../types";
 import { androidStorage } from "../../utils/androidStorage";
 import { clipboardImage, cropImage, pickFile, readCoverBase64 } from "../../utils/image";
 import { cropToSquare } from "../../utils/coverCrop";
+import { albumEditorSeedFromGroup } from "../../utils/albumEditor";
 import { groupCovers, type TrackGroup } from "../../utils/groups";
 import type { CoverKind } from "../useGroupCovers";
 import { displayTitle } from "../../utils/track";
@@ -20,7 +21,7 @@ export function createGroupMenus(
 	exportMenuEntries: (tracks: Track[], name: string) => MenuEntry[],
 	pinEntry: (kind: import("../usePins").PinKind, key: string) => MenuEntry,
 ) {
-	const { groupCoverStore, setSettingCover, saveMetadata, showView, playTracks, setAddTo } = deps;
+	const { groupCoverStore, setSettingCover, saveMetadata, showView, playTracks, setAddTo, setAlbumEditor } = deps;
 
 	const pasteCover = (use: (data: string) => void) => {
 		clipboardImage().then(
@@ -114,6 +115,18 @@ export function createGroupMenus(
 		{ kind: "item", label: t("common.play"), icon: <Play size={16} />, onSelect: () => playTracks(group.tracks, open) },
 		{ kind: "separator" },
 		{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo(group.tracks) },
+		...(open.kind === "album"
+			? [{
+				kind: "item" as const,
+				label: t("album.edit"),
+				icon: <PencilLine size={16} />,
+				onSelect: () => setAlbumEditor({
+					tracks: group.tracks,
+					mode: "edit",
+					seed: albumEditorSeedFromGroup(group),
+				}),
+			}]
+			: []),
 		...tagEntries(group.tracks),
 		...(deps.m3uDesktop ? [{ kind: "separator" as const }, ...exportMenuEntries(group.tracks, group.name)] : []),
 		...(open.kind === "artist" || open.kind === "album"

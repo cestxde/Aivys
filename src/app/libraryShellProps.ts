@@ -21,7 +21,8 @@ import type { ThemePreference } from "../utils/theme";
 import type { ListDisplay, SortSection, ViewSort } from "../utils/sort";
 import type { MessageKey } from "../i18n";
 import type { SidebarItemId } from "../utils/sidebarNav";
-import type { EditorState, TagDialogState, CategoryDialogState } from "./types";
+import type { AlbumEditorSave } from "../components/AlbumEditorDialog/AlbumEditorDialog";
+import type { AlbumEditorState, EditorState, TagDialogState, CategoryDialogState } from "./types";
 
 type TrackStatsStore = ReturnType<typeof useTrackStats>;
 type TagsStore = ReturnType<typeof useTags>;
@@ -208,10 +209,13 @@ export type LibraryAppShellProps = {
 	savePosition: (path: string, time: number) => void;
 	editing: Track[] | null;
 	saveMetadata: (tracks: Track[], edit: MetadataEdit) => Promise<void>;
+	saveAlbumPackage: (payload: AlbumEditorSave) => Promise<string | null>;
 	renameTrack: (track: Track, name: string) => Promise<void>;
 	renameManyFromTags: (tracks: Track[]) => Promise<void>;
 	fillManyFromNames: (tracks: Track[]) => Promise<void>;
 	setEditing: Dispatch<SetStateAction<Track[] | null>>;
+	albumEditor: AlbumEditorState | null;
+	setAlbumEditor: Dispatch<SetStateAction<AlbumEditorState | null>>;
 	m3uMissing: M3uMissingGroup[] | null;
 	setM3uMissing: Dispatch<SetStateAction<M3uMissingGroup[] | null>>;
 	addTo: Track[] | null;

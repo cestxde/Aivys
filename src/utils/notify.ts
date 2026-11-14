@@ -13,6 +13,10 @@ export interface Notice {
 
 /** How long a notice stays before it hides itself. */
 const NOTICE_MS = 8000;
+/** Errors need longer — users often need to read a path or reason. */
+const ERROR_NOTICE_MS = 20000;
+/** Keep toasts readable; the full error stays in the console. */
+const ERROR_TOAST_CHARS = 360;
 
 let notices: Notice[] = [];
 let nextId = 1;
@@ -34,10 +38,32 @@ const show = (message: string, kind: Notice['kind'], durationMs: number, action?
     setTimeout(() => dismissNotice(id), durationMs);
 };
 
-/** Show an error to the user (and log it). */
+/** Flatten invoke / Error / plain objects into a short string for the toast. */
+const formatError = (error: unknown): string => {
+    if (error == null) return "";
+    if (typeof error === "string") return error;
+    if (error instanceof Error) return error.message || error.name;
+    if (typeof error === "object") {
+        const record = error as Record<string, unknown>;
+        if (typeof record.message === "string" && record.message.trim()) return record.message;
+        try {
+            return JSON.stringify(error);
+        } catch {
+            /* fall through */
+        }
+    }
+    return String(error);
+};
+
+const truncate = (text: string, max: number): string =>
+    text.length <= max ? text : `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+
+/** Show an error to the user (and log the full detail). */
 export const notifyError = (message: string, error?: unknown) => {
     if (error !== undefined) console.error(message, error);
-    show(error !== undefined ? `${message}: ${String(error)}` : message, 'error', NOTICE_MS);
+    const detail = error !== undefined ? formatError(error) : "";
+    const full = detail ? `${message}: ${detail}` : message;
+    show(truncate(full, ERROR_TOAST_CHARS), 'error', ERROR_NOTICE_MS);
 };
 
 /** Confirm a completed action that has no other visible effect. */

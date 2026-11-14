@@ -33,6 +33,14 @@ export interface EditorState {
 	playlist: Playlist | null;
 }
 
+/** Album package dialog: create from tracks, or edit an existing album's tags. */
+export interface AlbumEditorState {
+	tracks: Track[];
+	mode: "create" | "edit";
+	/** When set (add-to / edit existing), fields and cover come from the album, not mixed newcomers. */
+	seed?: import("../utils/albumEditor").AlbumEditorSeed;
+}
+
 /**
  * The tag dialog: creating a new tag (named `name`, in `categoryIds`, then
  * assigned to `assignTo`), or editing `tag`.

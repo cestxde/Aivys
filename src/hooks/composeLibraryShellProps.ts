@@ -32,7 +32,8 @@ export type LibraryModelShellBundles = {
 	>;
 	chrome: Pick<LibraryShellPropsFromModelArgs,
 		| "setMenu" | "menu" | "closeMenu" | "updateDialogOpen" | "changelogOpen"
-		| "editing" | "saveMetadata" | "renameTrack" | "renameManyFromTags" | "fillManyFromNames" | "setEditing"
+		| "editing" | "saveMetadata" | "saveAlbumPackage" | "renameTrack" | "renameManyFromTags" | "fillManyFromNames"
+		| "setEditing" | "albumEditor" | "setAlbumEditor" | "showView"
 		| "m3uMissing" | "setM3uMissing" | "addTo" | "setAddTo" | "editor" | "setEditor"
 		| "tagPicker" | "tagDialog" | "setTagPicker" | "mergeTag" | "setMergeTag" | "mergeTags"
 		| "saveTag" | "saveCategory" | "categoryDialog"

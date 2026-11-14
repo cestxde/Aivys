@@ -91,6 +91,7 @@ export function useLibraryAppModel({
 	const [tagPicker, setTagPicker] = useState<Track[] | null>(null);
 	const [playingFrom, setPlayingFrom] = useStoredState<string | null>("session.from", null, (value): value is string | null => value === null || typeof value === "string");
 	const [editing, setEditing] = useState<Track[] | null>(null);
+	const [albumEditor, setAlbumEditor] = useState<import("../app/types").AlbumEditorState | null>(null);
 	const [undoablePaths, setUndoablePaths] = useState<string[] | null>(null);
 	const [panelTab, setPanelTab] = useState<"track" | "queue">("track");
 	const { layouts, setLayout } = usePageLayouts();
@@ -268,6 +269,7 @@ export function useLibraryAppModel({
 
 	const {
 		saveMetadata,
+		saveAlbumPackage,
 		renameTrack,
 		renameManyFromTags,
 		fillManyFromNames,
@@ -361,6 +363,7 @@ export function useLibraryAppModel({
 		setTagPicker,
 		setAddTo,
 		setEditing,
+		setAlbumEditor,
 		setTagDialog,
 		setCategoryDialog,
 		setMergeTag,
@@ -451,7 +454,8 @@ export function useLibraryAppModel({
 		},
 		chrome: {
 			setMenu, menu, closeMenu, updateDialogOpen, changelogOpen,
-			editing, saveMetadata, renameTrack, renameManyFromTags, fillManyFromNames, setEditing,
+			editing, saveMetadata, saveAlbumPackage, renameTrack, renameManyFromTags, fillManyFromNames, setEditing,
+			albumEditor, setAlbumEditor, showView,
 			m3uMissing, setM3uMissing, addTo, setAddTo, editor, setEditor,
 			tagPicker, tagDialog, setTagPicker, mergeTag, setMergeTag, mergeTags,
 			saveTag, saveCategory, categoryDialog,

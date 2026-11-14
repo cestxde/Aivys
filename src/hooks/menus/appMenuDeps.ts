@@ -5,7 +5,7 @@ import type { PinKind } from "../usePins";
 import type { ListRow, Playlist, TagCategory, Track, UserTag, View } from "../../types";
 import type { M3uPathMode } from "../../utils/m3u";
 import type { TrackGroup } from "../../utils/groups";
-import type { TagDialogState, CategoryDialogState } from "../../app/types";
+import type { AlbumEditorState, TagDialogState, CategoryDialogState } from "../../app/types";
 
 export interface AppMenuDeps {
 	listView: View;
@@ -60,6 +60,7 @@ export interface AppMenuDeps {
 	setTagPicker: (tracks: Track[] | null) => void;
 	setAddTo: (tracks: Track[] | null) => void;
 	setEditing: (tracks: Track[] | null) => void;
+	setAlbumEditor: (state: AlbumEditorState | null) => void;
 	setTagDialog: (state: TagDialogState | null) => void;
 	setCategoryDialog: (state: CategoryDialogState | null) => void;
 	setMergeTag: (tag: UserTag | null) => void;

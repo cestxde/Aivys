@@ -158,6 +158,8 @@ export function LibraryCardViews(props: LibraryAppShellProps) {
 					onOpenMenu={(group, x, y) =>
 						setMenu({ x, y, entries: props.groupMenu(group, { kind: "album", id: group.key }) })}
 					isPinned={(group) => pins.isPinned("album", group.key)}
+					onCreate={() => props.setAlbumEditor({ tracks: [], mode: "create" })}
+					createLabel={t("album.new")}
 				/>
 			);
 		default:
