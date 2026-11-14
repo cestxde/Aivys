@@ -11,7 +11,7 @@
 //! does not read the journals at all while none of them changed.
 
 use super::LibraryDb;
-use crate::store::events::{self, Dedup, Event, EventKind, EventLine, TrackStats};
+use crate::store::events::{self, Dedup, Event, EventKind, EventLine, HiddenLevel, TrackStats};
 use crate::store::{tags, Store};
 use rusqlite::{params, Transaction};
 use serde_json::Map;
@@ -106,7 +106,7 @@ impl LibraryDb {
             tx.execute_batch(
                 "DELETE FROM events; DELETE FROM journals;
                  DELETE FROM track_state; DELETE FROM track_tags;
-                 DELETE FROM track_artist_links;",
+                 DELETE FROM track_artist_links; DELETE FROM track_hidden;",
             )?;
         }
 
@@ -258,6 +258,8 @@ impl LibraryDb {
                     favorited_at: row.get(5)?,
                     tags: Vec::new(),
                     linked_artists: Vec::new(),
+                    hidden: None,
+                    hidden_at: None,
                 },
             );
         }
@@ -281,8 +283,51 @@ impl LibraryDb {
             let path: String = row.get(0)?;
             stats.entry(path).or_default().linked_artists.push(row.get(1)?);
         }
+
+        let hidden_at = hidden_at_from_events(&self.conn)?;
+        let mut stmt = self.conn.prepare("SELECT rel_path, level FROM track_hidden")?;
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            let path: String = row.get(0)?;
+            let level: i64 = row.get(1)?;
+            let hidden = match level {
+                1 => Some(HiddenLevel::Library),
+                2 => Some(HiddenLevel::Everywhere),
+                other => {
+                    log::warn!("track_hidden bad level {other} for {path}");
+                    continue;
+                }
+            };
+            let entry = stats.entry(path.clone()).or_default();
+            entry.hidden = hidden;
+            entry.hidden_at = hidden_at.get(&path).copied();
+        }
         Ok(stats)
     }
+}
+
+/// Latest `hide` timestamp per path still hidden (event order).
+fn hidden_at_from_events(conn: &rusqlite::Connection) -> rusqlite::Result<HashMap<String, u64>> {
+    let mut stmt = conn.prepare(
+        "SELECT ts, path, value FROM events
+         WHERE event = 'hide' ORDER BY ts, device, file, seq",
+    )?;
+    let mut at = HashMap::new();
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let ts: i64 = row.get(0)?;
+        let path: String = row.get(1)?;
+        match row.get::<_, Option<i64>>(2)? {
+            Some(0) => {
+                at.remove(&path);
+            }
+            Some(1) | Some(2) => {
+                at.insert(path, ts as u64);
+            }
+            _ => {}
+        }
+    }
+    Ok(at)
 }
 
 /// Parse and insert the complete lines in `bytes[start..end]`. Returns the
@@ -379,6 +424,7 @@ fn recompute(tx: &Transaction, paths: &HashSet<String>) -> rusqlite::Result<()> 
         tx.execute("DELETE FROM track_state WHERE rel_path = ?1", [path])?;
         tx.execute("DELETE FROM track_tags WHERE rel_path = ?1", [path])?;
         tx.execute("DELETE FROM track_artist_links WHERE rel_path = ?1", [path])?;
+        tx.execute("DELETE FROM track_hidden WHERE rel_path = ?1", [path])?;
 
         // Deleted tags are filtered at query time: tags.json changes on its own.
         let Some(stats) = events::derive(&ordered, &HashSet::new()).remove(path) else {
@@ -397,6 +443,16 @@ fn recompute(tx: &Transaction, paths: &HashSet<String>) -> rusqlite::Result<()> 
         }
         for (position, name) in stats.linked_artists.iter().enumerate() {
             insert_artist.execute(params![path, position as i64, name])?;
+        }
+        if let Some(level) = stats.hidden {
+            let value = match level {
+                HiddenLevel::Library => 1,
+                HiddenLevel::Everywhere => 2,
+            };
+            tx.execute(
+                "INSERT INTO track_hidden (rel_path, level) VALUES (?1, ?2)",
+                params![path, value],
+            )?;
         }
     }
     Ok(())

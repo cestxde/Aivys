@@ -288,6 +288,7 @@ device appends **only to its own file**; all devices read **all** files in
 {"schemaVersion":1,"ts":1730000500,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"unfavorite"}
 {"schemaVersion":1,"ts":1730000600,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"artistLink","tagId":"Remix Artist"}
 {"schemaVersion":1,"ts":1730000700,"device":"<deviceId>","path":"Artist/Album/01.flac","event":"artistUnlink","tagId":"Remix Artist"}
+{"schemaVersion":1,"ts":1730000800,"device":"<deviceId>","path":"Artist/Album/02.flac","event":"hide","value":1}
 ```
 
 #### 8.2.1 Event vocabulary (v1)
@@ -304,6 +305,7 @@ device appends **only to its own file**; all devices read **all** files in
 | `untag`      | `tagId`     | user tag removed from track |
 | `artistLink` | `tagId` (artist name) | track linked to an artist by hand; does not change file tags |
 | `artistUnlink` | `tagId` (artist name) | manual artist link removed |
+| `hide`       | `value` (0–2) | visibility: `0` = visible, `1` = hidden from the Library tab only, `2` = hidden everywhere (still listed in the Hidden view and manual playlists) |
 
 `device` MUST equal the journal's filename `deviceId` (it makes a line
 self-describing when copied around, e.g. inside a conflict copy).
@@ -333,6 +335,8 @@ Computed at read time from the merged, ordered events; **never stored**:
 | `favoritedAt` | `ts` of that latest `favorite` event (for "recently favorited") |
 | assigned tags | for each `(path, tagId)`, the latest of `tag`/`untag` is `tag`, and the tag is not deleted in `tags.json` |
 | `linkedArtists` | for each `(path, artist name)`, the latest of `artistLink`/`artistUnlink` (case-insensitive name) is `artistLink`; order is first link |
+| `hidden`      | `null`, `"library"`, or `"everywhere"` from the latest `hide` event's `value` (`0` clears) |
+| `hiddenAt`    | `ts` of that latest non-zero `hide` event (for "recently hidden") |
 
 Deletions are therefore just events: `unfavorite` / `untag` / `artistUnlink`
 win over earlier `favorite` / `tag` / `artistLink` regardless of which device
@@ -608,6 +612,7 @@ System playlists are **not files**. They are computed views:
 | `recentlyPlayed`| tracks ordered by `lastPlayedAt` desc, limited |
 | `mostPlayed`    | tracks ordered by `playCount` desc, limited |
 | `recentlyAdded` | tracks ordered by `addedAt` desc |
+| `hidden`        | tracks with any hide level, ordered by `hiddenAt` desc (then `addedAt`) |
 
 - Visibility/order configured in `library.json` → `ui.visibleSystemPlaylists`.
 - Statistics are computed across **all devices' journals** and over **all

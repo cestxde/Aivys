@@ -18,6 +18,7 @@ export interface AppMenuDeps {
 		stats: Record<string, import("../../types").TrackStats>;
 		toggleFavorite: (track: Track) => void;
 		setTrackTag: (tracks: Track[], tagId: string, on: boolean) => void;
+		setHidden: (tracks: Track[], level: 0 | 1 | 2) => void;
 	};
 	files: Track[];
 	tags: {

@@ -7,7 +7,7 @@ import { DEFAULT_SORT, type ListDisplay, type SortField, type ViewSort } from ".
  * tags, all artists, ... A manual playlist keeps its sort in its own file.
  */
 export type SortScope =
-    | 'library' | 'favorites' | 'recentlyPlayed' | 'mostPlayed'
+    | 'library' | 'favorites' | 'recentlyPlayed' | 'mostPlayed' | 'hidden'
     | 'tag' | 'artist' | 'album' | 'folder' | 'smart';
 
 export const sortScopeOf = (view: View, playlistType: 'manual' | 'smart' | null): SortScope | null => {
@@ -33,6 +33,7 @@ const DEFAULTS: Record<SortScope, ViewSort> = {
     favorites: DEFAULT_SORT,
     recentlyPlayed: DEFAULT_SORT,
     mostPlayed: DEFAULT_SORT,
+    hidden: DEFAULT_SORT,
     artist: DEFAULT_SORT,
     album: DEFAULT_SORT,
     folder: DEFAULT_SORT,

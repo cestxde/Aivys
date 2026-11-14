@@ -16,6 +16,7 @@ const FAILED_MESSAGES: Record<string, MessageKey> = {
     record_listen: "error.recordPlay",
     set_track_tag: "error.saveTag",
     set_track_artist_link: "error.saveArtistLink",
+    set_track_hidden: "error.saveHidden",
 };
 
 const nowUnix = () => Math.floor(Date.now() / 1000);
@@ -174,6 +175,24 @@ export const useTrackStats = (files: Track[], tagById: Map<string, UserTag> = ne
         persist("record_listen", { path: track.relPath, seconds });
     }, [persist]);
 
+    const levelOf = (st: TrackStats | undefined): 0 | 1 | 2 => {
+        if (st?.hidden === "everywhere") return 2;
+        if (st?.hidden === "library") return 1;
+        return 0;
+    };
+
+    /** `level` 0 = visible, 1 = library only, 2 = everywhere. */
+    const setHidden = useCallback((tracks: Track[], level: 0 | 1 | 2) => {
+        for (const track of tracks) {
+            if (levelOf(statsRef.current[track.relPath]) === level) continue;
+            patch(track.relPath, () => ({
+                hidden: level === 0 ? null : level === 1 ? "library" : "everywhere",
+                hiddenAt: level === 0 ? null : nowUnix(),
+            }));
+            persist("set_track_hidden", { path: track.relPath, level });
+        }
+    }, [patch, persist]);
+
     /**
      * Plays and listen chunks that happened while the page was gone (Android,
      * the app swiped away): `at` is when, in Unix seconds; `seconds` is for listen.
@@ -208,5 +227,6 @@ export const useTrackStats = (files: Track[], tagById: Map<string, UserTag> = ne
         recordComplete,
         recordListen,
         recordMissed,
+        setHidden,
     };
 };

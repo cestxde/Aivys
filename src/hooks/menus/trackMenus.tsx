@@ -1,4 +1,4 @@
-import { Heart, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, X } from "lucide-react";
+import { EyeOff, Heart, ListPlus, ListX, PencilLine, Play, SquareCheck, Trash2, X } from "lucide-react";
 import type { MenuEntry } from "../../components/ContextMenu/ContextMenu";
 import type { ListRow } from "../../types";
 import { t } from "../../i18n";
@@ -14,6 +14,39 @@ export function createTrackMenus(
 		currentTag, manualPlaylist, playlists, playFrom, setAddTo, setEditing,
 		selectRow, toggleFavorites, removeRowsFromPlaylist, deleteSelected, deleteTracks,
 	} = deps;
+
+	const hideEntries = (tracks: import("../../types").Track[]): MenuEntry[] => {
+		const levels = tracks.map(track => trackStats.stats[track.relPath]?.hidden ?? null);
+		const allHidden = levels.every(level => level != null);
+		const allEverywhere = levels.every(level => level === "everywhere");
+		const allLibraryOnly = levels.every(level => level === "library");
+		const items: MenuEntry[] = [];
+		if (allHidden) {
+			items.push({
+				kind: "item",
+				label: t("menu.unhide"),
+				icon: <EyeOff size={16} />,
+				onSelect: () => trackStats.setHidden(tracks, 0),
+			});
+		}
+		if (!allLibraryOnly && !allEverywhere) {
+			items.push({
+				kind: "item",
+				label: t("menu.hideFromLibrary"),
+				icon: <EyeOff size={16} />,
+				onSelect: () => trackStats.setHidden(tracks, 1),
+			});
+		}
+		if (!allEverywhere) {
+			items.push({
+				kind: "item",
+				label: t("menu.hideEverywhere"),
+				icon: <EyeOff size={16} />,
+				onSelect: () => trackStats.setHidden(tracks, 2),
+			});
+		}
+		return items;
+	};
 
 	const trackMenu = (row: ListRow): MenuEntry[] => {
 		const favorite = trackStats.stats[row.track.relPath]?.favorite ?? false;
@@ -34,6 +67,8 @@ export function createTrackMenus(
 			},
 			{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo([row.track]) },
 			{ kind: "item", label: t("edit.menu"), icon: <PencilLine size={16} />, onSelect: () => setEditing([row.track]) },
+			{ kind: "separator" },
+			...hideEntries([row.track]),
 			{ kind: "separator" },
 			...tagEntries([row.track], row.track),
 			...goToEntries(row.track),
@@ -83,6 +118,8 @@ export function createTrackMenus(
 			},
 			{ kind: "item", label: t("common.addTo"), icon: <ListPlus size={16} />, onSelect: () => setAddTo(tracks) },
 			{ kind: "item", label: t("edit.menu"), icon: <PencilLine size={16} />, onSelect: () => setEditing(tracks) },
+			{ kind: "separator" },
+			...hideEntries(tracks),
 			{ kind: "separator" },
 			...tagEntries(tracks),
 		];

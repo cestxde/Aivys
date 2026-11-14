@@ -25,6 +25,16 @@ pub(crate) enum EventKind {
     ArtistLink,
     /// Remove a manual artist link (`tag_id` holds the artist name).
     ArtistUnlink,
+    /// Hide visibility (`value`: 0 visible, 1 library only, 2 everywhere).
+    Hide,
+}
+
+/// Where a track is hidden from browsing (journal `hide` event).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum HiddenLevel {
+    Library,
+    Everywhere,
 }
 
 impl EventKind {
@@ -40,6 +50,7 @@ impl EventKind {
             EventKind::Untag => "untag",
             EventKind::ArtistLink => "artistLink",
             EventKind::ArtistUnlink => "artistUnlink",
+            EventKind::Hide => "hide",
         }
     }
 
@@ -55,6 +66,7 @@ impl EventKind {
             "untag" => EventKind::Untag,
             "artistLink" => EventKind::ArtistLink,
             "artistUnlink" => EventKind::ArtistUnlink,
+            "hide" => EventKind::Hide,
             _ => return None,
         })
     }
@@ -279,6 +291,10 @@ pub(crate) struct TrackStats {
     pub(crate) tags: Vec<String>,
     /// Artists linked by hand (not from file tags), in order of first link.
     pub(crate) linked_artists: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) hidden: Option<HiddenLevel>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) hidden_at: Option<u64>,
 }
 
 impl TrackStats {
@@ -289,6 +305,7 @@ impl TrackStats {
             && !self.favorite
             && self.tags.is_empty()
             && self.linked_artists.is_empty()
+            && self.hidden.is_none()
     }
 }
 
@@ -350,6 +367,21 @@ pub(crate) fn derive(events: &[Event], deleted_tags: &HashSet<String>) -> HashMa
                     None => state.push((name.to_owned(), linked)),
                 }
             }
+            EventKind::Hide => match line.value {
+                Some(0) => {
+                    entry.hidden = None;
+                    entry.hidden_at = None;
+                }
+                Some(1) => {
+                    entry.hidden = Some(HiddenLevel::Library);
+                    entry.hidden_at = Some(line.ts);
+                }
+                Some(2) => {
+                    entry.hidden = Some(HiddenLevel::Everywhere);
+                    entry.hidden_at = Some(line.ts);
+                }
+                other => log::warn!("hide event with bad value {other:?} for {}", line.path),
+            },
         }
     }
 
@@ -586,6 +618,29 @@ mod tests {
         );
         let stats = derive(&read_all(&store).unwrap(), &HashSet::new());
         assert_eq!(stats["a.flac"].linked_artists, vec!["Feature".to_owned()]);
+    }
+
+    #[test]
+    fn hide_levels_are_derived() {
+        let lib = TempLibrary::new();
+        let store = lib.open();
+        let device = store.device_id().to_owned();
+        write_journal(
+            &store,
+            &device,
+            &[
+                line(1, &device, "a.flac", "hide", Some(1), None),
+                line(2, &device, "b.flac", "hide", Some(2), None),
+                line(3, &device, "a.flac", "hide", Some(2), None),
+                line(4, &device, "c.flac", "hide", Some(1), None),
+                line(5, &device, "c.flac", "hide", Some(0), None),
+            ],
+        );
+        let stats = derive(&read_all(&store).unwrap(), &HashSet::new());
+        assert_eq!(stats["a.flac"].hidden, Some(HiddenLevel::Everywhere));
+        assert_eq!(stats["a.flac"].hidden_at, Some(3));
+        assert_eq!(stats["b.flac"].hidden, Some(HiddenLevel::Everywhere));
+        assert!(!stats.contains_key("c.flac"));
     }
 
     #[test]

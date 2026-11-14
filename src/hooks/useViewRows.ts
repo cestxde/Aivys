@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ListRow, Playlist, Track, TrackStats, View } from "../types";
 import { gapTracks } from "../utils/incomplete";
+import { filterSmartPaths } from "../utils/hidden";
 import { systemViewTracks, tagTracks, untaggedTracks, UNTAGGED_KEY } from "../utils/views";
 import { notifyError } from "../utils/notify";
 import { t } from "../i18n";
@@ -69,7 +70,8 @@ export const useViewRows = (
         if (!playlist) return { rows: [], missingCount: 0 };
 
         if (playlist.type === 'smart') {
-            const tracks = smartPaths.flatMap(path => byRelPath.get(path) ?? []);
+            const paths = filterSmartPaths(smartPaths, stats);
+            const tracks = paths.flatMap(path => byRelPath.get(path) ?? []);
             return { rows: rowsOf(tracks), missingCount: 0 };
         }
 

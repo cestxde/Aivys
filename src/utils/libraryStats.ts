@@ -1,5 +1,6 @@
 import type { Track, TrackStats } from "../types";
 import { artistKey } from "./groups";
+import { isHiddenEverywhere } from "./hidden";
 
 /** How long without a play before a track shows up in "worth revisiting". */
 export const FORGOTTEN_AFTER_SEC = 90 * 24 * 60 * 60;
@@ -62,7 +63,10 @@ export const libraryOverview = (
     const artists = new Map<string, RankedArtist>();
     let plays = 0;
 
+    let trackTotal = 0;
     for (const track of files) {
+        if (isHiddenEverywhere(stats[track.relPath])) continue;
+        trackTotal += 1;
         const st = stats[track.relPath];
         if (st?.favorite) favorites += 1;
 
@@ -112,6 +116,7 @@ export const libraryOverview = (
     const cutoff = nowSec - FORGOTTEN_AFTER_SEC;
     const forgotten = files
         .flatMap(track => {
+            if (isHiddenEverywhere(stats[track.relPath])) return [];
             const st = stats[track.relPath];
             const count = st?.playCount ?? 0;
             const last = st?.lastPlayedAt ?? null;
@@ -121,5 +126,5 @@ export const libraryOverview = (
         .sort(byPlays)
         .slice(0, STATS_TOP);
 
-    return { tracks: files.length, plays, favorites, topTracks, topArtists, forgotten };
+    return { tracks: trackTotal, plays, favorites, topTracks, topArtists, forgotten };
 };

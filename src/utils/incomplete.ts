@@ -1,4 +1,5 @@
 import type { IncompleteGap, Track, TrackStats } from "../types";
+import { isHiddenEverywhere } from "./hidden";
 
 /** Gaps shown on the Incomplete hub, in display order. */
 export const INCOMPLETE_GAPS: IncompleteGap[] = [
@@ -39,7 +40,7 @@ export const gapTracks = (
     stats: Record<string, TrackStats>,
 ): Track[] =>
     files
-        .filter(track => trackHasGap(track, gap, stats))
+        .filter(track => !isHiddenEverywhere(stats[track.relPath]) && trackHasGap(track, gap, stats))
         .sort((a, b) => b.dateCreated - a.dateCreated);
 
 /** Count of tracks per gap. */
@@ -49,6 +50,7 @@ export const incompleteCounts = (
 ): Record<IncompleteGap, number> => {
     const counts = Object.fromEntries(INCOMPLETE_GAPS.map(gap => [gap, 0])) as Record<IncompleteGap, number>;
     for (const track of files) {
+        if (isHiddenEverywhere(stats[track.relPath])) continue;
         for (const gap of INCOMPLETE_GAPS) {
             if (trackHasGap(track, gap, stats)) counts[gap]++;
         }

@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Search, Settings, X, CheckCheck, Languages, Check, ChartColumn, ListChecks } from "lucide-react";
+import { Library, ListMusic, Tag, Heart, FolderOpen, History, TrendingUp, MicVocal, Disc3, Folder, Menu, Search, Settings, X, CheckCheck, Languages, Check, ChartColumn, ListChecks, EyeOff } from "lucide-react";
 import { ThemedLogo } from "../ThemedLogo";
 import { PlayingMark } from "../CardPlayButton/CardPlayButton";
 import type { View } from "../../types";
@@ -40,6 +40,7 @@ const SECTIONS: SidebarItem[][] = [
         { label: "nav.incomplete", icon: <ListChecks size={18} />, view: { kind: "incomplete" } },
         { label: "nav.mostPlayed", icon: <TrendingUp size={18} />, view: { kind: "system", id: "mostPlayed" } },
         { label: "nav.recentlyPlayed", icon: <History size={18} />, view: { kind: "system", id: "recentlyPlayed" } },
+        { label: "nav.hidden", icon: <EyeOff size={18} />, view: { kind: "system", id: "hidden" } },
     ],
 ];
 

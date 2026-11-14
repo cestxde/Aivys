@@ -1,5 +1,5 @@
 use super::{record, record_at, with_library, with_store, StoreState};
-use crate::store::events::{self, EventKind, TrackStats};
+use crate::store::events::{self, EventKind, HiddenLevel, TrackStats};
 use crate::store::tags;
 use crate::store::{Store, StoreError};
 use std::collections::{HashMap, HashSet};
@@ -109,6 +109,33 @@ pub(crate) async fn set_track_artist_link(
             };
             events::append(store, &key, EventKind::ArtistUnlink, None, Some(stored.clone()))
         }
+    })
+}
+
+/// `level` 0 = visible, 1 = hide from library tab only, 2 = hide everywhere.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn set_track_hidden(
+    state: State<'_, StoreState>,
+    path: String,
+    level: u8,
+) -> Result<(), StoreError> {
+    if level > 2 {
+        return Err(StoreError::Invalid(format!("level must be 0-2: {level}")));
+    }
+    with_store(&state, |store| {
+        let key = store.track_key(&path)?;
+        let current = events::derive(&events::read_all(store)?, &HashSet::new())
+            .get(&key)
+            .and_then(|stats| stats.hidden)
+            .map(|hidden| match hidden {
+                HiddenLevel::Library => 1,
+                HiddenLevel::Everywhere => 2,
+            })
+            .unwrap_or(0);
+        if current == level {
+            return Ok(());
+        }
+        events::append(store, &key, EventKind::Hide, Some(i64::from(level)), None)
     })
 }
 

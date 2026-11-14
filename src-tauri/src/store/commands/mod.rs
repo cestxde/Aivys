@@ -134,7 +134,7 @@ pub(super) fn record_at(
 pub(crate) use covers::{list_group_covers, list_pins, set_group_cover, set_pinned};
 pub(crate) use events::{
     get_listen_seconds, get_play_counts, get_track_stats, record_complete, record_listen, record_play,
-    set_favorite, set_rating, set_track_artist_link, set_track_tag,
+    set_favorite, set_rating, set_track_artist_link, set_track_hidden, set_track_tag,
 };
 pub(crate) use playlists::{
     add_to_playlist, clear_playlist_cover, create_manual_playlist, create_smart_playlist, delete_playlist,

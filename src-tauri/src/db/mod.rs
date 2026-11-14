@@ -49,6 +49,12 @@ const TRACK_ARTIST_LINKS: &str = "CREATE TABLE IF NOT EXISTS track_artist_links 
     PRIMARY KEY (rel_path, position)
 );";
 
+/// Hide levels from `hide` events (`level` 1 = library, 2 = everywhere). Additive.
+const TRACK_HIDDEN: &str = "CREATE TABLE IF NOT EXISTS track_hidden (
+    rel_path TEXT PRIMARY KEY,
+    level INTEGER NOT NULL
+);";
+
 /// Bump on any schema change. A database with another version is deleted and
 /// rebuilt from scratch: it only holds rebuildable data, so no migrations.
 /// Also bump when the event vocabulary changes, so journals are re-ingested,
@@ -169,6 +175,11 @@ CREATE TABLE IF NOT EXISTS track_artist_links (
     PRIMARY KEY (rel_path, position)
 );
 
+CREATE TABLE IF NOT EXISTS track_hidden (
+    rel_path TEXT PRIMARY KEY,
+    level INTEGER NOT NULL
+);
+
 -- Copy of tags.json definitions, refreshed on every sync.
 CREATE TABLE user_tags (
     id TEXT PRIMARY KEY,
@@ -278,6 +289,17 @@ fn connect(path: &Path) -> rusqlite::Result<Connection> {
             "DELETE FROM events; DELETE FROM journals;
              DELETE FROM track_state; DELETE FROM track_tags;
              DELETE FROM track_artist_links; DELETE FROM sync_fingerprints;",
+        )?;
+    }
+    let had_track_hidden = table_exists(&conn, "track_hidden")?;
+    conn.execute_batch(TRACK_HIDDEN)?;
+    if !had_track_hidden && table_exists(&conn, "events")? {
+        log::info!("track_hidden added; re-ingesting journals on next sync");
+        conn.execute_batch(
+            "DELETE FROM events; DELETE FROM journals;
+             DELETE FROM track_state; DELETE FROM track_tags;
+             DELETE FROM track_artist_links; DELETE FROM track_hidden;
+             DELETE FROM sync_fingerprints;",
         )?;
     }
     Ok(conn)

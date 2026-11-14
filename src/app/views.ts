@@ -11,6 +11,7 @@ export const EMPTY_TEXT: Record<SystemView, MessageKey> = {
 	favorites: "empty.favorites",
 	recentlyPlayed: "empty.history",
 	mostPlayed: "empty.history",
+	hidden: "empty.hidden",
 };
 
 export const LIBRARY_VIEW: View = { kind: "system", id: "library" };
@@ -20,6 +21,7 @@ export const SYSTEM_TITLES: Record<SystemView, MessageKey> = {
 	favorites: "nav.favorites",
 	recentlyPlayed: "nav.recentlyPlayed",
 	mostPlayed: "nav.mostPlayed",
+	hidden: "nav.hidden",
 };
 /** The phone's top bar: the section a view belongs to. */
 export const SECTION_TITLES: Record<SystemView | Exclude<View["kind"], "system">, MessageKey> = {
@@ -55,9 +57,10 @@ export const defaultSortLabel = (view: View, playlist: Playlist | null): string 
 	switch (view.kind) {
 		case "system":
 			return view.id === "favorites" ? t("sort.recentlyFavorited")
-				: view.id === "recentlyPlayed" ? t("sort.recentlyPlayed")
-					: view.id === "mostPlayed" ? t("sort.mostPlayed")
-						: null;
+				: view.id === "hidden" ? t("sort.recentlyHidden")
+					: view.id === "recentlyPlayed" ? t("sort.recentlyPlayed")
+						: view.id === "mostPlayed" ? t("sort.mostPlayed")
+							: null;
 		case "artist": return t("sort.albumOrder");
 		case "album": return t("sort.trackOrder");
 		case "folder": return t("sort.folderOrder");

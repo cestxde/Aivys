@@ -54,6 +54,9 @@ export interface TrackStats {
     tags: string[];
     // Artists linked by hand (not from file tags)
     linkedArtists: string[];
+    // Hide from library tab and/or everywhere except Hidden + manual playlists
+    hidden: "library" | "everywhere" | null;
+    hiddenAt: number | null;
 }
 
 export const EMPTY_STATS: TrackStats = {
@@ -64,6 +67,8 @@ export const EMPTY_STATS: TrackStats = {
     favoritedAt: null,
     tags: [],
     linkedArtists: [],
+    hidden: null,
+    hiddenAt: null,
 };
 
 /** How a search result matched: as typed, via transliteration/keyboard layout, or with typos. */
@@ -98,7 +103,7 @@ export interface TagCategory {
 }
 
 /** Built-in list views. */
-export type SystemView = 'library' | 'favorites' | 'recentlyPlayed' | 'mostPlayed';
+export type SystemView = 'library' | 'favorites' | 'recentlyPlayed' | 'mostPlayed' | 'hidden';
 
 /** A metadata gap on the Incomplete page. */
 export type IncompleteGap = 'noArtist' | 'noTitle' | 'noAlbum' | 'noCover' | 'noTags';

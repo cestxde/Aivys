@@ -108,6 +108,7 @@ pub fn run() {
             set_favorite,
             set_track_tag,
             set_track_artist_link,
+            set_track_hidden,
             get_track_stats,
             get_play_counts,
             get_listen_seconds,

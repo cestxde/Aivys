@@ -163,6 +163,13 @@ export function useLibraryListState({
 				return at ? formatDateTime(at) : null;
 			};
 		}
+		if (historyView === "hidden") {
+			return (track: Track) => {
+				const st = stats[track.relPath];
+				const label = st?.hidden === "everywhere" ? t("hidden.everywhere") : t("hidden.library");
+				return label;
+			};
+		}
 		return hintOf(viewSort.field);
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- dates are formatted per language
 	}, [viewSort.field, historyView, trackStats.stats, language]);

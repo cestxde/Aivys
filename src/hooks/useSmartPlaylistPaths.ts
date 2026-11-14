@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Playlist, TrackStats } from "../types";
+import { filterSmartPaths } from "../utils/hidden";
 
 /**
  * Current track paths of every smart playlist, for their counts and covers on
@@ -21,7 +22,7 @@ export const useSmartPlaylistPaths = (
         let cancelled = false;
         Promise.all(smart.map(p =>
             invoke<string[]>("get_smart_playlist_tracks", { id: p.id })
-                .then(result => [p.id, result] as const)
+                .then(result => [p.id, filterSmartPaths(result, stats)] as const)
                 .catch(() => null)
         )).then(results => {
             if (!cancelled) setPaths(new Map(results.filter(r => r !== null)));

@@ -40,6 +40,7 @@ import type { ThemePreference } from "../utils/theme";
 import type { PlayerSettings } from "../types";
 import type { usePlayerSettings } from "./usePlayerSettings";
 import { useLibraryGroupCatalog, useLibraryViewGroup } from "./useLibraryCollections";
+import { browseTracks } from "../utils/hidden";
 import { useLibraryListState } from "./useLibraryListState";
 import { useLibraryShellPanels } from "./useLibraryShellPanels";
 import { composeLibraryShellProps } from "./composeLibraryShellProps";
@@ -114,6 +115,7 @@ export function useLibraryAppModel({
 
 	const tags = useTags(files);
 	const trackStats = useTrackStats(files, tags.byId);
+	const browseFiles = useMemo(() => browseTracks(files, trackStats.stats), [files, trackStats.stats]);
 	const tagClipboard = useTagClipboard();
 	usePlayTracking(element, currentTrack ?? null, trackStats.recordPlay, trackStats.recordComplete);
 	useListenTracking(element, currentTrack ?? null, trackStats.recordListen);
@@ -172,7 +174,7 @@ export function useLibraryAppModel({
 
 	const viewGroup = useLibraryViewGroup({
 		listView,
-		files,
+		browseFiles,
 		settings,
 		artistsByKey: catalog.artistsByKey,
 		albumsByKey: catalog.albumsByKey,

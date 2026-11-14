@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Heart, History, TrendingUp } from "lucide-react";
+import { EyeOff, Heart, History, TrendingUp } from "lucide-react";
 import type { PinnedPlaylist } from "../components/PlaylistsPage/PlaylistsPage";
 import { lastSegment } from "../app/views";
 import { t, useI18n } from "../i18n";
@@ -9,6 +9,7 @@ import { systemViewTracks } from "../utils/views";
 import {
 	albumKeyOf, folderTracks, groupAlbums, groupArtists, hasFolders, subfolders, type TrackGroup,
 } from "../utils/groups";
+import { browseTracks } from "../utils/hidden";
 import { notifyError, notifyInfo } from "../utils/notify";
 import { useGroupCovers } from "./useGroupCovers";
 import type { useLibrary } from "./useLibrary";
@@ -52,7 +53,11 @@ export function useLibraryGroupCatalog({
 	updateSettings: ReturnType<typeof usePlayerSettings>["updateSettings"];
 }): LibraryGroupCatalog {
 	const language = useI18n();
-	const groupCoverStore = useGroupCovers(files);
+	const browseFiles = useMemo(
+		() => browseTracks(files, trackStats.stats),
+		[files, trackStats.stats],
+	);
+	const groupCoverStore = useGroupCovers(browseFiles);
 	const { withCovers } = groupCoverStore;
 
 	const linkedByPath = useMemo(() => {
@@ -64,15 +69,15 @@ export function useLibraryGroupCatalog({
 	}, [trackStats.stats]);
 	// eslint-disable-next-line react-hooks/exhaustive-deps -- names are translated
 	const artists = useMemo(
-		() => withCovers("artist", groupArtists(files, linkedByPath)),
-		[files, language, withCovers, linkedByPath],
+		() => withCovers("artist", groupArtists(browseFiles, linkedByPath)),
+		[browseFiles, language, withCovers, linkedByPath],
 	);
 	// eslint-disable-next-line react-hooks/exhaustive-deps -- names are translated
-	const albums = useMemo(() => withCovers("album", groupAlbums(files)), [files, language, withCovers]);
+	const albums = useMemo(() => withCovers("album", groupAlbums(browseFiles)), [browseFiles, language, withCovers]);
 	const artistsByKey = useMemo(() => new Map(artists.map(g => [g.key, g])), [artists]);
 	const listedArtists = useMemo(() => artists.filter(group => group.listed), [artists]);
 	const albumsByKey = useMemo(() => new Map(albums.map(g => [g.key, g])), [albums]);
-	const showFolders = useMemo(() => hasFolders(files), [files]);
+	const showFolders = useMemo(() => hasFolders(browseFiles), [browseFiles]);
 
 	const pinned = useMemo((): PinnedPlaylist[] => {
 		const count = (id: SystemView) => systemViewTracks(files, id, trackStats.stats).length;
@@ -80,21 +85,22 @@ export function useLibraryGroupCatalog({
 			{ id: "favorites", name: t("nav.favorites"), icon: Heart, color: "#e11d48", count: count("favorites") },
 			{ id: "mostPlayed", name: t("nav.mostPlayed"), icon: TrendingUp, color: "#f59e0b", count: count("mostPlayed") },
 			{ id: "recentlyPlayed", name: t("nav.recentlyPlayed"), icon: History, color: "#3b82f6", count: count("recentlyPlayed") },
+			{ id: "hidden", name: t("nav.hidden"), icon: EyeOff, color: "#6b7280", count: count("hidden") },
 		];
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- names are translated
 	}, [files, trackStats.stats, language]);
 
 	const tagCounts = useMemo(() => {
 		const counts = new Map<string, number>();
-		for (const file of files) {
+		for (const file of browseFiles) {
 			for (const id of trackStats.stats[file.relPath]?.tags ?? []) counts.set(id, (counts.get(id) ?? 0) + 1);
 		}
 		return counts;
-	}, [files, trackStats.stats]);
+	}, [browseFiles, trackStats.stats]);
 
 	const untaggedCount = useMemo(
-		() => files.filter(file => (trackStats.stats[file.relPath]?.tags ?? []).length === 0).length,
-		[files, trackStats.stats],
+		() => browseFiles.filter(file => (trackStats.stats[file.relPath]?.tags ?? []).length === 0).length,
+		[browseFiles, trackStats.stats],
 	);
 
 	const rescan = () => library.scan(settings.lastPath);
@@ -151,13 +157,13 @@ export function useLibraryGroupCatalog({
 
 export function useLibraryViewGroup({
 	listView,
-	files,
+	browseFiles,
 	settings,
 	artistsByKey,
 	albumsByKey,
 }: {
 	listView: View;
-	files: Track[];
+	browseFiles: Track[];
 	settings: PlayerSettings;
 	artistsByKey: Map<string, TrackGroup>;
 	albumsByKey: Map<string, TrackGroup>;
@@ -171,12 +177,12 @@ export function useLibraryViewGroup({
 				name: listView.id ? lastSegment(listView.id) : lastSegment(settings.lastPath),
 				subtitle: null,
 				year: null,
-				tracks: folderTracks(files, listView.id),
+				tracks: folderTracks(browseFiles, listView.id),
 				listed: true,
 			};
 			default: return null;
 		}
-	}, [listView, artistsByKey, albumsByKey, files, settings.lastPath]);
+	}, [listView, artistsByKey, albumsByKey, browseFiles, settings.lastPath]);
 
 	const artistAlbums = useMemo(() => {
 		if (listView.kind !== "artist" || !currentGroup) return [];
@@ -187,8 +193,8 @@ export function useLibraryViewGroup({
 	}, [listView.kind, currentGroup, albumsByKey]);
 
 	const currentSubfolders = useMemo(
-		() => (listView.kind === "folder" ? subfolders(files, listView.id) : []),
-		[listView, files],
+		() => (listView.kind === "folder" ? subfolders(browseFiles, listView.id) : []),
+		[listView, browseFiles],
 	);
 
 	return { currentGroup, artistAlbums, currentSubfolders };
