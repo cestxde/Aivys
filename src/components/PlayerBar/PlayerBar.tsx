@@ -16,6 +16,7 @@ import { PlaybackOptionsButton } from "../PlaybackOptions/PlaybackOptionsButton"
 import type { EqualizerApi } from "../../hooks/useEqualizer";
 import type { SleepTimer } from "../../hooks/useSleepTimer";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
+import { TrackCrossfade } from "../TrackCrossfade/TrackCrossfade";
 import { TrackSlider } from "./TrackSlider";
 import { VolumeControl } from "./VolumeControl";
 import { Marquee } from "./Marquee";
@@ -76,25 +77,32 @@ export const PlayerBar = (props: PlayerBarProps) => {
 
 			<div className="player-bar-content">
 				<div className="player-track-cell">
-					<CoverArt
-						path={props.currentTrack?.coverPath}
-						size={40}
-						className="player-cover"
-						onClick={hasTrack ? () => setShowCover(true) : undefined}
-					/>
-					<div className="track-info">
-						<Marquee text={title || t("player.noTrack")} />
-						{artist && props.currentTrack && (
-							<span className="track-artist-display">
-								<ArtistLinks
-									line={artist}
-									artists={props.currentTrack.artists}
-									canOpen={props.canOpenArtist}
-									onOpen={props.onOpenArtist}
-								/>
-							</span>
-						)}
-					</div>
+					<TrackCrossfade
+						contentKey={props.currentTrack?.path ?? ""}
+						className="player-track-crossfade"
+					>
+						<>
+							<CoverArt
+								path={props.currentTrack?.coverPath}
+								size={40}
+								className="player-cover"
+								onClick={hasTrack ? () => setShowCover(true) : undefined}
+							/>
+							<div className="track-info">
+								<Marquee text={title || t("player.noTrack")} />
+								{artist && props.currentTrack && (
+									<span className="track-artist-display">
+										<ArtistLinks
+											line={artist}
+											artists={props.currentTrack.artists}
+											canOpen={props.canOpenArtist}
+											onOpen={props.onOpenArtist}
+										/>
+									</span>
+								)}
+							</div>
+						</>
+					</TrackCrossfade>
 				</div>
 
 				<div className="playback-controls">

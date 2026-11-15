@@ -179,6 +179,54 @@ export const useAudioController = (
 		}
 	};
 
+	const clearSlotQuiet = (target: 0 | 1) => {
+		if (!dual || !pathsRef.current[target]) return;
+		const el = pair[target];
+		el.pause();
+		el.removeAttribute("src");
+		el.load();
+		pathsRef.current[target] = null;
+	};
+
+	/** True when the idle slot has `path` buffered enough to start. */
+	const preloadReady = (path: string): boolean => {
+		if (!dual || preloadPathRef.current !== path) return false;
+		if (pathsRef.current[idleSlot] !== path) return false;
+		return pair[idleSlot].readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+	};
+
+	/**
+	 * Wait until the idle preload for `path` can play, or reject on error/timeout.
+	 */
+	const whenPreloadReady = (path: string, timeoutMs = 8_000): Promise<void> => {
+		if (preloadReady(path)) return Promise.resolve();
+		if (!dual) return Promise.reject(new Error("no dual"));
+		if (preloadPathRef.current !== path) {
+			preload(path);
+		}
+		const el = pair[idleSlot];
+		return new Promise((resolve, reject) => {
+			let done = false;
+			const finish = (ok: boolean) => {
+				if (done) return;
+				done = true;
+				window.clearTimeout(timer);
+				el.removeEventListener("canplay", onReady);
+				el.removeEventListener("loadeddata", onReady);
+				el.removeEventListener("error", onErr);
+				ok ? resolve() : reject(new Error("preload failed"));
+			};
+			const onReady = () => finish(true);
+			const onErr = () => finish(false);
+			const timer = window.setTimeout(() => finish(preloadReady(path)), timeoutMs);
+			el.addEventListener("canplay", onReady);
+			el.addEventListener("loadeddata", onReady);
+			el.addEventListener("error", onErr);
+			// Already moving — check again in case we raced the listeners.
+			if (preloadReady(path)) finish(true);
+		});
+	};
+
 	/**
 	 * Promote the preloaded idle slot to current and optionally play.
 	 * Returns false if nothing was preloaded.
@@ -187,34 +235,61 @@ export const useAudioController = (
 		if (!dual || !preloadPathRef.current) return false;
 		const next = idleSlot;
 		const prev = slot;
-		pair[prev].pause();
+		const incoming = pair[next];
 		setSlotGain(next, 1);
 		setSlotGain(prev, 0);
 		preloadPathRef.current = null;
 		setSlot(next);
 		if (play) {
+			// Start the next element before pausing the previous so the shared
+			// pause handler never sees both slots idle (which flips isPlaying off).
 			setIsPlaying(true);
-			pair[next].play().catch(reportPlaybackError);
+			const start = incoming.play();
+			pair[prev].pause();
+			start.catch(reportPlaybackError);
 		} else {
+			pair[prev].pause();
 			setIsPlaying(false);
 		}
-		// Free previous slot after a tick so promote callers can read state first.
-		queueMicrotask(() => {
-			if (pathsRef.current[prev] && pair[prev] !== pair[next]) {
-				pair[prev].removeAttribute("src");
-				pair[prev].load();
-				pathsRef.current[prev] = null;
-			}
-		});
+		queueMicrotask(() => clearSlotQuiet(prev));
 		return true;
+	};
+
+	/**
+	 * Mid crossfade: make the incoming slot the UI "current" without stopping
+	 * the outgoing one (both keep playing while gains finish ramping).
+	 */
+	const revealIncoming = (): boolean => {
+		if (!dual || !preloadPathRef.current) return false;
+		const incoming = idleSlot;
+		setSlot(incoming);
+		preloadPathRef.current = null;
+		setIsPlaying(true);
+		return true;
+	};
+
+	/** After a revealed crossfade: silence and free the outgoing slot. */
+	const finishOutgoing = (outgoing: 0 | 1) => {
+		if (!dual) return;
+		const keep: 0 | 1 = outgoing === 0 ? 1 : 0;
+		pair[outgoing].pause();
+		setSlotGain(outgoing, 0);
+		setSlotGain(keep, 1);
+		// Keep UI on the incoming slot if a reveal already swapped it.
+		if (slot === outgoing) setSlot(keep);
+		clearSlotQuiet(outgoing);
 	};
 
 	/** Start the preloaded track at volume 0 (crossfade in). */
 	const startPreloadSilent = (): boolean => {
 		if (!dual || !preloadPathRef.current) return false;
+		const incoming = pair[idleSlot];
+		if (incoming.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return false;
 		setSlotGain(idleSlot, 0);
-		pair[idleSlot].currentTime = 0;
-		pair[idleSlot].play().catch(reportPlaybackError);
+		try {
+			incoming.currentTime = 0;
+		} catch { /* not seekable yet */ }
+		incoming.play().catch(reportPlaybackError);
 		setIsPlaying(true);
 		return true;
 	};
@@ -276,7 +351,9 @@ export const useAudioController = (
 		dual,
 		preloadPath: () => preloadPathRef.current,
 		pathInSlot: (s: 0 | 1) => pathsRef.current[s],
-		playFile, loadFilePaused, preload, clearPreload, promotePreload, startPreloadSilent,
+		playFile, loadFilePaused, preload, clearPreload, promotePreload,
+		preloadReady, whenPreloadReady,
+		revealIncoming, finishOutgoing, startPreloadSilent,
 		setSlotGain,
 		togglePlay, seek, stop, unload,
 	};

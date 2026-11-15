@@ -16,6 +16,7 @@ import { useBackLayer } from "../../hooks/useBackLayer";
 import { useCoverColor } from "../../hooks/useCoverColor";
 import { rgbCss } from "../../utils/coverColor";
 import { PlaybackOptionsButton } from "../PlaybackOptions/PlaybackOptionsButton";
+import { TrackCrossfade } from "../TrackCrossfade/TrackCrossfade";
 import type { EqualizerApi } from "../../hooks/useEqualizer";
 import type { SleepTimer } from "../../hooks/useSleepTimer";
 import "./MobilePlayer.css";
@@ -87,7 +88,12 @@ export const NowPlaying = (props: NowPlayingProps) => {
     const artist = displayArtists(track);
     const tags = tagsOf(stats?.tags, props.tagsById);
     const favorite = stats?.favorite ?? false;
-    const swipe = useNowPlayingSwipe(props.next ? props.onNext : null, props.previous ? props.onSwipePrevious : null);
+    // Swipe already slides the neighbour in — remount crossfade so it does not dissolve.
+    const [swipeEpoch, setSwipeEpoch] = useState(0);
+    const swipe = useNowPlayingSwipe(
+        props.next ? () => { setSwipeEpoch(n => n + 1); props.onNext(); } : null,
+        props.previous ? () => { setSwipeEpoch(n => n + 1); props.onSwipePrevious(); } : null,
+    );
     const tint = useCoverColor(track.coverPath);
     const tintStyle = {
         // No cover: a dull gray wash, not the bright accent.
@@ -167,23 +173,31 @@ export const NowPlaying = (props: NowPlayingProps) => {
                     <div className="now-playing-strip" style={swipe.style}>
                         <NowPlayingNeighbour track={props.previous} side="previous" />
                         <div className="now-playing-panel">
-                            <div className="now-playing-cover-wrap">
-                                <CoverArt
-                                    path={track.coverPath}
-                                    size={320}
-                                    className="now-playing-cover"
-                                    onClick={track.coverPath ? () => setShowCover(true) : undefined}
-                                />
-                            </div>
+                            <TrackCrossfade
+                                key={swipeEpoch}
+                                contentKey={track.path}
+                                className="now-playing-crossfade"
+                            >
+                                <>
+                                    <div className="now-playing-cover-wrap">
+                                        <CoverArt
+                                            path={track.coverPath}
+                                            size={320}
+                                            className="now-playing-cover"
+                                            onClick={track.coverPath ? () => setShowCover(true) : undefined}
+                                        />
+                                    </div>
 
-                            <div className="now-playing-heading">
-                                <h2 className="now-playing-title">{displayTitle(track)}</h2>
-                                {artist && (
-                                    <span className="now-playing-artist">
-                                        <ArtistLinks line={artist} artists={track.artists} canOpen={props.canOpenArtist} onOpen={props.onOpenArtist} />
-                                    </span>
-                                )}
-                            </div>
+                                    <div className="now-playing-heading">
+                                        <h2 className="now-playing-title">{displayTitle(track)}</h2>
+                                        {artist && (
+                                            <span className="now-playing-artist">
+                                                <ArtistLinks line={artist} artists={track.artists} canOpen={props.canOpenArtist} onOpen={props.onOpenArtist} />
+                                            </span>
+                                        )}
+                                    </div>
+                                </>
+                            </TrackCrossfade>
                         </div>
                         <NowPlayingNeighbour track={props.next} side="next" />
                     </div>

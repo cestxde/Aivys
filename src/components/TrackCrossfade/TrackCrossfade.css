@@ -1,0 +1,36 @@
+.track-crossfade {
+	position: relative;
+	display: grid;
+	min-width: 0;
+	isolation: isolate;
+}
+
+.track-crossfade-layer {
+	grid-area: 1 / 1;
+	min-width: 0;
+	transition: opacity var(--track-crossfade-ms, 650ms) ease-out;
+}
+
+/* Hold the first frame of a swap without animating into it. */
+.track-crossfade[data-phase="start"] .track-crossfade-layer {
+	transition: none;
+}
+
+.track-crossfade-layer.is-back {
+	opacity: 1;
+	pointer-events: none;
+	z-index: 0;
+}
+
+.track-crossfade-layer.is-back.is-leaving {
+	opacity: 0;
+}
+
+.track-crossfade-layer.is-front {
+	opacity: 0;
+	z-index: 1;
+}
+
+.track-crossfade-layer.is-front.is-shown {
+	opacity: 1;
+}

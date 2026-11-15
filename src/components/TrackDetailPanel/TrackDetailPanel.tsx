@@ -11,6 +11,7 @@ import { ArtistLinks } from "../ArtistLinks/ArtistLinks";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { TagChip } from "../TagChip/TagChip";
 import { ContextMenu, type MenuEntry } from "../ContextMenu/ContextMenu";
+import { TrackCrossfade } from "../TrackCrossfade/TrackCrossfade";
 import { useCoverColor } from "../../hooks/useCoverColor";
 import { rgbCss } from "../../utils/coverColor";
 import { t } from "../../i18n";
@@ -163,23 +164,27 @@ export const TrackDetailPanel = ({
     return (
         <div className="detail-body">
             <div className="detail-hero" style={tintStyle}>
-                <div className="detail-cover-wrap">
-                    <CoverArt
-                        path={track.coverPath}
-                        size={200}
-                        className="detail-cover"
-                        onClick={track.coverPath ? () => setShowCover(true) : undefined}
-                    />
-                </div>
+                <TrackCrossfade contentKey={track.path} className="detail-hero-crossfade">
+                    <>
+                        <div className="detail-cover-wrap">
+                            <CoverArt
+                                path={track.coverPath}
+                                size={200}
+                                className="detail-cover"
+                                onClick={track.coverPath ? () => setShowCover(true) : undefined}
+                            />
+                        </div>
 
-                <div className="detail-heading">
-                    <h2 className="detail-title">{displayTitle(track)}</h2>
-                    {artists && (
-                        <span className="detail-artist">
-                            <ArtistLinks line={artists} artists={track.artists} canOpen={canOpenArtist} onOpen={onOpenArtist} />
-                        </span>
-                    )}
-                </div>
+                        <div className="detail-heading">
+                            <h2 className="detail-title">{displayTitle(track)}</h2>
+                            {artists && (
+                                <span className="detail-artist">
+                                    <ArtistLinks line={artists} artists={track.artists} canOpen={canOpenArtist} onOpen={onOpenArtist} />
+                                </span>
+                            )}
+                        </div>
+                    </>
+                </TrackCrossfade>
             </div>
 
             <div className="detail-actions">

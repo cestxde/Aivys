@@ -4,6 +4,7 @@ import type { Track } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { CoverArt } from "../CoverArt";
 import { Marquee } from "../PlayerBar/Marquee";
+import { TrackCrossfade } from "../TrackCrossfade/TrackCrossfade";
 import { useCoverColor } from "../../hooks/useCoverColor";
 import { rgbCss } from "../../utils/coverColor";
 import { t } from "../../i18n";
@@ -39,11 +40,15 @@ export const MiniPlayer = ({ track, isPlaying, onTogglePlay, onPrev, onNext, onO
             onKeyDown={(e) => e.key === "Enter" && onOpen()}
             style={tintStyle}
         >
-            <CoverArt path={track.coverPath} size={44} className="mini-player-cover" />
-            <div className="mini-player-text">
-                <Marquee text={displayTitle(track)} className="mini-player-title" />
-                {artist && <span className="mini-player-artist">{artist}</span>}
-            </div>
+            <TrackCrossfade contentKey={track.path} className="mini-player-crossfade">
+                <>
+                    <CoverArt path={track.coverPath} size={44} className="mini-player-cover" />
+                    <div className="mini-player-text">
+                        <Marquee text={displayTitle(track)} className="mini-player-title" />
+                        {artist && <span className="mini-player-artist">{artist}</span>}
+                    </div>
+                </>
+            </TrackCrossfade>
             {/* The buttons act; a tap anywhere else opens the full player. */}
             <div className="mini-player-buttons" onClick={(e) => e.stopPropagation()}>
                 <button className="mini-player-button" title={t("player.previous")} onClick={onPrev}>

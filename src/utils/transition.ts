@@ -5,6 +5,13 @@ export const DELAY_MS_MAX = 30_000;
 export const CROSSFADE_SEC_MIN = 1;
 export const CROSSFADE_SEC_MAX = 12;
 
+/** UI track swap: manual skip. */
+export const TRACK_SWAP_MS_FAST = 180;
+/** UI track swap: gapless auto-advance. */
+export const TRACK_SWAP_MS_NORMAL = 650;
+/** UI track swap: mid audio-crossfade handoff. */
+export const TRACK_SWAP_MS_CROSSFADE = 420;
+
 export const clampDelayMs = (value: number): number =>
 	Math.min(DELAY_MS_MAX, Math.max(DELAY_MS_MIN, Math.round(value)));
 

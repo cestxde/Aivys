@@ -5,8 +5,12 @@ import type { Track, PlayerSettings } from "../types";
 import { nextRepeatMode } from "../constants";
 import { loadPosition, loadQueue, savePosition, saveQueue } from "../utils/session";
 import { asNativeAudio } from "../utils/nativeAudio";
+import { setTrackSwapMs } from "../utils/trackSwapUi";
 import { displayArtists, displayTitle } from "../utils/track";
-import { clampCrossfadeSec, clampDelayMs, equalPowerGains } from "../utils/transition";
+import {
+	clampCrossfadeSec, clampDelayMs, equalPowerGains,
+	TRACK_SWAP_MS_CROSSFADE, TRACK_SWAP_MS_FAST, TRACK_SWAP_MS_NORMAL,
+} from "../utils/transition";
 
 /** Back goes to the start of the track until it has played this long (seconds). */
 const RESTART_THRESHOLD = 3;
@@ -31,9 +35,11 @@ export const useAudioPlayer = (
 	const activePath = q.current?.path ?? null;
 
 	const transitioning = useRef(false);
+	const transitionGen = useRef(0);
 	const delayTimer = useRef<number | null>(null);
 	const fadeRaf = useRef<number | null>(null);
 	const crossfadeStarted = useRef(false);
+	const crossfadeUiFlipped = useRef(false);
 
 	const clearTransitionTimers = useCallback(() => {
 		if (delayTimer.current !== null) {
@@ -45,7 +51,9 @@ export const useAudioPlayer = (
 			fadeRaf.current = null;
 		}
 		crossfadeStarted.current = false;
+		crossfadeUiFlipped.current = false;
 		transitioning.current = false;
+		transitionGen.current += 1;
 	}, []);
 
 	const abortTransition = useCallback(() => {
@@ -60,6 +68,7 @@ export const useAudioPlayer = (
 
 	const playTrack = (track: Track, tracks: Track[], options: { shuffle?: boolean } = {}) => {
 		abortTransition();
+		setTrackSwapMs(TRACK_SWAP_MS_FAST);
 		const shuffle = options.shuffle ?? isShuffle;
 		if (shuffle !== isShuffle) updateSettings({ isShuffle: shuffle });
 		const index = tracks.indexOf(track);
@@ -70,6 +79,7 @@ export const useAudioPlayer = (
 	const goTo = (track: Track | null) => {
 		if (!track) return;
 		abortTransition();
+		setTrackSwapMs(TRACK_SWAP_MS_FAST);
 		audio.playFile(track.path);
 	};
 
@@ -103,18 +113,17 @@ export const useAudioPlayer = (
 	};
 
 	const finishAdvance = (track: Track, play: boolean) => {
+		setTrackSwapMs(TRACK_SWAP_MS_NORMAL);
 		if (q.isLast && repeatMode === "none" && track === q.first) {
 			q.rewind();
 		} else {
 			q.move(1, true);
 		}
-		if (audio.dual && audio.preloadPath() === track.path) {
-			audio.promotePreload(play);
-		} else if (play) {
-			audio.playFile(track.path);
-		} else {
-			audio.loadFilePaused(track.path);
+		if (play && audio.dual && audio.preloadReady(track.path) && audio.promotePreload(true)) {
+			return;
 		}
+		if (play) audio.playFile(track.path);
+		else audio.loadFilePaused(track.path);
 	};
 
 	const startGaplessAdvance = (track: Track, play: boolean) => {
@@ -127,62 +136,107 @@ export const useAudioPlayer = (
 			return;
 		}
 		transitioning.current = true;
+		const gen = transitionGen.current;
 		const run = () => {
+			if (gen !== transitionGen.current) return;
 			finishAdvance(track, true);
 			transitioning.current = false;
 			delayTimer.current = null;
 		};
-		if (delayMs <= 0) {
-			run();
+		const arm = () => {
+			if (gen !== transitionGen.current) return;
+			if (delayMs <= 0) {
+				run();
+				return;
+			}
+			delayTimer.current = window.setTimeout(run, delayMs);
+		};
+		if (audio.preloadReady(track.path)) {
+			arm();
 			return;
 		}
-		const started = performance.now();
-		delayTimer.current = window.setTimeout(() => {
-			const drift = performance.now() - started - delayMs;
-			if (drift > 8) {
-				// Still honor the requested delay as closely as timers allow.
-			}
-			run();
-		}, delayMs);
+		// Wait for the preloaded element — promoting an empty buffer stops audio
+		// and leaves the seek bar with duration 0.
+		void audio.whenPreloadReady(track.path).then(arm).catch(() => {
+			if (gen !== transitionGen.current) return;
+			transitioning.current = false;
+			setTrackSwapMs(TRACK_SWAP_MS_NORMAL);
+			q.move(1, true);
+			audio.playFile(track.path);
+		});
 	};
 
 	const startCrossfade = (track: Track) => {
 		if (!audio.dual) {
+			setTrackSwapMs(TRACK_SWAP_MS_FAST);
 			goTo(q.move(1, true));
 			return;
 		}
-		if (audio.preloadPath() !== track.path) audio.preload(track.path);
-		if (!audio.startPreloadSilent()) {
-			goTo(q.move(1, true));
+		const begin = () => {
+			if (audio.preloadPath() !== track.path) audio.preload(track.path);
+			if (!audio.startPreloadSilent()) {
+				setTrackSwapMs(TRACK_SWAP_MS_FAST);
+				goTo(q.move(1, true));
+				return;
+			}
+			transitioning.current = true;
+			crossfadeStarted.current = true;
+			crossfadeUiFlipped.current = false;
+			const duration = audio.element.duration;
+			const remaining = Number.isFinite(duration)
+				? Math.max(0.05, duration - audio.element.currentTime)
+				: crossfadeSec;
+			const fadeFor = Math.min(crossfadeSec, remaining) * 1000;
+			const fromSlot = audio.slot;
+			const toSlot = audio.idleSlot;
+			const started = performance.now();
+
+			const tick = () => {
+				const t = Math.min(1, (performance.now() - started) / fadeFor);
+				const { out, inn } = equalPowerGains(t);
+				audio.setSlotGain(fromSlot, out);
+				audio.setSlotGain(toSlot, inn);
+				// At equal power (~50% each), hand the UI / seek bar to the next track.
+				if (!crossfadeUiFlipped.current && t >= 0.5) {
+					crossfadeUiFlipped.current = true;
+					setTrackSwapMs(TRACK_SWAP_MS_CROSSFADE);
+					q.move(1, true);
+					audio.revealIncoming();
+				}
+				if (t >= 1) {
+					fadeRaf.current = null;
+					crossfadeStarted.current = false;
+					if (!crossfadeUiFlipped.current) {
+						setTrackSwapMs(TRACK_SWAP_MS_CROSSFADE);
+						q.move(1, true);
+						audio.promotePreload(true);
+					} else {
+						audio.finishOutgoing(fromSlot);
+					}
+					crossfadeUiFlipped.current = false;
+					transitioning.current = false;
+					return;
+				}
+				fadeRaf.current = window.requestAnimationFrame(tick);
+			};
+			fadeRaf.current = window.requestAnimationFrame(tick);
+		};
+
+		const gen = transitionGen.current;
+		if (audio.preloadReady(track.path)) {
+			begin();
 			return;
 		}
 		transitioning.current = true;
-		crossfadeStarted.current = true;
-		const duration = audio.element.duration;
-		const remaining = Number.isFinite(duration)
-			? Math.max(0.05, duration - audio.element.currentTime)
-			: crossfadeSec;
-		const fadeFor = Math.min(crossfadeSec, remaining) * 1000;
-		const fromSlot = audio.slot;
-		const toSlot = audio.idleSlot;
-		const started = performance.now();
-
-		const tick = () => {
-			const t = Math.min(1, (performance.now() - started) / fadeFor);
-			const { out, inn } = equalPowerGains(t);
-			audio.setSlotGain(fromSlot, out);
-			audio.setSlotGain(toSlot, inn);
-			if (t >= 1) {
-				fadeRaf.current = null;
-				crossfadeStarted.current = false;
-				q.move(1, true);
-				audio.promotePreload(true);
-				transitioning.current = false;
-				return;
-			}
-			fadeRaf.current = window.requestAnimationFrame(tick);
-		};
-		fadeRaf.current = window.requestAnimationFrame(tick);
+		void audio.whenPreloadReady(track.path).then(() => {
+			if (gen !== transitionGen.current) return;
+			begin();
+		}).catch(() => {
+			if (gen !== transitionGen.current) return;
+			transitioning.current = false;
+			setTrackSwapMs(TRACK_SWAP_MS_FAST);
+			goTo(q.move(1, true));
+		});
 	};
 
 	const onEnded = () => {
@@ -331,8 +385,11 @@ export const useAudioPlayer = (
 	useEffect(() => {
 		if (!native) return;
 		const onAdvanced = (e: Event) => {
-			const detail = (e as CustomEvent<{ path: string; queueIndex: number }>).detail;
+			const detail = (e as CustomEvent<{
+				path: string; queueIndex: number; ui?: string;
+			}>).detail;
 			if (!detail) return;
+			setTrackSwapMs(detail.ui === "crossfade" ? TRACK_SWAP_MS_CROSSFADE : TRACK_SWAP_MS_NORMAL);
 			if (typeof detail.queueIndex === "number" && detail.queueIndex >= 0) {
 				q.jumpTo(detail.queueIndex);
 			} else if (detail.path) {

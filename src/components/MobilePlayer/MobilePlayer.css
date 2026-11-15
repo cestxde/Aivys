@@ -28,6 +28,20 @@
     cursor: pointer;
 }
 
+.mini-player-crossfade {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    align-self: stretch;
+}
+
+.mini-player-crossfade .track-crossfade-layer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
 .mini-player-cover {
     border-radius: 50%;
     overflow: hidden;
@@ -133,6 +147,21 @@
     padding: 0.5rem 1.5rem 0;
     /* The player does not scroll as a whole; only its tags, when many. */
     overflow: hidden;
+}
+
+.now-playing-crossfade {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+}
+
+.now-playing-crossfade .track-crossfade-layer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    min-width: 0;
+    width: 100%;
 }
 
 .now-playing-cover-wrap {

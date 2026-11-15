@@ -40,7 +40,7 @@ type PlayerEvent =
     | { type: "loaded"; duration: number }
     | { type: "play" | "pause" | "ended" | "next" | "previous" | "slept" | "shuffle" | "repeat" }
     | { type: "time" | "seeked"; position: number }
-    | { type: "advanced"; path: string; queueIndex: number; position: number; playing: boolean }
+    | { type: "advanced"; path: string; queueIndex: number; position: number; playing: boolean; ui?: string }
     | { type: "error"; message: string };
 
 /** What the native player has loaded, and where it is. */

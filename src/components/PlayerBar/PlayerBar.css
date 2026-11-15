@@ -77,6 +77,19 @@
     width: 100%;
 }
 
+.player-track-crossfade {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+}
+
+.player-track-crossfade .track-crossfade-layer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
 .player-cover {
     border-radius: 4px;
     overflow: hidden;
