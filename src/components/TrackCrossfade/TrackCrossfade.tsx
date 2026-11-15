@@ -26,11 +26,15 @@ export const TrackCrossfade = ({
 }: TrackCrossfadeProps) => {
 	const storeMs = useTrackSwapMs();
 	const durationMs = durationProp ?? storeMs;
+	const durationRef = useRef(durationMs);
+	durationRef.current = durationMs;
+
 	const keyRef = useRef(contentKey);
 	const frontRef = useRef({ key: contentKey, node: children });
 	const [front, setFront] = useState({ key: contentKey, node: children });
 	const [back, setBack] = useState<{ key: string; node: ReactNode } | null>(null);
 	const [phase, setPhase] = useState<"idle" | "start" | "run">("idle");
+	const clearBackTimer = useRef<number | null>(null);
 
 	frontRef.current = front;
 
@@ -45,6 +49,11 @@ export const TrackCrossfade = ({
 		const previous = frontRef.current;
 		keyRef.current = contentKey;
 
+		if (clearBackTimer.current !== null) {
+			window.clearTimeout(clearBackTimer.current);
+			clearBackTimer.current = null;
+		}
+
 		if (!animate) {
 			setBack(null);
 			setFront({ key: contentKey, node: children });
@@ -58,17 +67,22 @@ export const TrackCrossfade = ({
 		const raf = requestAnimationFrame(() => {
 			requestAnimationFrame(() => setPhase("run"));
 		});
-		const timer = window.setTimeout(() => {
+		clearBackTimer.current = window.setTimeout(() => {
+			clearBackTimer.current = null;
 			setBack(null);
 			setPhase("idle");
-		}, durationMs);
+		}, durationRef.current);
 		return () => {
 			cancelAnimationFrame(raf);
-			window.clearTimeout(timer);
 		};
-		// children from the render that changed contentKey
+		// duration is read from durationRef when the key changes — do not
+		// re-run (and cancel the clear timer) when only the store ms changes.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [contentKey, animate, durationMs]);
+	}, [contentKey, animate]);
+
+	useLayoutEffect(() => () => {
+		if (clearBackTimer.current !== null) window.clearTimeout(clearBackTimer.current);
+	}, []);
 
 	const style = { "--track-crossfade-ms": `${durationMs}ms` } as CSSProperties;
 	const running = phase === "run";

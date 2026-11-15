@@ -70,15 +70,14 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
   @JavascriptInterface
   fun play() = main.post {
     startService()
-    if (player.playbackState == Player.STATE_ENDED) player.seekTo(0)
-    player.playWhenReady = true
+    PlayerHub.playTransport()
   }
 
   @JavascriptInterface
-  fun pause() = main.post { player.playWhenReady = false }
+  fun pause() = main.post { PlayerHub.pauseTransport() }
 
   @JavascriptInterface
-  fun seek(seconds: Double) = main.post { player.seekTo((seconds * 1000).toLong()) }
+  fun seek(seconds: Double) = main.post { PlayerHub.seekTransport(seconds) }
 
   /**
    * The queue, in the order it plays: JSON `[{path, title, artist, album,

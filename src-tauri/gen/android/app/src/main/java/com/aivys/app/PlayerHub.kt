@@ -54,7 +54,15 @@ object PlayerHub {
   private var transitioning = false
   private var crossfadeStarted = false
   private var crossfadeUiFlipped = false
+  private var crossfadeRamp: Runnable? = null
   private var preloadPath: String? = null
+
+  /** Snapshot of the outgoing track while UI is handed to the next mid-crossfade. */
+  private var presentedFromPath: String? = null
+  private var presentedFromIndex = -1
+  private var presentedFromMetadata = JSONObject()
+  private var presentedFromPosition = 0.0
+  private var presentedFromDuration: Double? = null
 
   /** Media session should rebuild its player after an A/B swap. */
   var onSessionPlayerChanged: (() -> Unit)? = null
@@ -65,7 +73,41 @@ object PlayerHub {
     crossfadeSec = crossfade.coerceIn(1.0, 12.0)
   }
 
-  /** Page volume; applied to the audible player(s), not during an active crossfade ramp. */
+  /**
+   * Player the page should control (play / pause / seek): after the mid-crossfade
+   * UI flip that is the incoming ExoPlayer, otherwise the current one.
+   */
+  fun transportPlayer(): ExoPlayer? =
+    if (crossfadeUiFlipped) exoNext ?: exo else exo
+
+  /** Pause both legs while a crossfade is running; otherwise pause the current player. */
+  fun pauseTransport() {
+    if (crossfadeStarted) {
+      exo?.playWhenReady = false
+      exoNext?.playWhenReady = false
+    } else {
+      (transportPlayer() ?: exo)?.playWhenReady = false
+    }
+  }
+
+  /** Resume the audible leg(s); mid-crossfade both keep ramping. */
+  fun playTransport() {
+    if (crossfadeStarted) {
+      exo?.playWhenReady = true
+      exoNext?.playWhenReady = true
+    } else {
+      val target = transportPlayer() ?: exo ?: return
+      if (target.playbackState == Player.STATE_ENDED) target.seekTo(0)
+      target.playWhenReady = true
+    }
+  }
+
+  fun seekTransport(seconds: Double) {
+    val target = transportPlayer() ?: exo ?: return
+    target.seekTo((seconds * 1000).toLong())
+  }
+
+  /** Page volume; during a crossfade ramp the next tick re-applies `volume`. */
   fun setOutputVolume(level: Float) {
     volume = level
     if (crossfadeStarted) return
@@ -525,6 +567,29 @@ object PlayerHub {
 
   private fun abortTransition() {
     main.removeCallbacks(delayAdvance)
+    crossfadeRamp?.let { main.removeCallbacks(it) }
+    crossfadeRamp = null
+    val restoreUi = crossfadeUiFlipped && presentedFromPath != null
+    if (restoreUi) {
+      path = presentedFromPath
+      queueIndex = presentedFromIndex
+      metadata = presentedFromMetadata
+      position = presentedFromPosition
+      duration = presentedFromDuration
+      widgetChanged()
+      saveState(true)
+      emit(
+        JSONObject()
+          .put("type", "advanced")
+          .put("path", path)
+          .put("queueIndex", queueIndex)
+          .put("position", position)
+          .put("playing", playing)
+          .put("ui", "abort"),
+      )
+      if (duration != null) emit(JSONObject().put("type", "loaded").put("duration", duration))
+    }
+    clearPresentedSnapshot()
     transitioning = false
     crossfadeStarted = false
     crossfadeUiFlipped = false
@@ -532,6 +597,14 @@ object PlayerHub {
     exoNext?.playWhenReady = false
     exoNext?.volume = 0f
     clearNext()
+  }
+
+  private fun clearPresentedSnapshot() {
+    presentedFromPath = null
+    presentedFromIndex = -1
+    presentedFromMetadata = JSONObject()
+    presentedFromPosition = 0.0
+    presentedFromDuration = null
   }
 
   // "Next" and "previous" of the system's controls: the page's to answer, or
@@ -591,12 +664,17 @@ object PlayerHub {
 
   private fun maybePreloadNext() {
     if (transitioning || stopAfterTrack || repeat == "one") return
-    val context = appContext ?: return
     val here = here()
     val next = nextIndex(here) ?: run {
       clearNext()
       return
     }
+    ensurePreloaded(next)
+  }
+
+  /** Load queue index `next` into `exoNext` if it is not already the preload. */
+  private fun ensurePreloaded(next: Int) {
+    val context = appContext ?: return
     val entry = queue.getOrNull(next) ?: return
     if (preloadPath == entry.path && exoNext?.mediaItemCount != 0) return
     val partner = nextPlayer(context)
@@ -621,19 +699,13 @@ object PlayerHub {
   }
 
   private fun startCrossfade(next: Int) {
-    val context = appContext ?: return
     val entry = queue.getOrNull(next) ?: return
-    maybePreloadNext()
-    if (preloadPath != entry.path) {
-      val partner = nextPlayer(context)
-      preloadPath = entry.path
-      partner.setMediaItem(item(entry.path, entry.metadata), 0)
-      partner.prepare()
-    }
+    ensurePreloaded(next)
     val partner = exoNext ?: return
     transitioning = true
     crossfadeStarted = true
     crossfadeUiFlipped = false
+    clearPresentedSnapshot()
     partner.volume = 0f
     partner.playWhenReady = true
     val fadeMs = (minOf(crossfadeSec, (duration ?: crossfadeSec) - position).coerceAtLeast(0.05) * 1000).toLong()
@@ -641,7 +713,7 @@ object PlayerHub {
     val outPlayer = exo
     val ramp = object : Runnable {
       override fun run() {
-        if (!crossfadeStarted) return
+        if (!crossfadeStarted || crossfadeRamp !== this) return
         val t = ((SystemClock.elapsedRealtime() - started).toDouble() / fadeMs).coerceIn(0.0, 1.0)
         val angle = t * (Math.PI / 2)
         outPlayer?.volume = (volume * kotlin.math.cos(angle)).toFloat()
@@ -652,18 +724,25 @@ object PlayerHub {
           presentIncoming(next)
         }
         if (t >= 1.0) {
+          crossfadeRamp = null
           adoptNext(next, play = true, alreadyPresented = crossfadeUiFlipped)
           return
         }
         main.postDelayed(this, 16L)
       }
     }
+    crossfadeRamp = ramp
     main.post(ramp)
   }
 
   /** Tell the page the next track is now the UI current, without swapping ExoPlayers yet. */
   private fun presentIncoming(next: Int) {
     val entry = queue.getOrNull(next) ?: return
+    presentedFromPath = path
+    presentedFromIndex = queueIndex
+    presentedFromMetadata = metadata
+    presentedFromPosition = position
+    presentedFromDuration = duration
     queueIndex = next
     path = entry.path
     metadata = entry.metadata
@@ -684,12 +763,13 @@ object PlayerHub {
   }
 
   private fun beginGaplessAdvance(next: Int, play: Boolean) {
+    // Preload before flipping `transitioning` — maybePreloadNext refuses while transitioning.
+    if (play) ensurePreloaded(next)
     transitioning = true
     if (!play) {
       adoptNext(next, play = false)
       return
     }
-    maybePreloadNext()
     if (delayMs <= 0L) {
       finishGaplessAdvance(next)
       return
@@ -740,18 +820,27 @@ object PlayerHub {
     forwarding = null
     onSessionPlayerChanged?.invoke()
     queueIndex = next
-    loaded(entry.path, if (alreadyPresented) position else 0.0)
-    metadata = entry.metadata
-    if (!alreadyPresented) position = 0.0
-    duration = if (incoming.duration != C.TIME_UNSET) incoming.duration / 1000.0 else null
+    if (alreadyPresented) {
+      // UI already shows this track; keep position / duration from presentIncoming.
+      path = entry.path
+      metadata = entry.metadata
+      if (incoming.duration != C.TIME_UNSET) duration = incoming.duration / 1000.0
+    } else {
+      loaded(entry.path, 0.0)
+      metadata = entry.metadata
+      position = 0.0
+      duration = if (incoming.duration != C.TIME_UNSET) incoming.duration / 1000.0 else null
+    }
     playing = play
+    clearPresentedSnapshot()
     transitioning = false
     crossfadeStarted = false
     crossfadeUiFlipped = false
+    crossfadeRamp = null
     widgetChanged()
     saveState(true)
-    if (duration != null) emit(JSONObject().put("type", "loaded").put("duration", duration))
     if (!alreadyPresented) {
+      if (duration != null) emit(JSONObject().put("type", "loaded").put("duration", duration))
       emit(
         JSONObject()
           .put("type", "advanced")
@@ -762,7 +851,7 @@ object PlayerHub {
       )
     }
     if (play) {
-      emit(JSONObject().put("type", "play"))
+      if (!alreadyPresented) emit(JSONObject().put("type", "play"))
       main.removeCallbacks(ticker)
       main.post(ticker)
     } else {
@@ -918,7 +1007,7 @@ object PlayerHub {
       playing = playWhenReady
       widgetChanged()
       if (!playWhenReady) {
-        position = exo?.let { it.currentPosition / 1000.0 } ?: position
+        position = (transportPlayer() ?: exo)?.currentPosition?.div(1000.0) ?: position
         stopListen()
         saveState(true)
       } else if (sink == null) {

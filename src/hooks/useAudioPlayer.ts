@@ -198,10 +198,11 @@ export const useAudioPlayer = (
 				audio.setSlotGain(toSlot, inn);
 				// At equal power (~50% each), hand the UI / seek bar to the next track.
 				if (!crossfadeUiFlipped.current && t >= 0.5) {
-					crossfadeUiFlipped.current = true;
-					setTrackSwapMs(TRACK_SWAP_MS_CROSSFADE);
-					q.move(1, true);
-					audio.revealIncoming();
+					if (audio.revealIncoming()) {
+						crossfadeUiFlipped.current = true;
+						setTrackSwapMs(TRACK_SWAP_MS_CROSSFADE);
+						q.move(1, true);
+					}
 				}
 				if (t >= 1) {
 					fadeRaf.current = null;
@@ -389,7 +390,13 @@ export const useAudioPlayer = (
 				path: string; queueIndex: number; ui?: string;
 			}>).detail;
 			if (!detail) return;
-			setTrackSwapMs(detail.ui === "crossfade" ? TRACK_SWAP_MS_CROSSFADE : TRACK_SWAP_MS_NORMAL);
+			setTrackSwapMs(
+				detail.ui === "crossfade"
+					? TRACK_SWAP_MS_CROSSFADE
+					: detail.ui === "abort"
+						? TRACK_SWAP_MS_FAST
+						: TRACK_SWAP_MS_NORMAL,
+			);
 			if (typeof detail.queueIndex === "number" && detail.queueIndex >= 0) {
 				q.jumpTo(detail.queueIndex);
 			} else if (detail.path) {

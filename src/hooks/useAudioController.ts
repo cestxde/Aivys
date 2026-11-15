@@ -366,12 +366,16 @@ const applyVolume = (
 ) => {
 	const graph = getEqualizerGraph();
 	const mapped = toElementVolume(linear);
-	if (graph && pair[0] !== pair[1]) {
+	const dual = pair[0] !== pair[1];
+	if (graph && dual) {
 		graph.setMasterVolume(mapped);
 		pair[0].volume = 1;
 		pair[1].volume = 1;
 		return;
 	}
+	// Mid crossfade: both slots audible — leave element volumes to setSlotGain.
+	const other: 0 | 1 = slot === 0 ? 1 : 0;
+	if (dual && !pair[other].paused) return;
 	pair[slot].volume = mapped;
 };
 
