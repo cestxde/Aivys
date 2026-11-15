@@ -29,8 +29,11 @@
 .track-crossfade-layer.is-front {
 	opacity: 0;
 	z-index: 1;
+	/* Invisible front still hit-tests — would block scroll/taps during phase=start. */
+	pointer-events: none;
 }
 
 .track-crossfade-layer.is-front.is-shown {
 	opacity: 1;
+	pointer-events: auto;
 }

@@ -582,15 +582,15 @@ object PlayerHub {
       duration = presentedFromDuration
       widgetChanged()
       saveState(true)
-      emit(
-        JSONObject()
-          .put("type", "advanced")
-          .put("path", path)
-          .put("queueIndex", queueIndex)
-          .put("position", position)
-          .put("playing", playing)
-          .put("ui", "abort"),
-      )
+      val advanced = JSONObject()
+        .put("type", "advanced")
+        .put("path", path)
+        .put("queueIndex", queueIndex)
+        .put("position", position)
+        .put("playing", playing)
+        .put("ui", "abort")
+      if (duration != null) advanced.put("duration", duration)
+      emit(advanced)
       if (duration != null) emit(JSONObject().put("type", "loaded").put("duration", duration))
     }
     clearPresentedSnapshot()
@@ -759,16 +759,16 @@ object PlayerHub {
     duration = exoNext?.takeIf { it.duration != C.TIME_UNSET }?.let { it.duration / 1000.0 }
     widgetChanged()
     saveState(true)
+    val advanced = JSONObject()
+      .put("type", "advanced")
+      .put("path", entry.path)
+      .put("queueIndex", next)
+      .put("position", position)
+      .put("playing", true)
+      .put("ui", "crossfade")
+    if (duration != null) advanced.put("duration", duration)
+    emit(advanced)
     if (duration != null) emit(JSONObject().put("type", "loaded").put("duration", duration))
-    emit(
-      JSONObject()
-        .put("type", "advanced")
-        .put("path", entry.path)
-        .put("queueIndex", next)
-        .put("position", position)
-        .put("playing", true)
-        .put("ui", "crossfade"),
-    )
   }
 
   private fun beginGaplessAdvance(next: Int, play: Boolean) {
@@ -815,10 +815,11 @@ object PlayerHub {
       incoming.setMediaItem(item(entry.path, entry.metadata), 0)
       incoming.prepare()
     }
+    // Detach first so pausing/releasing `old` does not emit a spurious `pause` to the page.
+    old?.removeListener(events)
     incoming.volume = volume
     incoming.playWhenReady = play
     old?.playWhenReady = false
-    old?.removeListener(events)
     old?.stop()
     old?.clearMediaItems()
     old?.release()
@@ -848,16 +849,20 @@ object PlayerHub {
     crossfadeRamp = null
     widgetChanged()
     saveState(true)
+    // READY may have already fired before we attached `events` — publish duration now.
+    if (duration == null && incoming.duration != C.TIME_UNSET) {
+      duration = incoming.duration / 1000.0
+    }
     if (!alreadyPresented) {
+      val advanced = JSONObject()
+        .put("type", "advanced")
+        .put("path", entry.path)
+        .put("queueIndex", next)
+        .put("position", position)
+        .put("playing", play)
+      if (duration != null) advanced.put("duration", duration)
+      emit(advanced)
       if (duration != null) emit(JSONObject().put("type", "loaded").put("duration", duration))
-      emit(
-        JSONObject()
-          .put("type", "advanced")
-          .put("path", entry.path)
-          .put("queueIndex", next)
-          .put("position", position)
-          .put("playing", play),
-      )
     }
     if (play) {
       if (!alreadyPresented) emit(JSONObject().put("type", "play"))
@@ -893,14 +898,14 @@ object PlayerHub {
     }
     if (here == queue.size - 1 && repeat == "none") {
       go(0, play = false)
-      emit(
-        JSONObject()
-          .put("type", "advanced")
-          .put("path", queue[0].path)
-          .put("queueIndex", 0)
-          .put("position", 0.0)
-          .put("playing", false),
-      )
+      val end = JSONObject()
+        .put("type", "advanced")
+        .put("path", queue[0].path)
+        .put("queueIndex", 0)
+        .put("position", 0.0)
+        .put("playing", false)
+      if (duration != null) end.put("duration", duration)
+      emit(end)
       return
     }
     val next = (here + 1) % queue.size
@@ -1036,7 +1041,8 @@ object PlayerHub {
         }
         Player.STATE_ENDED -> {
           if (transitioning && crossfadeStarted) return
-          player.playWhenReady = false
+          // Do not clear playWhenReady here — that emits `pause` and flips the UI to Play
+          // while we immediately start the next track (gapless/delay/crossfade fallback).
           position = duration ?: position
           stopListen()
           countCompletion()

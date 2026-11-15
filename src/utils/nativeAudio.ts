@@ -40,7 +40,7 @@ type PlayerEvent =
     | { type: "loaded"; duration: number }
     | { type: "play" | "pause" | "ended" | "next" | "previous" | "slept" | "shuffle" | "repeat" }
     | { type: "time" | "seeked"; position: number }
-    | { type: "advanced"; path: string; queueIndex: number; position: number; playing: boolean; ui?: string }
+    | { type: "advanced"; path: string; queueIndex: number; position: number; playing: boolean; ui?: string; duration?: number }
     | { type: "error"; message: string };
 
 /** What the native player has loaded, and where it is. */
@@ -321,12 +321,20 @@ export class NativeAudio extends EventTarget {
                 // Native already switched tracks (gapless / crossfade / delay).
                 this.url = event.path;
                 this.time = event.position;
-                this.length = NaN;
+                // Keep duration when native sends it — wiping to NaN disables the seek bar
+                // until a later `loaded`, which may never arrive if Exo was already READY.
+                this.length = typeof event.duration === "number" && Number.isFinite(event.duration)
+                    ? event.duration
+                    : NaN;
                 this.adopting = true;
                 this.setPaused(!event.playing);
                 this.dispatchEvent(new CustomEvent("advanced", { detail: event }));
                 this.adopting = false;
                 this.fire("timeupdate");
+                if (Number.isFinite(this.length)) {
+                    this.fire("durationchange");
+                    this.fire("loadedmetadata");
+                }
                 break;
             }
             case "error":
