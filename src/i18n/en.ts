@@ -239,6 +239,7 @@ export const en = {
     "player.repeatAll": "Repeat: all",
     "player.repeatOne": "Repeat: this track",
     "player.equalizer": "Equalizer",
+    "player.playbackOptions": "Playback options",
 
     "eq.title": "Equalizer",
     "eq.enabled": "On",

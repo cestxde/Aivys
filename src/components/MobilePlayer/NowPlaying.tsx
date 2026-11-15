@@ -15,7 +15,8 @@ import { t } from "../../i18n";
 import { useBackLayer } from "../../hooks/useBackLayer";
 import { useCoverColor } from "../../hooks/useCoverColor";
 import { rgbCss } from "../../utils/coverColor";
-import { SleepTimerButton } from "../SleepTimer/SleepTimerButton";
+import { PlaybackOptionsButton } from "../PlaybackOptions/PlaybackOptionsButton";
+import type { EqualizerApi } from "../../hooks/useEqualizer";
 import type { SleepTimer } from "../../hooks/useSleepTimer";
 import "./MobilePlayer.css";
 import { useNowPlayingSwipe } from "./useNowPlayingSwipe";
@@ -43,6 +44,8 @@ interface NowPlayingProps {
     onSwipePrevious: () => void;
     sleepTimer: SleepTimer;
     onSleepTimerChange: (timer: SleepTimer) => void;
+    /** Desktop EQ API; on phone `supported` is false so only sleep appears. */
+    eq?: EqualizerApi | null;
     onSeek: (time: number) => void;
     onToggleShuffle: () => void;
     onToggleRepeat: () => void;
@@ -138,9 +141,10 @@ export const NowPlaying = (props: NowPlayingProps) => {
                 <button className="now-playing-icon" title={t("common.close")} onClick={props.onClose}>
                     <ChevronDown size={28} />
                 </button>
-                <SleepTimerButton
+                <PlaybackOptionsButton
                     timer={props.sleepTimer}
-                    onChange={props.onSleepTimerChange}
+                    onSleepChange={props.onSleepTimerChange}
+                    eq={props.eq}
                     className="now-playing-icon now-playing-sleep"
                     size={22}
                 />

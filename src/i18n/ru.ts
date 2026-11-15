@@ -252,6 +252,7 @@ export const ru: Record<MessageKey, Message> = {
     "player.repeatAll": "Повтор: все",
     "player.repeatOne": "Повтор: этот трек",
     "player.equalizer": "Эквалайзер",
+    "player.playbackOptions": "Настройки воспроизведения",
 
     "eq.title": "Эквалайзер",
     "eq.enabled": "Вкл",

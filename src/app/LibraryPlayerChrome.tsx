@@ -94,6 +94,7 @@ export function LibraryPlayerChrome(props: LibraryAppShellProps) {
 							onSwipePrevious={previousTrack}
 							sleepTimer={sleep.timer}
 							onSleepTimerChange={sleep.setTimer}
+							eq={eq}
 							canGoTo={goToEntries(currentTrack, true).length > 0}
 							onOpenGoTo={(track, x, y) => setMenu({
 								x,

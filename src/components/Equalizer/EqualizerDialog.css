@@ -1,41 +1,7 @@
-.eq-dialog {
+.eq-panel {
 	display: flex;
 	flex-direction: column;
 	gap: 1rem;
-	width: min(560px, 100%);
-	padding: 1.25rem;
-	box-sizing: border-box;
-	border: 1px solid var(--border);
-	border-radius: 10px;
-	background: var(--bg);
-	color: var(--text-h);
-	box-shadow: var(--shadow-dialog);
-}
-
-.eq-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 8px;
-}
-
-.eq-header h2 {
-	margin: 0;
-	font-size: 1.1rem;
-}
-
-.eq-dialog .add-to-close {
-	display: flex;
-	padding: 4px;
-	border: none;
-	border-radius: 4px;
-	background: none;
-	color: var(--text);
-	cursor: pointer;
-}
-
-.eq-dialog .add-to-close:hover {
-	background: var(--surface);
 }
 
 .eq-toolbar {

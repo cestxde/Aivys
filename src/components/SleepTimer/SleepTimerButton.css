@@ -1,29 +1,3 @@
-.sleep-timer-button {
-    position: relative;
-}
-
-.sleep-timer-button.active {
-    color: var(--accent);
-    opacity: 1;
-}
-
-/* Time left, small at the moon's corner (`45`, `2h`, `1:30`). */
-.sleep-timer-left {
-    position: absolute;
-    right: 0;
-    bottom: 2px;
-    min-width: 14px;
-    padding: 0 3px;
-    border-radius: 999px;
-    background: var(--accent);
-    color: var(--accent-text);
-    font-size: 9px;
-    font-weight: 600;
-    line-height: 14px;
-    text-align: center;
-    white-space: nowrap;
-}
-
 .sleep-custom-dialog {
     display: flex;
     flex-direction: column;
