@@ -309,6 +309,8 @@ export const en = {
     "menu.copyTags": "Copy tags",
     "menu.pasteTags": "Paste tags",
     "menu.addTags": "Add tags",
+    "draft.restored": "Draft restored",
+
     "notice.playingNext": "Playing next",
     "notice.addedToQueue": "Added to queue",
     "notice.addedToFavorites": "Added to favorites",

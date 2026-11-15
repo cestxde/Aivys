@@ -1,10 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Plus, X } from "lucide-react";
 import type { Condition, SmartRules, SortSpec } from "../../types";
 import { t, type MessageKey } from "../../i18n";
 import "./SmartPlaylistEditor.css";
 import { useBackLayer } from "../../hooks/useBackLayer";
+import {
+	readDraft,
+	smartDraftId,
+	writeDraft,
+	type SmartDraftPayload,
+} from "../../utils/editorDrafts";
+import { notifyInfo } from "../../utils/notify";
 
 type FieldType = "text" | "number" | "date" | "boolean" | "tag" | "category";
 
@@ -103,6 +110,8 @@ export interface TagOption {
 
 interface SmartPlaylistEditorProps {
     title: string;
+    /** Existing playlist id, or null when creating. */
+    playlistId?: string | null;
     initialName: string;
     initialRules?: SmartRules;
     tags: TagOption[];
@@ -113,16 +122,60 @@ interface SmartPlaylistEditorProps {
 }
 
 /** Modal editor for a smart playlist's name and rules, with a live match count. */
-export const SmartPlaylistEditor = ({ title, initialName, initialRules, tags, categories, onSave, onClose }: SmartPlaylistEditorProps) => {
+export const SmartPlaylistEditor = ({
+    title, playlistId = null, initialName, initialRules, tags, categories, onSave, onClose,
+}: SmartPlaylistEditorProps) => {
     useBackLayer(true, onClose);
-    const [name, setName] = useState(initialName);
-    const [match, setMatch] = useState<SmartRules["match"]>(initialRules?.match ?? "all");
-    const [conditions, setConditions] = useState<Condition[]>(
-        initialRules?.conditions ?? [{ field: "genre", op: "contains", value: "" }]
-    );
-    const [sort, setSort] = useState<SortSpec>(initialRules?.sort ?? { field: "addedAt", dir: "desc" });
-    const [limit, setLimit] = useState<number | null>(initialRules?.limit ?? null);
+    const draftId = smartDraftId(playlistId);
+    const boot = useMemo(() => {
+        const draft = readDraft<SmartDraftPayload>("smart", draftId);
+        if (!draft) {
+            return {
+                restored: false as const,
+                name: initialName,
+                match: initialRules?.match ?? "all" as const,
+                conditions: initialRules?.conditions ?? [{ field: "genre", op: "contains", value: "" }] as Condition[],
+                sort: initialRules?.sort ?? { field: "addedAt", dir: "desc" as const },
+                limit: initialRules?.limit ?? null,
+            };
+        }
+        return {
+            restored: true as const,
+            name: draft.name,
+            match: draft.match,
+            conditions: draft.conditions as Condition[],
+            sort: draft.sort as SortSpec,
+            limit: draft.limit,
+        };
+    }, [draftId, initialName, initialRules]);
+
+    const [name, setName] = useState(boot.name);
+    const [match, setMatch] = useState<SmartRules["match"]>(boot.match);
+    const [conditions, setConditions] = useState<Condition[]>(boot.conditions);
+    const [sort, setSort] = useState<SortSpec>(boot.sort);
+    const [limit, setLimit] = useState<number | null>(boot.limit);
     const [preview, setPreview] = useState<{ key: string; count: number } | null>(null);
+    const restoredToast = useRef(boot.restored);
+
+    useEffect(() => {
+        if (!restoredToast.current) return;
+        restoredToast.current = false;
+        notifyInfo(t("draft.restored"));
+    }, []);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            const payload: SmartDraftPayload = {
+                name,
+                match,
+                conditions,
+                sort,
+                limit,
+            };
+            writeDraft("smart", draftId, payload);
+        }, 400);
+        return () => window.clearTimeout(timer);
+    }, [draftId, name, match, conditions, sort, limit]);
 
     const rules: SmartRules = { match, conditions, sort, limit };
     const rulesKey = JSON.stringify(rules);

@@ -6,6 +6,7 @@ import { M3uMissingDialog } from "../components/M3uImportDialog/M3uMissingDialog
 import { AddToDialog } from "../components/AddToDialog/AddToDialog";
 import { mergeIntoAlbumTracks } from "../utils/albumAddWarn";
 import { albumEditorSeedFromGroup } from "../utils/albumEditor";
+import { albumDraftId, clearDraft } from "../utils/editorDrafts";
 import { SmartPlaylistEditor } from "../components/SmartPlaylistEditor/SmartPlaylistEditor";
 import { TagPicker } from "../components/TagPicker/TagPicker";
 import { TagDialog } from "../components/TagDialog/TagDialog";
@@ -62,6 +63,7 @@ export function LibraryDialogs(props: LibraryAppShellProps) {
 						const key = await saveAlbumPackage(payload);
 						// Keep the editor open on failure so a long setup is not lost.
 						if (!key) return;
+						clearDraft("album", albumDraftId(albumEditor.mode, albumEditor.seed?.album));
 						setAlbumEditor(null);
 						showView({ kind: "album", id: key });
 					}}
@@ -133,6 +135,7 @@ export function LibraryDialogs(props: LibraryAppShellProps) {
 			{editor && (
 				<SmartPlaylistEditor
 					title={editor.playlist ? t("smart.editTitle") : t("smart.newTitle")}
+					playlistId={editor.playlist?.id ?? null}
 					initialName={editor.playlist?.name ?? t("smart.defaultName")}
 					initialRules={editor.playlist?.rules}
 					tags={tags.tags}

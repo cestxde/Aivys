@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardPaste, ImagePlus, Trash2, X } from "lucide-react";
 import type { Track } from "../../types";
 import { CoverArt } from "../CoverArt";
@@ -7,6 +7,13 @@ import "./MetadataEditor.css";
 import { useBackLayer } from "../../hooks/useBackLayer";
 import { clipboardImage, cropImage, pastedImage } from "../../utils/image";
 import { cropToSquare } from "../../utils/coverCrop";
+import {
+	coverUrlFromData,
+	metadataDraftId,
+	readDraft,
+	writeDraft,
+	type MetadataDraftPayload,
+} from "../../utils/editorDrafts";
 import { fileNameFromTags } from "../../utils/fileName";
 import { notifyError, notifyInfo } from "../../utils/notify";
 import { useStoredState } from "../../hooks/useRemembered";
@@ -26,12 +33,21 @@ interface MetadataEditorProps {
 	onClose: () => void;
 }
 
+const restoreCover = (cover: MetadataDraftPayload["cover"]): Cover => {
+	if (cover.kind === "set") {
+		const url = coverUrlFromData(cover.data);
+		return url ? { kind: "set", data: cover.data, url } : { kind: "keep" };
+	}
+	return cover;
+};
+
 export const MetadataEditor = ({
 	tracks, onSave, onRename, onRenameMany, onFillMany, onClose,
 }: MetadataEditorProps) => {
 	useBackLayer(true, onClose);
 	const fields: MetadataField[] = [...TEXT_FIELDS, ...NUMBER_FIELDS];
-	const [initial] = useState(() => {
+	const draftId = metadataDraftId(tracks.map(track => track.path));
+	const boot = useMemo(() => {
 		const values = {} as Record<MetadataField, string>;
 		const mixed = new Set<MetadataField>();
 		for (const field of fields) {
@@ -39,11 +55,32 @@ export const MetadataEditor = ({
 			values[field] = all.size === 1 ? [...all][0] : "";
 			if (all.size > 1) mixed.add(field);
 		}
-		return { values, mixed };
-	});
-	const [values, setValues] = useState(initial.values);
-	const [changed, setChanged] = useState<Set<MetadataField>>(new Set());
-	const [cover, setCover] = useState<Cover>({ kind: "keep" });
+		const draft = readDraft<MetadataDraftPayload>("metadata", draftId);
+		if (!draft) {
+			return { restored: false as const, values, mixed, changed: new Set<MetadataField>(), cover: { kind: "keep" } as Cover };
+		}
+		const nextValues = { ...values };
+		for (const field of fields) {
+			if (draft.values[field] !== undefined) nextValues[field] = draft.values[field];
+		}
+		const changed = new Set(
+			draft.changed.filter((field): field is MetadataField =>
+				(fields as string[]).includes(field),
+			),
+		);
+		return {
+			restored: true as const,
+			values: nextValues,
+			mixed,
+			changed,
+			cover: restoreCover(draft.cover),
+		};
+	}, [draftId, tracks]);
+
+	const [values, setValues] = useState(boot.values);
+	const [changed, setChanged] = useState(boot.changed);
+	const [cover, setCover] = useState<Cover>(boot.cover);
+	const mixed = boot.mixed;
 	const [saving, setSaving] = useState(false);
 	const [picking, setPicking] = useState(false);
 	const [filePanel, setFilePanel] = useState<FilePanel>(null);
@@ -57,6 +94,30 @@ export const MetadataEditor = ({
 	);
 	const [dontShowAgain, setDontShowAgain] = useState(false);
 	const fileInput = useRef<HTMLInputElement>(null);
+	const restoredToast = useRef(boot.restored);
+
+	useEffect(() => {
+		if (!restoredToast.current) return;
+		restoredToast.current = false;
+		notifyInfo(t("draft.restored"));
+	}, []);
+
+	useEffect(() => {
+		if (saving) return;
+		const timer = window.setTimeout(() => {
+			const payload: MetadataDraftPayload = {
+				values,
+				changed: [...changed],
+				cover: cover.kind === "set"
+					? { kind: "set", data: cover.data }
+					: cover.kind === "remove"
+						? { kind: "remove" }
+						: { kind: "keep" },
+			};
+			writeDraft("metadata", draftId, payload);
+		}, 400);
+		return () => window.clearTimeout(timer);
+	}, [saving, draftId, values, changed, cover]);
 
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
@@ -223,7 +284,7 @@ export const MetadataEditor = ({
 				className="rule-input"
 				value={values[field]}
 				inputMode={(NUMBER_FIELDS as readonly string[]).includes(field) ? "numeric" : undefined}
-				placeholder={initial.mixed.has(field) && !changed.has(field)
+				placeholder={mixed.has(field) && !changed.has(field)
 					? t("edit.mixed")
 					: field === "title" && single ? single.name : undefined}
 				autoFocus={field === "title"}

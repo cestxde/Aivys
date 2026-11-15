@@ -322,6 +322,8 @@ export const ru: Record<MessageKey, Message> = {
     "menu.copyTags": "Копировать теги",
     "menu.pasteTags": "Вставить теги",
     "menu.addTags": "Добавить теги",
+    "draft.restored": "Черновик восстановлен",
+
     "notice.playingNext": "Будет следующим",
     "notice.addedToQueue": "Добавлено в очередь",
     "notice.addedToFavorites": "Добавлено в избранное",

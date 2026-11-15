@@ -6,6 +6,7 @@ import {
 	buildM3u8, fileStem, joinDirFile, m3uFileName, matchM3uTracks, parseM3u, type M3uPathMode,
 } from "../utils/m3u";
 import { sanitizeFileName } from "../utils/fileName";
+import { clearDraft, smartDraftId } from "../utils/editorDrafts";
 import { notifyError, notifyInfo } from "../utils/notify";
 import { t } from "../i18n";
 import { PLAYLISTS_VIEW, viewKeyOf } from "../app/views";
@@ -121,6 +122,7 @@ export function usePlaylistActions({
 
 	const saveSmartPlaylist = async (name: string, rules: SmartRules) => {
 		const edited = editor?.playlist;
+		clearDraft("smart", smartDraftId(edited?.id ?? null));
 		setEditor(null);
 		if (!edited) {
 			const created = await playlists.createSmart(name, rules);

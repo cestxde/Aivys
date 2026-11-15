@@ -6,6 +6,7 @@ import type { Track } from "../types";
 import { albumKeyOf } from "../utils/groups";
 import { displayTitle } from "../utils/track";
 import { fileNameFromTags, preferredFileNameVariant } from "../utils/fileName";
+import { clearDraft, metadataDraftId } from "../utils/editorDrafts";
 import { notifyError, notifyInfo, notifyUndoable } from "../utils/notify";
 import { t } from "../i18n";
 import type { EditResult } from "../app/types";
@@ -47,6 +48,7 @@ export function useMetadataActions({
 		}
 		const written = tracks.length - result.failed.length;
 		if (written === 0) return;
+		clearDraft("metadata", metadataDraftId(paths));
 		setEditing(null);
 		setUndoablePaths(paths);
 		notifyUndoable(

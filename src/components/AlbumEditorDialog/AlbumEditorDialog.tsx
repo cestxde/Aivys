@@ -18,6 +18,14 @@ import {
 	trackMatchesAlbumPicker,
 	type AlbumEditorSeed,
 } from "../../utils/albumEditor";
+import {
+	albumDraftId,
+	coverUrlFromData,
+	readDraft,
+	tracksFromDraftPaths,
+	writeDraft,
+	type AlbumDraftPayload,
+} from "../../utils/editorDrafts";
 import { androidStorage } from "../../utils/androidStorage";
 import { cropToSquare } from "../../utils/coverCrop";
 import { clipboardImage, cropImage, pastedImage } from "../../utils/image";
@@ -32,6 +40,14 @@ import { t } from "../../i18n";
 import "./AlbumEditorDialog.css";
 
 type Cover = { kind: "keep" } | { kind: "set"; data: string; url: string } | { kind: "remove" };
+
+const restoreCover = (cover: AlbumDraftPayload["cover"]): Cover => {
+	if (cover.kind === "set") {
+		const url = coverUrlFromData(cover.data);
+		return url ? { kind: "set", data: cover.data, url } : { kind: "keep" };
+	}
+	return cover;
+};
 
 export interface AlbumEditorSave {
 	album: string;
@@ -66,25 +82,67 @@ export const AlbumEditorDialog = ({
 }: AlbumEditorDialogProps) => {
 	useBackLayer(true, onClose);
 	const defaults = useMemo(() => albumEditorDefaults(initialTracks, seed), [initialTracks, seed]);
-	const [tracks, setTracks] = useState(defaults.tracks);
-	const [album, setAlbum] = useState(defaults.album);
-	const [albumArtist, setAlbumArtist] = useState(defaults.albumArtist);
-	const [year, setYear] = useState(defaults.year);
-	const [genre, setGenre] = useState(defaults.genre);
+	const draftId = albumDraftId(mode, seed?.album);
+	const boot = useMemo(() => {
+		const draft = readDraft<AlbumDraftPayload>("album", draftId);
+		if (!draft) {
+			return {
+				restored: false as const,
+				tracks: defaults.tracks,
+				album: defaults.album,
+				albumArtist: defaults.albumArtist,
+				year: defaults.year,
+				genre: defaults.genre,
+				writeNumbers: true,
+				autoOrder: mode === "create",
+				trackTotal: String(suggestedTrackTotal(defaults.tracks)),
+				numbers: mode === "create"
+					? sequentialTrackNumbers(defaults.tracks)
+					: initialTrackNumbers(defaults.tracks),
+				cover: { kind: "keep" } as Cover,
+				adding: initialTracks.length === 0,
+			};
+		}
+		const pool = [...libraryTracks, ...defaults.tracks];
+		const restoredTracks = tracksFromDraftPaths(draft.paths, pool);
+		const tracks = restoredTracks.length > 0 ? restoredTracks : defaults.tracks;
+		const numbers = { ...draft.numbers };
+		for (const track of tracks) {
+			if (numbers[track.path] == null) {
+				numbers[track.path] = String(tracks.indexOf(track) + 1);
+			}
+		}
+		return {
+			restored: true as const,
+			tracks,
+			album: draft.album,
+			albumArtist: draft.albumArtist,
+			year: draft.year,
+			genre: draft.genre,
+			writeNumbers: draft.writeNumbers,
+			autoOrder: draft.autoOrder,
+			trackTotal: draft.trackTotal || String(suggestedTrackTotal(tracks)),
+			numbers,
+			cover: restoreCover(draft.cover),
+			adding: draft.adding,
+		};
+	}, [draftId, defaults, libraryTracks, initialTracks.length, mode]);
+
+	const [tracks, setTracks] = useState(boot.tracks);
+	const [album, setAlbum] = useState(boot.album);
+	const [albumArtist, setAlbumArtist] = useState(boot.albumArtist);
+	const [year, setYear] = useState(boot.year);
+	const [genre, setGenre] = useState(boot.genre);
 	const [seedCover] = useState(defaults.coverPath);
-	const [writeNumbers, setWriteNumbers] = useState(true);
+	const [writeNumbers, setWriteNumbers] = useState(boot.writeNumbers);
 	/** When on, list order drives 1…N; editing a digit turns this off. */
-	const [autoOrder, setAutoOrder] = useState(mode === "create");
-	const [trackTotal, setTrackTotal] = useState(() => String(suggestedTrackTotal(defaults.tracks)));
-	const [numbers, setNumbers] = useState(() => (
-		mode === "create"
-			? sequentialTrackNumbers(defaults.tracks)
-			: initialTrackNumbers(defaults.tracks)
-	));
-	const [cover, setCover] = useState<Cover>({ kind: "keep" });
+	const [autoOrder, setAutoOrder] = useState(boot.autoOrder);
+	const [trackTotal, setTrackTotal] = useState(boot.trackTotal);
+	const [numbers, setNumbers] = useState(boot.numbers);
+	const [cover, setCover] = useState<Cover>(boot.cover);
 	const [picking, setPicking] = useState(false);
 	const [saving, setSaving] = useState(false);
-	const [adding, setAdding] = useState(initialTracks.length === 0);
+	const [adding, setAdding] = useState(boot.adding);
 	const [addFilter, setAddFilter] = useState("");
 	const [pendingTrack, setPendingTrack] = useState<Track | null>(null);
 	const [dontShowAgain, setDontShowAgain] = useState(false);
@@ -94,6 +152,41 @@ export const AlbumEditorDialog = ({
 	const dropRef = useRef<DropTarget | null>(null);
 	const listRef = useRef<HTMLUListElement>(null);
 	const fileInput = useRef<HTMLInputElement>(null);
+	const restoredToast = useRef(boot.restored);
+
+	useEffect(() => {
+		if (!restoredToast.current) return;
+		restoredToast.current = false;
+		notifyInfo(t("draft.restored"));
+	}, []);
+
+	useEffect(() => {
+		if (saving) return;
+		const timer = window.setTimeout(() => {
+			const payload: AlbumDraftPayload = {
+				paths: tracks.map(track => track.path),
+				album,
+				albumArtist,
+				year,
+				genre,
+				writeNumbers,
+				autoOrder,
+				trackTotal,
+				numbers,
+				cover: cover.kind === "set"
+					? { kind: "set", data: cover.data }
+					: cover.kind === "remove"
+						? { kind: "remove" }
+						: { kind: "keep" },
+				adding,
+			};
+			writeDraft("album", draftId, payload);
+		}, 400);
+		return () => window.clearTimeout(timer);
+	}, [
+		saving, draftId, tracks, album, albumArtist, year, genre,
+		writeNumbers, autoOrder, trackTotal, numbers, cover, adding,
+	]);
 
 	const syncNumbersFromOrder = (list: Track[]) => {
 		setNumbers(sequentialTrackNumbers(list));

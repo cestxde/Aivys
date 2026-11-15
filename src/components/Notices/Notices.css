@@ -2,7 +2,8 @@
     position: fixed;
     right: calc(16px + var(--safe-right, 0px));
     bottom: calc(104px + var(--safe-bottom, 0px));
-    z-index: 1000;
+    /* Above dialog backdrops (1050) so errors/undo stay visible while editing. */
+    z-index: 1200;
     display: flex;
     flex-direction: column;
     gap: 8px;
