@@ -71,6 +71,10 @@ object PlayerHub {
     transitionMode = if (mode == "crossfade") "crossfade" else "gapless"
     delayMs = delay.coerceIn(0L, 30_000L)
     crossfadeSec = crossfade.coerceIn(1.0, 12.0)
+    // First gapless handoff after a mode switch needs a warm partner immediately.
+    if (transitionMode == "gapless" && !transitioning && !crossfadeStarted) {
+      maybePreloadNext()
+    }
   }
 
   /**
@@ -676,7 +680,12 @@ object PlayerHub {
   private fun ensurePreloaded(next: Int) {
     val context = appContext ?: return
     val entry = queue.getOrNull(next) ?: return
-    if (preloadPath == entry.path && exoNext?.mediaItemCount != 0) return
+    if (preloadPath == entry.path && exoNext?.mediaItemCount != 0) {
+      // Path already set — re-prepare if the partner went idle (cold first handoff).
+      val partner = exoNext ?: return
+      if (partner.playbackState == Player.STATE_IDLE) partner.prepare()
+      return
+    }
     val partner = nextPlayer(context)
     preloadPath = entry.path
     partner.volume = 0f
@@ -857,6 +866,8 @@ object PlayerHub {
     } else {
       emit(JSONObject().put("type", "pause"))
     }
+    // Warm the track after this one immediately — do not wait for the next ticker.
+    maybePreloadNext()
   }
 
   /**

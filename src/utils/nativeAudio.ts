@@ -373,6 +373,7 @@ export const createPlayer = (): HTMLAudioElement => {
 	// Needed before any src load so MediaElementSource (EQ) is not silent.
 	const audio = new Audio();
 	audio.crossOrigin = "anonymous";
+	audio.preload = "auto";
 	return audio;
 };
 

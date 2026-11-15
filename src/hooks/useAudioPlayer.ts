@@ -114,14 +114,30 @@ export const useAudioPlayer = (
 
 	const finishAdvance = (track: Track, play: boolean) => {
 		setTrackSwapMs(TRACK_SWAP_MS_NORMAL);
+		const order = q.order;
+		const to = q.isLast && repeatMode === "none" && track === q.first
+			? 0
+			: (q.index + 1) % Math.max(order.length, 1);
+		// After ended, CURRENT_DATA is enough to start; FUTURE_DATA is preferred when warm.
+		const canPromote = play && audio.dual
+			&& (audio.preloadReady(track.path) || audio.preloadPlayable(track.path));
+		const promoted = canPromote && audio.promotePreload(true);
+
 		if (q.isLast && repeatMode === "none" && track === q.first) {
 			q.rewind();
 		} else {
 			q.move(1, true);
 		}
-		if (play && audio.dual && audio.preloadReady(track.path) && audio.promotePreload(true)) {
-			return;
+
+		// Outgoing slot is cleared inside promote — warm N+2 immediately for the next handoff.
+		if (play && audio.dual && order.length > 1) {
+			const follow = (to === order.length - 1 && repeatMode === "none")
+				? null
+				: order[(to + 1) % order.length];
+			if (follow) audio.preload(follow.path);
 		}
+
+		if (promoted) return;
 		if (play) audio.playFile(track.path);
 		else audio.loadFilePaused(track.path);
 	};
@@ -137,29 +153,44 @@ export const useAudioPlayer = (
 		}
 		transitioning.current = true;
 		const gen = transitionGen.current;
-		const run = () => {
-			if (gen !== transitionGen.current) return;
-			finishAdvance(track, true);
+		const abandon = () => {
 			transitioning.current = false;
 			delayTimer.current = null;
 		};
+		const run = () => {
+			if (gen !== transitionGen.current) {
+				abandon();
+				return;
+			}
+			finishAdvance(track, true);
+			abandon();
+		};
 		const arm = () => {
-			if (gen !== transitionGen.current) return;
+			if (gen !== transitionGen.current) {
+				abandon();
+				return;
+			}
 			if (delayMs <= 0) {
 				run();
 				return;
 			}
 			delayTimer.current = window.setTimeout(run, delayMs);
 		};
-		if (audio.preloadReady(track.path)) {
+		if (audio.preloadReady(track.path) || audio.preloadPlayable(track.path)) {
 			arm();
 			return;
 		}
-		// Wait for the preloaded element — promoting an empty buffer stops audio
-		// and leaves the seek bar with duration 0.
-		void audio.whenPreloadReady(track.path).then(arm).catch(() => {
-			if (gen !== transitionGen.current) return;
-			transitioning.current = false;
+		// Past ended: accept CURRENT_DATA so we do not hold silence until FUTURE_DATA.
+		void audio.whenPreloadReady(
+			track.path,
+			8_000,
+			HTMLMediaElement.HAVE_CURRENT_DATA,
+		).then(arm).catch(() => {
+			if (gen !== transitionGen.current) {
+				abandon();
+				return;
+			}
+			abandon();
 			setTrackSwapMs(TRACK_SWAP_MS_NORMAL);
 			q.move(1, true);
 			audio.playFile(track.path);
@@ -299,7 +330,8 @@ export const useAudioPlayer = (
 				audio.clearPreload();
 				return;
 			}
-			if (audio.preloadPath() !== next.track.path) audio.preload(next.track.path);
+			// Always call preload — same path still nudges a cold buffer (mode switch).
+			audio.preload(next.track.path);
 
 			if (transitionMode !== "crossfade" || crossfadeStarted.current) return;
 			const duration = element.duration;
@@ -313,12 +345,19 @@ export const useAudioPlayer = (
 		return () => element.removeEventListener("timeupdate", onTime);
 	});
 
-	// Keep preload in sync when queue / settings change.
+	// Keep preload in sync when queue / settings change. On gapless, also force the
+	// buffer warm in the background so the first handoff after a mode switch is ready.
 	useEffect(() => {
 		if (!audio.dual || transitioning.current) return;
 		const next = nextAutoTrack();
-		if (next?.play) audio.preload(next.track.path);
-		else audio.clearPreload();
+		if (!next?.play) {
+			audio.clearPreload();
+			return;
+		}
+		audio.preload(next.track.path);
+		if (transitionMode === "gapless") {
+			void audio.whenPreloadReady(next.track.path).catch(() => {});
+		}
 	}, [q.order, q.index, repeatMode, transitionMode, delayMs, crossfadeSec, activePath]);
 
 	const { refresh } = q;

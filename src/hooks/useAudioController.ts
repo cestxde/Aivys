@@ -71,6 +71,8 @@ export const useAudioController = (
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [slot, setSlot] = useState<0 | 1>(0);
 	const volumeRef = useRef(initialVolume);
+	/** Kept in sync inside promote so preload() in the same turn hits the freed slot. */
+	const slotRef = useRef<0 | 1>(0);
 
 	const [pair] = useState((): [HTMLAudioElement, HTMLAudioElement] => {
 		const primary = createPlayer();
@@ -78,10 +80,13 @@ export const useAudioController = (
 		return [primary, createPlayer()];
 	});
 	const dual = pair[0] !== pair[1];
+	slotRef.current = slot;
 	const element = pair[slot];
 	const idleSlot: 0 | 1 = slot === 0 ? 1 : 0;
 	const pathsRef = useRef<[string | null, string | null]>([null, null]);
 	const preloadPathRef = useRef<string | null>(null);
+	/** Paths currently running a silent warm play/pause — avoid stacking on timeupdate. */
+	const warmingRef = useRef(new Set<string>());
 
 	useEffect(() => {
 		volumeRef.current = initialVolume;
@@ -126,54 +131,107 @@ export const useAudioController = (
 		return audio;
 	};
 
+	/** Idle slot from `slotRef` so promote + preload in one turn stay consistent. */
+	const idleFromRef = (): 0 | 1 => (slotRef.current === 0 ? 1 : 0);
+
 	const clearSlot = (target: 0 | 1) => {
 		const audio = pair[target];
 		audio.pause();
 		audio.removeAttribute("src");
 		audio.load();
 		pathsRef.current[target] = null;
-		if (preloadPathRef.current && target === idleSlot) preloadPathRef.current = null;
+		if (preloadPathRef.current && target === idleFromRef()) preloadPathRef.current = null;
 	};
 
 	/** Replace the current source and play. */
 	const playFile = (filePath: string) => {
 		abortIdle();
-		const audio = loadInto(slot, filePath);
+		const current = slotRef.current;
+		const audio = loadInto(current, filePath);
 		setIsPlaying(true);
-		setSlotGain(slot, 1);
-		if (dual) setSlotGain(idleSlot, 0);
+		setSlotGain(current, 1);
+		if (dual) setSlotGain(idleFromRef(), 0);
 		audio.play().catch(reportPlaybackError);
 	};
 
 	/** Load current without starting playback. */
 	const loadFilePaused = (filePath: string, startAt = 0) => {
 		abortIdle();
-		loadInto(slot, filePath, startAt);
-		setSlotGain(slot, 1);
-		if (dual) setSlotGain(idleSlot, 0);
+		const current = slotRef.current;
+		loadInto(current, filePath, startAt);
+		setSlotGain(current, 1);
+		if (dual) setSlotGain(idleFromRef(), 0);
 		setIsPlaying(false);
+	};
+
+	/**
+	 * Nudge the idle element to actually buffer. Paused media is often throttled;
+	 * a brief silent play/pause forces decode. Also re-run when the path is already
+	 * assigned but still cold (e.g. right after switching to gapless).
+	 */
+	const warmIdleBuffer = (idle: 0 | 1, path: string) => {
+		const el = pair[idle];
+		el.preload = "auto";
+		if (el.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+			warmingRef.current.delete(path);
+			return;
+		}
+		if (warmingRef.current.has(path)) return;
+		warmingRef.current.add(path);
+		const release = () => { warmingRef.current.delete(path); };
+		const kick = () => {
+			if (preloadPathRef.current !== path || pathsRef.current[idle] !== path) {
+				release();
+				return;
+			}
+			if (el.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+				release();
+				return;
+			}
+			el.play()
+				.then(() => {
+					if (preloadPathRef.current !== path || pathsRef.current[idle] !== path) return;
+					el.pause();
+					if (el.currentTime > 0.01) el.currentTime = 0;
+				})
+				.catch(() => { /* autoplay / abort — canplay may still arrive */ })
+				.finally(release);
+		};
+		if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+			kick();
+			return;
+		}
+		el.addEventListener("loadeddata", kick, { once: true });
+		// If loadeddata never arrives, allow a later timeupdate to retry.
+		window.setTimeout(release, 3_000);
 	};
 
 	/** Preload `filePath` into the idle desktop slot (no-op on Android). */
 	const preload = (filePath: string) => {
 		if (!dual) return;
-		if (preloadPathRef.current === filePath && pathsRef.current[idleSlot] === filePath) return;
-		loadInto(idleSlot, filePath);
+		const idle = idleFromRef();
+		if (preloadPathRef.current === filePath && pathsRef.current[idle] === filePath) {
+			warmIdleBuffer(idle, filePath);
+			return;
+		}
+		loadInto(idle, filePath);
 		preloadPathRef.current = filePath;
-		setSlotGain(idleSlot, 0);
-		pair[idleSlot].pause();
+		setSlotGain(idle, 0);
+		pair[idle].pause();
+		warmIdleBuffer(idle, filePath);
 	};
 
 	const clearPreload = () => {
 		if (!dual) return;
+		const idle = idleFromRef();
 		preloadPathRef.current = null;
-		clearSlot(idleSlot);
-		setSlotGain(idleSlot, 0);
+		clearSlot(idle);
+		setSlotGain(idle, 0);
 	};
 
 	const abortIdle = () => {
 		if (!dual) return;
-		pair[idleSlot].pause();
+		pair[idleFromRef()].pause();
 		if (preloadPathRef.current) {
 			// Keep preload buffer unless clearing explicitly.
 		}
@@ -188,23 +246,36 @@ export const useAudioController = (
 		pathsRef.current[target] = null;
 	};
 
-	/** True when the idle slot has `path` buffered enough to start. */
-	const preloadReady = (path: string): boolean => {
+	/** Idle holds `path` with at least `minReady` buffered. */
+	const preloadAtLeast = (path: string, minReady: number): boolean => {
 		if (!dual || preloadPathRef.current !== path) return false;
-		if (pathsRef.current[idleSlot] !== path) return false;
-		return pair[idleSlot].readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+		const idle = idleFromRef();
+		if (pathsRef.current[idle] !== path) return false;
+		return pair[idle].readyState >= minReady;
 	};
 
+	/** Buffered enough for a warm handoff (preferred before ended). */
+	const preloadReady = (path: string): boolean =>
+		preloadAtLeast(path, HTMLMediaElement.HAVE_FUTURE_DATA);
+
+	/** Barely enough to start after ended — shorter silence than waiting for FUTURE_DATA. */
+	const preloadPlayable = (path: string): boolean =>
+		preloadAtLeast(path, HTMLMediaElement.HAVE_CURRENT_DATA);
+
 	/**
-	 * Wait until the idle preload for `path` can play, or reject on error/timeout.
+	 * Wait until the idle preload for `path` reaches `minReady`, or reject on error/timeout.
 	 */
-	const whenPreloadReady = (path: string, timeoutMs = 8_000): Promise<void> => {
-		if (preloadReady(path)) return Promise.resolve();
+	const whenPreloadReady = (
+		path: string,
+		timeoutMs = 8_000,
+		minReady: number = HTMLMediaElement.HAVE_FUTURE_DATA,
+	): Promise<void> => {
+		const ready = () => preloadAtLeast(path, minReady);
+		if (ready()) return Promise.resolve();
 		if (!dual) return Promise.reject(new Error("no dual"));
-		if (preloadPathRef.current !== path) {
-			preload(path);
-		}
-		const el = pair[idleSlot];
+		preload(path);
+		const idle = idleFromRef();
+		const el = pair[idle];
 		return new Promise((resolve, reject) => {
 			let done = false;
 			const finish = (ok: boolean) => {
@@ -212,18 +283,23 @@ export const useAudioController = (
 				done = true;
 				window.clearTimeout(timer);
 				el.removeEventListener("canplay", onReady);
+				el.removeEventListener("canplaythrough", onReady);
 				el.removeEventListener("loadeddata", onReady);
 				el.removeEventListener("error", onErr);
 				ok ? resolve() : reject(new Error("preload failed"));
 			};
-			const onReady = () => finish(true);
+			const onReady = () => {
+				if (el.readyState >= minReady) finish(true);
+			};
 			const onErr = () => finish(false);
-			const timer = window.setTimeout(() => finish(preloadReady(path)), timeoutMs);
+			const timer = window.setTimeout(() => finish(ready()), timeoutMs);
 			el.addEventListener("canplay", onReady);
-			el.addEventListener("loadeddata", onReady);
+			el.addEventListener("canplaythrough", onReady);
+			if (minReady <= HTMLMediaElement.HAVE_CURRENT_DATA) {
+				el.addEventListener("loadeddata", onReady);
+			}
 			el.addEventListener("error", onErr);
-			// Already moving — check again in case we raced the listeners.
-			if (preloadReady(path)) finish(true);
+			if (ready()) finish(true);
 		});
 	};
 
@@ -233,12 +309,14 @@ export const useAudioController = (
 	 */
 	const promotePreload = (play: boolean): boolean => {
 		if (!dual || !preloadPathRef.current) return false;
-		const next = idleSlot;
-		const prev = slot;
+		const prev = slotRef.current;
+		const next: 0 | 1 = prev === 0 ? 1 : 0;
+		if (pathsRef.current[next] !== preloadPathRef.current) return false;
 		const incoming = pair[next];
 		setSlotGain(next, 1);
 		setSlotGain(prev, 0);
 		preloadPathRef.current = null;
+		slotRef.current = next;
 		setSlot(next);
 		if (play) {
 			// Start the next element before pausing the previous so the shared
@@ -251,7 +329,8 @@ export const useAudioController = (
 			pair[prev].pause();
 			setIsPlaying(false);
 		}
-		queueMicrotask(() => clearSlotQuiet(prev));
+		// Clear outgoing now so a follow-up preload in the same turn can reuse the slot.
+		clearSlotQuiet(prev);
 		return true;
 	};
 
@@ -261,7 +340,10 @@ export const useAudioController = (
 	 */
 	const revealIncoming = (): boolean => {
 		if (!dual || !preloadPathRef.current) return false;
-		const incoming = idleSlot;
+		const prev = slotRef.current;
+		const incoming: 0 | 1 = prev === 0 ? 1 : 0;
+		if (pathsRef.current[incoming] !== preloadPathRef.current) return false;
+		slotRef.current = incoming;
 		setSlot(incoming);
 		preloadPathRef.current = null;
 		setIsPlaying(true);
@@ -352,7 +434,7 @@ export const useAudioController = (
 		preloadPath: () => preloadPathRef.current,
 		pathInSlot: (s: 0 | 1) => pathsRef.current[s],
 		playFile, loadFilePaused, preload, clearPreload, promotePreload,
-		preloadReady, whenPreloadReady,
+		preloadReady, preloadPlayable, whenPreloadReady,
 		revealIncoming, finishOutgoing, startPreloadSilent,
 		setSlotGain,
 		togglePlay, seek, stop, unload,
