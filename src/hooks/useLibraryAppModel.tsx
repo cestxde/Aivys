@@ -21,6 +21,7 @@ import { useMetadataActions } from "./useMetadataActions";
 import { usePins } from "./usePins";
 import { type CoverKind } from "./useGroupCovers";
 import { useSleepTimer } from "./useSleepTimer";
+import { useEqualizer } from "./useEqualizer";
 import { useTray } from "./useTray";
 import { type MenuEntry } from "../components/ContextMenu/ContextMenu";
 import { type M3uMissingGroup } from "../components/M3uImportDialog/M3uMissingDialog";
@@ -110,6 +111,7 @@ export function useLibraryAppModel({
 
 	const files = library.files;
 	const sleep = useSleepTimer(element, volume, setStopAfterTrack);
+	const eq = useEqualizer(element);
 	const currentTrack = files.find(f => f.path === activePath);
 
 	const tracksByPath = useMemo(() => new Map(files.map(f => [f.relPath, f])), [files]);
@@ -448,7 +450,7 @@ export function useLibraryAppModel({
 			queuePanel, detailPanel, currentTrack, isPlaying, togglePlay, onPrev, onNext,
 			previousTrack, nowPlayingOpen, setNowPlayingOpen, phonePanel, setPhonePanel,
 			leavePlayer, queue, element, isShuffle, repeatMode, seek, toggleShuffle,
-			toggleRepeatMode, sleep, goToEntries, liveClipboardTags, copyTrackTags,
+			toggleRepeatMode, sleep, eq, goToEntries, liveClipboardTags, copyTrackTags,
 			pasteTrackTags, addTrackTags, canOpenArtist, openArtist, openAlbum, volume,
 			setVolume, playAt, removeFromQueue, setUpcoming, playNext, addToQueue, setPlayingFrom,
 		},

@@ -43,7 +43,7 @@ export function LibraryPlayerChrome(props: LibraryAppShellProps) {
 		toggleRepeatMode, sleep, setAddTo, setTagPicker, copyTrackTags, pasteTrackTags, addTrackTags,
 		liveClipboardTags, leavePlayer, showView, listView, previousTrack, goToEntries, setMenu, setPhonePanel,
 		phonePanel, queuePanel, detailPanel, canOpenArtist, openArtist, volume, setVolume, panelTab, setPanelTab,
-		menu, closeMenu,
+		menu, closeMenu, eq,
 	} = props;
 
 	return (
@@ -145,6 +145,7 @@ export function LibraryPlayerChrome(props: LibraryAppShellProps) {
 					queueOpen={panelTab === "queue"}
 					sleepTimer={sleep.timer}
 					onSleepTimerChange={sleep.setTimer}
+					eq={eq}
 					onToggleQueue={() => setPanelTab(panelTab === "queue" ? "track" : "queue")}
 					onToggleRepeat={toggleRepeatMode}
 				/>

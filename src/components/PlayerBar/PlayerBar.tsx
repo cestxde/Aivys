@@ -5,14 +5,16 @@ import {
     SkipForward,
     Shuffle,
     Repeat,
-    Repeat1, ListMusic
+    Repeat1, ListMusic, SlidersHorizontal,
 } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 import type { Track } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { CoverArt } from "../CoverArt";
 import { ArtistLinks } from "../ArtistLinks/ArtistLinks";
+import { EqualizerDialog } from "../Equalizer/EqualizerDialog";
 import { SleepTimerButton } from "../SleepTimer/SleepTimerButton";
+import type { EqualizerApi } from "../../hooks/useEqualizer";
 import type { SleepTimer } from "../../hooks/useSleepTimer";
 import { CoverViewer } from "../CoverViewer/CoverViewer";
 import { TrackSlider } from "./TrackSlider";
@@ -43,6 +45,7 @@ interface PlayerBarProps {
     queueOpen: boolean;
     sleepTimer: SleepTimer;
     onSleepTimerChange: (timer: SleepTimer) => void;
+    eq: EqualizerApi;
     onToggleQueue: () => void;
     onToggleRepeat: () => void;
 }
@@ -128,6 +131,16 @@ export const PlayerBar = (props: PlayerBarProps) => {
                         className="control-btn secondary"
                         size={20}
                     />
+                    {props.eq.supported && (
+                        <button
+                            className={`control-btn secondary${props.eq.state.enabled ? " active" : ""}`}
+                            title={t("player.equalizer")}
+                            aria-pressed={props.eq.open}
+                            onClick={() => props.eq.setOpen(true)}
+                        >
+                            <SlidersHorizontal size={20} />
+                        </button>
+                    )}
                     <button
                         className={`control-btn secondary queue-toggle ${props.queueOpen ? "active" : ""}`}
                         title={t("player.queue")}
@@ -145,6 +158,10 @@ export const PlayerBar = (props: PlayerBarProps) => {
                     path={props.currentTrack.coverPath}
                     onClose={() => setShowCover(false)}
                 />
+            )}
+
+            {props.eq.open && (
+                <EqualizerDialog eq={props.eq} onClose={() => props.eq.setOpen(false)} />
             )}
         </div>
     );

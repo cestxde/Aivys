@@ -341,8 +341,13 @@ export class NativeAudio extends EventTarget {
 }
 
 /** A new player for the app: the native one on Android, else an `<audio>`. */
-export const createPlayer = (): HTMLAudioElement =>
-    bridge ? new NativeAudio(bridge) as unknown as HTMLAudioElement : new Audio();
+export const createPlayer = (): HTMLAudioElement => {
+	if (bridge) return new NativeAudio(bridge) as unknown as HTMLAudioElement;
+	// Needed before any src load so MediaElementSource (EQ) is not silent.
+	const audio = new Audio();
+	audio.crossOrigin = "anonymous";
+	return audio;
+};
 
 /** The native player, when `element` is one. */
 export const asNativeAudio = (element: HTMLAudioElement): NativeAudio | null =>

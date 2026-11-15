@@ -5,6 +5,7 @@ import type { PinnedPlaylist, PlaylistsLayout } from "../components/PlaylistsPag
 import type { M3uMissingGroup } from "../components/M3uImportDialog/M3uMissingDialog";
 import type { CoverKind } from "../hooks/useGroupCovers";
 import type { LayoutPage } from "../hooks/usePageLayouts";
+import type { EqualizerApi } from "../hooks/useEqualizer";
 import type { SleepTimer } from "../hooks/useSleepTimer";
 import { usePins } from "../hooks/usePins";
 import { usePlaylists } from "../hooks/usePlaylists";
@@ -192,6 +193,7 @@ export type LibraryAppShellProps = {
 	toggleShuffle: () => void;
 	toggleRepeatMode: () => void;
 	sleep: { timer: SleepTimer; setTimer: (timer: SleepTimer) => void };
+	eq: EqualizerApi;
 	goToEntries: (track: Track, everywhere?: boolean) => MenuEntry[];
 	liveClipboardTags: () => string[];
 	copyTrackTags: (track: Track) => void;

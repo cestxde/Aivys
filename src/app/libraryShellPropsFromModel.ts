@@ -116,6 +116,7 @@ export type LibraryShellPropsFromModelArgs = {
 	toggleShuffle: () => void;
 	toggleRepeatMode: () => void;
 	sleep: ReturnType<typeof useSleepTimer>;
+	eq: import("../hooks/useEqualizer").EqualizerApi;
 	goToEntries: (track: Track, everywhere?: boolean) => MenuEntry[];
 	liveClipboardTags: () => string[];
 	copyTrackTags: (track: Track) => void;
@@ -324,6 +325,7 @@ export function libraryShellPropsFromModel(a: LibraryShellPropsFromModelArgs): L
 		toggleShuffle: a.toggleShuffle,
 		toggleRepeatMode: a.toggleRepeatMode,
 		sleep: a.sleep,
+		eq: a.eq,
 		goToEntries: a.goToEntries,
 		liveClipboardTags: a.liveClipboardTags,
 		copyTrackTags: a.copyTrackTags,

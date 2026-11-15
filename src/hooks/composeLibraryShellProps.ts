@@ -25,7 +25,7 @@ export type LibraryModelShellBundles = {
 		| "queuePanel" | "detailPanel" | "currentTrack" | "isPlaying" | "togglePlay" | "onPrev" | "onNext"
 		| "previousTrack" | "nowPlayingOpen" | "setNowPlayingOpen" | "phonePanel" | "setPhonePanel"
 		| "leavePlayer" | "queue" | "element" | "isShuffle" | "repeatMode" | "seek" | "toggleShuffle"
-		| "toggleRepeatMode" | "sleep" | "goToEntries" | "liveClipboardTags" | "copyTrackTags"
+		| "toggleRepeatMode" | "sleep" | "eq" | "goToEntries" | "liveClipboardTags" | "copyTrackTags"
 		| "pasteTrackTags" | "addTrackTags" | "canOpenArtist" | "openArtist" | "openAlbum" | "volume"
 		| "setVolume" | "playAt" | "removeFromQueue" | "setUpcoming" | "playNext" | "addToQueue"
 		| "setPlayingFrom"

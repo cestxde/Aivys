@@ -1,0 +1,156 @@
+.eq-dialog {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	width: min(560px, 100%);
+	padding: 1.25rem;
+	box-sizing: border-box;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	background: var(--bg);
+	color: var(--text-h);
+	box-shadow: var(--shadow-dialog);
+}
+
+.eq-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.eq-header h2 {
+	margin: 0;
+	font-size: 1.1rem;
+}
+
+.eq-dialog .add-to-close {
+	display: flex;
+	padding: 4px;
+	border: none;
+	border-radius: 4px;
+	background: none;
+	color: var(--text);
+	cursor: pointer;
+}
+
+.eq-dialog .add-to-close:hover {
+	background: var(--surface);
+}
+
+.eq-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.eq-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 0.9rem;
+	cursor: pointer;
+}
+
+.eq-preset {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.eq-preset-label {
+	font-size: 0.8rem;
+	color: var(--text);
+	white-space: nowrap;
+}
+
+.eq-preset .rule-input {
+	min-width: 10rem;
+}
+
+.eq-preamp {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	font-size: 0.8rem;
+	color: var(--text);
+}
+
+.eq-preamp-label {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	color: var(--text-h);
+}
+
+.eq-preamp-value {
+	font-variant-numeric: tabular-nums;
+	opacity: 0.8;
+}
+
+.eq-preamp input[type="range"] {
+	width: 100%;
+	accent-color: var(--accent);
+}
+
+.eq-bands {
+	display: flex;
+	justify-content: space-between;
+	gap: 4px;
+	padding: 8px 4px 4px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--surface);
+}
+
+.eq-bands.is-disabled {
+	opacity: 0.55;
+}
+
+.eq-band {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	font-size: 0.7rem;
+	color: var(--text);
+}
+
+.eq-band-gain {
+	font-variant-numeric: tabular-nums;
+	font-size: 0.68rem;
+	opacity: 0.85;
+	color: var(--text-h);
+}
+
+.eq-band-hz {
+	font-variant-numeric: tabular-nums;
+	opacity: 0.75;
+}
+
+/* Vertical band faders */
+.eq-band input[type="range"] {
+	writing-mode: vertical-lr;
+	direction: rtl;
+	width: 28px;
+	height: 140px;
+	padding: 0;
+	accent-color: var(--accent);
+	cursor: pointer;
+}
+
+.eq-band input[type="range"]:disabled {
+	cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+	.eq-band input[type="range"] {
+		height: 110px;
+		width: 24px;
+	}
+}
