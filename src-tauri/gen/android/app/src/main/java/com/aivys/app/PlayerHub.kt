@@ -43,7 +43,33 @@ import java.io.File
 object PlayerHub {
   private val main = Handler(Looper.getMainLooper())
   private var exo: ExoPlayer? = null
+  /** Preload / crossfade partner; swapped into `exo` after a transition. */
+  private var exoNext: ExoPlayer? = null
   private var forwarding: Player? = null
+
+  /** Gapless (optional delay) or crossfade between queue tracks. */
+  @Volatile var transitionMode = "gapless"
+  @Volatile var delayMs = 0L
+  @Volatile var crossfadeSec = 3.0
+  private var transitioning = false
+  private var crossfadeStarted = false
+  private var preloadPath: String? = null
+
+  /** Media session should rebuild its player after an A/B swap. */
+  var onSessionPlayerChanged: (() -> Unit)? = null
+
+  fun setTransition(mode: String, delay: Long, crossfade: Double) {
+    transitionMode = if (mode == "crossfade") "crossfade" else "gapless"
+    delayMs = delay.coerceIn(0L, 30_000L)
+    crossfadeSec = crossfade.coerceIn(1.0, 12.0)
+  }
+
+  /** Page volume; applied to the audible player(s), not during an active crossfade ramp. */
+  fun setOutputVolume(level: Float) {
+    volume = level
+    if (crossfadeStarted) return
+    exo?.volume = level
+  }
 
   /**
    * Where events go: the current page, if there is one. Clearing it (page gone)
@@ -328,6 +354,8 @@ object PlayerHub {
       val player = exo ?: return
       position = player.currentPosition / 1000.0
       countCompletion()
+      maybeStartCrossfade()
+      maybePreloadNext()
       tickListen()
       if (listenSince != 0L && SystemClock.elapsedRealtime() - listenFlushedAt >= LISTEN_FLUSH_MS) {
         flushListen()
@@ -338,40 +366,52 @@ object PlayerHub {
         timeSentAt = now
         emit(JSONObject().put("type", "time").put("position", position))
       }
-      if (player.isPlaying) main.postDelayed(this, if (pageVisible) TICK_MS else HIDDEN_TICK_MS)
+      if (player.isPlaying || (exoNext?.isPlaying == true)) {
+        main.postDelayed(this, if (pageVisible) TICK_MS else HIDDEN_TICK_MS)
+      }
     }
   }
 
+  private val delayAdvance = Runnable { finishGaplessAdvance() }
+
   @OptIn(UnstableApi::class)
-  fun player(context: Context): ExoPlayer =
-    exo ?: ExoPlayer.Builder(context.applicationContext.also { appContext = it })
+  private fun buildPlayer(context: Context, withFocus: Boolean): ExoPlayer =
+    ExoPlayer.Builder(context.applicationContext.also { appContext = it })
       .setAudioAttributes(
         AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
-        /* handleAudioFocus = */ true,
+        withFocus,
       )
-      // Unplugged headphones pause, as everywhere.
-      .setHandleAudioBecomingNoisy(true)
+      .setHandleAudioBecomingNoisy(withFocus)
       .setWakeMode(C.WAKE_MODE_LOCAL)
       .build()
-      .also {
-        exo = it
-        it.addListener(events)
-        it.volume = volume
-        // Released while the page kept its track (paused): loaded again, paused where it was.
-        path?.let { current ->
-          it.setMediaItem(item(current), (position * 1000).toLong())
-          it.playWhenReady = false
-          it.prepare()
-        }
+
+  @OptIn(UnstableApi::class)
+  fun player(context: Context): ExoPlayer =
+    exo ?: buildPlayer(context, withFocus = true).also {
+      exo = it
+      it.addListener(events)
+      it.volume = volume
+      path?.let { current ->
+        it.setMediaItem(item(current), (position * 1000).toLong())
+        it.playWhenReady = false
+        it.prepare()
       }
+    }
+
+  @OptIn(UnstableApi::class)
+  private fun nextPlayer(context: Context): ExoPlayer =
+    exoNext ?: buildPlayer(context, withFocus = false).also {
+      exoNext = it
+      it.volume = 0f
+    }
 
   /** The file at `path` as the player plays it, with what the system's media controls show. */
-  fun item(path: String): MediaItem {
+  fun item(path: String, meta: JSONObject = metadata): MediaItem {
     val info = MediaMetadata.Builder()
-      .setTitle(metadata.optString("title").ifEmpty { File(path).nameWithoutExtension })
-      .setArtist(metadata.optString("artist").ifEmpty { null })
-      .setAlbumTitle(metadata.optString("album").ifEmpty { null })
-    metadata.optString("cover").ifEmpty { null }?.let { info.setArtworkUri(Uri.fromFile(File(it))) }
+      .setTitle(meta.optString("title").ifEmpty { File(path).nameWithoutExtension })
+      .setArtist(meta.optString("artist").ifEmpty { null })
+      .setAlbumTitle(meta.optString("album").ifEmpty { null })
+    meta.optString("cover").ifEmpty { null }?.let { info.setArtworkUri(Uri.fromFile(File(it))) }
     return MediaItem.Builder()
       .setMediaId(path)
       .setUri(Uri.fromFile(File(path)))
@@ -438,6 +478,7 @@ object PlayerHub {
 
   /** Fade out and pause in `ms`, instead of any timer set before. */
   fun sleepAfter(ms: Long) {
+    abortTransition()
     main.removeCallbacks(sleeper)
     sleepAt = SystemClock.elapsedRealtime() + ms
     main.post(sleeper)
@@ -454,6 +495,7 @@ object PlayerHub {
 
   /** The player gone with the service; what it had loaded (`path`, `position`) is kept. */
   fun release() {
+    abortTransition()
     main.removeCallbacks(ticker)
     main.removeCallbacks(sleeper)
     sleepAt = 0L
@@ -462,7 +504,10 @@ object PlayerHub {
     saveState(true)
     exo?.release()
     exo = null
+    exoNext?.release()
+    exoNext = null
     forwarding = null
+    preloadPath = null
     if (playing) {
       playing = false
       emit(JSONObject().put("type", "pause"))
@@ -470,9 +515,23 @@ object PlayerHub {
     widgetChanged()
   }
 
+  /** Cancel an in-flight gapless/crossfade (user skip / new load). */
+  fun abortTransitionForLoad() = abortTransition()
+
+  private fun abortTransition() {
+    main.removeCallbacks(delayAdvance)
+    transitioning = false
+    crossfadeStarted = false
+    exo?.volume = volume
+    exoNext?.playWhenReady = false
+    exoNext?.volume = 0f
+    clearNext()
+  }
+
   // "Next" and "previous" of the system's controls: the page's to answer, or
   // with the page gone, the player's own, as the page does it.
   private fun skip(next: Boolean) {
+    abortTransition()
     if (sink != null) {
       emit(JSONObject().put("type", if (next) "next" else "previous"))
       return
@@ -497,38 +556,229 @@ object PlayerHub {
 
   /** Load the queue's track `index`, and play it or leave it paused. */
   private fun go(index: Int, play: Boolean) {
-    val player = exo ?: return
+    abortTransition()
+    val context = appContext ?: return
+    val player = player(context)
     val entry = queue.getOrNull(index) ?: return
     queueIndex = index
     loaded(entry.path, 0.0)
     metadata = entry.metadata
+    player.volume = volume
     player.setMediaItem(item(entry.path), 0)
     player.playWhenReady = play
     player.prepare()
+    clearNext()
+  }
+
+  private fun clearNext() {
+    preloadPath = null
+    exoNext?.playWhenReady = false
+    exoNext?.stop()
+    exoNext?.clearMediaItems()
+  }
+
+  private fun nextIndex(here: Int): Int? {
+    if (queue.isEmpty() || here < 0) return null
+    if (here == queue.size - 1 && repeat == "none") return null
+    return (here + 1) % queue.size
+  }
+
+  private fun maybePreloadNext() {
+    if (transitioning || stopAfterTrack || repeat == "one") return
+    val context = appContext ?: return
+    val here = here()
+    val next = nextIndex(here) ?: run {
+      clearNext()
+      return
+    }
+    val entry = queue.getOrNull(next) ?: return
+    if (preloadPath == entry.path && exoNext?.mediaItemCount != 0) return
+    val partner = nextPlayer(context)
+    preloadPath = entry.path
+    partner.volume = 0f
+    partner.playWhenReady = false
+    partner.setMediaItem(item(entry.path, entry.metadata), 0)
+    partner.prepare()
+  }
+
+  private fun maybeStartCrossfade() {
+    if (transitionMode != "crossfade" || transitioning || crossfadeStarted) return
+    if (stopAfterTrack || repeat == "one") return
+    val player = exo ?: return
+    val length = duration ?: return
+    if (length <= 0) return
+    val fadeFor = minOf(crossfadeSec, length * 0.45).coerceAtLeast(0.05)
+    if (position < length - fadeFor) return
+    val here = here()
+    val next = nextIndex(here) ?: return
+    startCrossfade(next)
+  }
+
+  private fun startCrossfade(next: Int) {
+    val context = appContext ?: return
+    val entry = queue.getOrNull(next) ?: return
+    maybePreloadNext()
+    if (preloadPath != entry.path) {
+      val partner = nextPlayer(context)
+      preloadPath = entry.path
+      partner.setMediaItem(item(entry.path, entry.metadata), 0)
+      partner.prepare()
+    }
+    val partner = exoNext ?: return
+    transitioning = true
+    crossfadeStarted = true
+    partner.volume = 0f
+    partner.playWhenReady = true
+    val fadeMs = (minOf(crossfadeSec, (duration ?: crossfadeSec) - position).coerceAtLeast(0.05) * 1000).toLong()
+    val started = SystemClock.elapsedRealtime()
+    val outPlayer = exo
+    val ramp = object : Runnable {
+      override fun run() {
+        if (!crossfadeStarted) return
+        val t = ((SystemClock.elapsedRealtime() - started).toDouble() / fadeMs).coerceIn(0.0, 1.0)
+        val angle = t * (Math.PI / 2)
+        outPlayer?.volume = (volume * kotlin.math.cos(angle)).toFloat()
+        partner.volume = (volume * kotlin.math.sin(angle)).toFloat()
+        if (t >= 1.0) {
+          adoptNext(next, play = true)
+          return
+        }
+        main.postDelayed(this, 16L)
+      }
+    }
+    main.post(ramp)
+  }
+
+  private fun beginGaplessAdvance(next: Int, play: Boolean) {
+    transitioning = true
+    if (!play) {
+      adoptNext(next, play = false)
+      return
+    }
+    maybePreloadNext()
+    if (delayMs <= 0L) {
+      finishGaplessAdvance(next)
+      return
+    }
+    pendingNextIndex = next
+    main.removeCallbacks(delayAdvance)
+    main.postDelayed(delayAdvance, delayMs)
+  }
+
+  private var pendingNextIndex = -1
+
+  private fun finishGaplessAdvance(next: Int = pendingNextIndex) {
+    if (next < 0) {
+      transitioning = false
+      return
+    }
+    adoptNext(next, play = true)
+  }
+
+  /** Promote the preloaded player to current and notify the page. */
+  private fun adoptNext(next: Int, play: Boolean) {
+    main.removeCallbacks(delayAdvance)
+    val context = appContext ?: return
+    val entry = queue.getOrNull(next) ?: run {
+      transitioning = false
+      crossfadeStarted = false
+      return
+    }
+    val old = exo
+    var incoming = exoNext
+    if (incoming == null || preloadPath != entry.path) {
+      incoming = nextPlayer(context)
+      incoming.setMediaItem(item(entry.path, entry.metadata), 0)
+      incoming.prepare()
+    }
+    incoming.volume = volume
+    incoming.playWhenReady = play
+    old?.playWhenReady = false
+    old?.removeListener(events)
+    old?.stop()
+    old?.clearMediaItems()
+    old?.release()
+    exo = incoming
+    exoNext = null
+    preloadPath = null
+    incoming.addListener(events)
+    forwarding = null
+    onSessionPlayerChanged?.invoke()
+    queueIndex = next
+    loaded(entry.path, 0.0)
+    metadata = entry.metadata
+    position = 0.0
+    duration = if (incoming.duration != C.TIME_UNSET) incoming.duration / 1000.0 else null
+    playing = play
+    transitioning = false
+    crossfadeStarted = false
+    widgetChanged()
+    saveState(true)
+    if (duration != null) emit(JSONObject().put("type", "loaded").put("duration", duration))
+    emit(
+      JSONObject()
+        .put("type", "advanced")
+        .put("path", entry.path)
+        .put("queueIndex", next)
+        .put("position", 0.0)
+        .put("playing", play),
+    )
+    if (play) {
+      emit(JSONObject().put("type", "play"))
+      main.removeCallbacks(ticker)
+      main.post(ticker)
+    } else {
+      emit(JSONObject().put("type", "pause"))
+    }
   }
 
   /**
-   * A track ended with the page gone: as the page does it, the sleep timer's
-   * stop, repeating the track, stopping on the first track at the end of the
-   * queue without repeat, or going on.
+   * End of the current track: sleep stop, repeat one, or transition to next
+   * (gapless / delay / crossfade). Used with the page present or gone.
    */
-  private fun endedAlone() {
+  private fun onTrackEnded() {
     val player = exo ?: return
     val here = here()
     if (here < 0) return
-    val next = (here + 1) % queue.size
+    if (crossfadeStarted) return
     if (stopAfterTrack) {
       stopAfterTrack = false
-      go(next, play = false)
-    } else if (repeat == "one") {
+      val next = (here + 1) % queue.size
+      if (sink == null) go(next, play = false) else emit(JSONObject().put("type", "ended"))
+      return
+    }
+    if (repeat == "one") {
       position = 0.0
       player.seekTo(0)
       player.playWhenReady = true
-    } else if (here == queue.size - 1 && repeat == "none") {
-      go(0, play = false)
-    } else {
-      go(next, play = true)
+      return
     }
+    if (here == queue.size - 1 && repeat == "none") {
+      go(0, play = false)
+      emit(
+        JSONObject()
+          .put("type", "advanced")
+          .put("path", queue[0].path)
+          .put("queueIndex", 0)
+          .put("position", 0.0)
+          .put("playing", false),
+      )
+      return
+    }
+    val next = (here + 1) % queue.size
+    if (transitionMode == "crossfade" && !crossfadeStarted) {
+      // Crossfade should have started near the end; fall back to gapless.
+      beginGaplessAdvance(next, play = true)
+    } else {
+      beginGaplessAdvance(next, play = true)
+    }
+  }
+
+  /**
+   * A track ended with the page gone: same rules as `onTrackEnded`.
+   */
+  private fun endedAlone() {
+    onTrackEnded()
   }
 
   // Plays and listen chunks the page does not see (it is gone) are kept, with
@@ -647,6 +897,7 @@ object PlayerHub {
           emit(JSONObject().put("type", "loaded").put("duration", duration))
         }
         Player.STATE_ENDED -> {
+          if (transitioning && crossfadeStarted) return
           player.playWhenReady = false
           position = duration ?: position
           stopListen()
@@ -654,7 +905,7 @@ object PlayerHub {
           // Whatever plays next, or this again, is a new play.
           playCounted = false
           completeCounted = false
-          if (sink == null) endedAlone() else emit(JSONObject().put("type", "ended"))
+          onTrackEnded()
         }
       }
     }

@@ -3,7 +3,7 @@ import type { LibraryAppShellProps } from "../app/libraryShellProps";
 
 export type LibraryModelShellBundles = {
 	core: Pick<LibraryShellPropsFromModelArgs,
-		| "listView" | "settings" | "theme" | "setTheme" | "setDrawerOpen" | "catalog" | "viewGroup" | "list"
+		| "listView" | "settings" | "updateSettings" | "theme" | "setTheme" | "setDrawerOpen" | "catalog" | "viewGroup" | "list"
 		| "cardFilter" | "cardLayout" | "hasTrackList" | "goToPicker" | "showView" | "playingKey" | "drawerOpen"
 		| "files" | "trackStats" | "playlists" | "tracksByPath" | "layouts" | "setLayout"
 		| "playlistsFilter" | "setPlaylistsFilter" | "tagsFilter" | "setTagsFilter"

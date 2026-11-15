@@ -106,12 +106,12 @@ export function useLibraryAppModel({
 		queue, playAt, removeFromQueue, setUpcoming, replacePath, releaseWhile,
 		toggleShuffle, isShuffle,
 		repeatMode, toggleRepeatMode,
-		element,
+		element, elements,
 	} = useAudioPlayer(library.files, settings, updateSettings);
 
 	const files = library.files;
 	const sleep = useSleepTimer(element, volume, setStopAfterTrack);
-	const eq = useEqualizer(element);
+	const eq = useEqualizer(elements, volume);
 	const currentTrack = files.find(f => f.path === activePath);
 
 	const tracksByPath = useMemo(() => new Map(files.map(f => [f.relPath, f])), [files]);
@@ -428,7 +428,7 @@ export function useLibraryAppModel({
 
 	const shellProps = composeLibraryShellProps({
 		core: {
-			listView, settings, theme, setTheme, setDrawerOpen, catalog, viewGroup, list,
+			listView, settings, updateSettings, theme, setTheme, setDrawerOpen, catalog, viewGroup, list,
 			cardFilter, cardLayout, hasTrackList, goToPicker, showView, playingKey, drawerOpen,
 			files, trackStats, playlists, tracksByPath, layouts, setLayout,
 			playlistsFilter, setPlaylistsFilter, tagsFilter, setTagsFilter,

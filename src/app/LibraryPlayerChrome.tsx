@@ -43,7 +43,7 @@ export function LibraryPlayerChrome(props: LibraryAppShellProps) {
 		toggleRepeatMode, sleep, setAddTo, setTagPicker, copyTrackTags, pasteTrackTags, addTrackTags,
 		liveClipboardTags, leavePlayer, showView, listView, previousTrack, goToEntries, setMenu, setPhonePanel,
 		phonePanel, queuePanel, detailPanel, canOpenArtist, openArtist, volume, setVolume, panelTab, setPanelTab,
-		menu, closeMenu, eq,
+		menu, closeMenu, eq, settings, updateSettings,
 	} = props;
 
 	return (
@@ -94,6 +94,12 @@ export function LibraryPlayerChrome(props: LibraryAppShellProps) {
 							onSwipePrevious={previousTrack}
 							sleepTimer={sleep.timer}
 							onSleepTimerChange={sleep.setTimer}
+							transitionMode={settings.transitionMode}
+							delayMs={settings.delayMs}
+							crossfadeSec={settings.crossfadeSec}
+							onTransitionModeChange={(mode) => updateSettings({ transitionMode: mode })}
+							onDelayMsChange={(ms) => updateSettings({ delayMs: ms })}
+							onCrossfadeSecChange={(sec) => updateSettings({ crossfadeSec: sec })}
 							eq={eq}
 							canGoTo={goToEntries(currentTrack, true).length > 0}
 							onOpenGoTo={(track, x, y) => setMenu({
@@ -146,6 +152,12 @@ export function LibraryPlayerChrome(props: LibraryAppShellProps) {
 					queueOpen={panelTab === "queue"}
 					sleepTimer={sleep.timer}
 					onSleepTimerChange={sleep.setTimer}
+					transitionMode={settings.transitionMode}
+					delayMs={settings.delayMs}
+					crossfadeSec={settings.crossfadeSec}
+					onTransitionModeChange={(mode) => updateSettings({ transitionMode: mode })}
+					onDelayMsChange={(ms) => updateSettings({ delayMs: ms })}
+					onCrossfadeSecChange={(sec) => updateSettings({ crossfadeSec: sec })}
 					eq={eq}
 					onToggleQueue={() => setPanelTab(panelTab === "queue" ? "track" : "queue")}
 					onToggleRepeat={toggleRepeatMode}

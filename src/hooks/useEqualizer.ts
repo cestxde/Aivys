@@ -11,17 +11,20 @@ import {
 } from "../utils/equalizer";
 import { ensureEqualizerGraph, hasEqualizerGraph } from "../utils/equalizerGraph";
 import { asNativeAudio } from "../utils/nativeAudio";
+import { toElementVolume } from "../utils/volume";
 import { useStoredState } from "./useRemembered";
 
 const clamp = (value: number) => Math.min(EQ_GAIN_MAX, Math.max(EQ_GAIN_MIN, value));
 
 /**
- * Desktop equalizer state + Web Audio graph. No-op on Android (native player).
- * The audio graph is created only when EQ is first turned on, so playback
- * works normally until then.
+ * Desktop equalizer state + Web Audio mixer over both transport slots.
+ * No-op on Android (native player).
  */
-export const useEqualizer = (element: HTMLAudioElement) => {
-	const supported = useMemo(() => !asNativeAudio(element), [element]);
+export const useEqualizer = (
+	elements: [HTMLAudioElement, HTMLAudioElement],
+	volume: number,
+) => {
+	const supported = useMemo(() => !asNativeAudio(elements[0]), [elements]);
 	const [state, setStored] = useStoredState("eq", DEFAULT_EQ, isEqualizerState);
 	const [open, setOpen] = useState(false);
 
@@ -32,13 +35,13 @@ export const useEqualizer = (element: HTMLAudioElement) => {
 	useEffect(() => {
 		if (!supported) return;
 		const normalized = normalizeEqualizerState(state);
-		// Do not hijack the element until the user actually enables EQ.
-		if (!normalized.enabled && !hasEqualizerGraph(element)) return;
-		const graph = ensureEqualizerGraph(element);
+		if (!normalized.enabled && !hasEqualizerGraph()) return;
+		const graph = ensureEqualizerGraph(elements);
 		if (!graph) return;
 		graph.apply(normalized);
+		graph.setMasterVolume(toElementVolume(volume));
 		graph.resume();
-	}, [supported, element, state]);
+	}, [supported, elements, state, volume]);
 
 	const setEnabled = useCallback((enabled: boolean) => {
 		commit({ ...state, enabled });

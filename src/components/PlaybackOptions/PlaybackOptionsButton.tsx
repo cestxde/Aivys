@@ -2,35 +2,52 @@ import { useState } from "react";
 import { Settings2 } from "lucide-react";
 import type { EqualizerApi } from "../../hooks/useEqualizer";
 import type { SleepTimer } from "../../hooks/useSleepTimer";
+import type { TransitionMode } from "../../types";
 import { formatSleepBadge, useMinutesLeft } from "../SleepTimer/sleepMenu";
-import { PlaybackOptionsDialog } from "./PlaybackOptionsDialog";
+import { PlaybackOptionsDialog, type TransitionSettings } from "./PlaybackOptionsDialog";
 import { t } from "../../i18n";
 import "./PlaybackOptionsButton.css";
 
 interface PlaybackOptionsButtonProps {
 	timer: SleepTimer;
 	onSleepChange: (timer: SleepTimer) => void;
+	transitionMode: TransitionMode;
+	delayMs: number;
+	crossfadeSec: number;
+	onTransitionModeChange: (mode: TransitionMode) => void;
+	onDelayMsChange: (ms: number) => void;
+	onCrossfadeSecChange: (sec: number) => void;
 	/** Desktop equalizer; omit or unsupported on Android. */
 	eq?: EqualizerApi | null;
 	className: string;
 	size: number;
 }
 
-/**
- * One player-bar control for extras: equalizer (desktop), sleep timer, and
- * room for gapless / crossfade / delay later.
- */
+/** One player-bar control for sleep, transitions, and equalizer (desktop). */
 export const PlaybackOptionsButton = ({
-	timer, onSleepChange, eq = null, className, size,
+	timer, onSleepChange,
+	transitionMode, delayMs, crossfadeSec,
+	onTransitionModeChange, onDelayMsChange, onCrossfadeSecChange,
+	eq = null, className, size,
 }: PlaybackOptionsButtonProps) => {
 	const [open, setOpen] = useState(false);
 	const left = useMinutesLeft(timer?.kind === "time" ? timer.endsAt : null);
 	const eqOn = !!eq?.supported && eq.state.enabled;
-	const active = !!timer || eqOn;
+	const transitionOn = transitionMode === "crossfade" || delayMs > 0;
+	const active = !!timer || eqOn || transitionOn;
 
 	const title = timer?.kind === "time" ? t("sleep.left", { count: left ?? 0 })
 		: timer?.kind === "track" ? t("sleep.endOfTrack")
 		: t("player.playbackOptions");
+
+	const transition: TransitionSettings = {
+		mode: transitionMode,
+		delayMs,
+		crossfadeSec,
+		onModeChange: onTransitionModeChange,
+		onDelayMsChange,
+		onCrossfadeSecChange,
+	};
 
 	return (
 		<>
@@ -51,6 +68,7 @@ export const PlaybackOptionsButton = ({
 				<PlaybackOptionsDialog
 					timer={timer}
 					onSleepChange={onSleepChange}
+					transition={transition}
 					eq={eq}
 					onClose={() => setOpen(false)}
 				/>

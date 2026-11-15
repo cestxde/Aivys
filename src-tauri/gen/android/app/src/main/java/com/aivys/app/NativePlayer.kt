@@ -57,9 +57,11 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
   @JavascriptInterface
   fun load(path: String, startAt: Double) = main.post {
     startService()
+    PlayerHub.abortTransitionForLoad()
     PlayerHub.loaded(path, startAt)
     // The page sends the new track's metadata right after; until then, its file name.
     PlayerHub.metadata = JSONObject()
+    player.volume = PlayerHub.volume
     player.setMediaItem(PlayerHub.item(path), (startAt * 1000).toLong())
     player.playWhenReady = false
     player.prepare()
@@ -109,6 +111,17 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
   @JavascriptInterface
   fun setStopAfterTrack(on: Boolean) = main.post { PlayerHub.stopAfterTrack = on }
 
+  /** Gapless / crossfade settings: `{mode, delayMs, crossfadeSec}`. */
+  @JavascriptInterface
+  fun setTransition(json: String) = main.post {
+    val data = JSONObject(json)
+    PlayerHub.setTransition(
+      data.optString("mode", "gapless"),
+      data.optLong("delayMs", 0L),
+      data.optDouble("crossfadeSec", 3.0),
+    )
+  }
+
   /**
    * The plays and listening chunks counted while the page was gone, for it to
    * record: `[{kind: "play" | "complete", path, at}]` and
@@ -127,8 +140,7 @@ class NativePlayer(private val activity: Activity, private val webView: WebView)
 
   @JavascriptInterface
   fun setVolume(volume: Double) = main.post {
-    PlayerHub.volume = volume.toFloat()
-    player.volume = PlayerHub.volume
+    PlayerHub.setOutputVolume(volume.toFloat())
   }
 
   /** Let the file go: nothing loaded. */

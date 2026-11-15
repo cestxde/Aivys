@@ -27,6 +27,8 @@ interface AndroidPlayer {
     setShuffle(on: boolean): void;
     /** The sleep timer's "end of the track" is on or off. */
     setStopAfterTrack(on: boolean): void;
+    /** Gapless / crossfade: JSON `{mode, delayMs, crossfadeSec}`. */
+    setTransition(json: string): void;
     /** JSON `MissedEvent[]`: plays and listen chunks counted with the page gone; given once. */
     takeMissedEvents(): string;
 }
@@ -38,6 +40,7 @@ type PlayerEvent =
     | { type: "loaded"; duration: number }
     | { type: "play" | "pause" | "ended" | "next" | "previous" | "slept" | "shuffle" | "repeat" }
     | { type: "time" | "seeked"; position: number }
+    | { type: "advanced"; path: string; queueIndex: number; position: number; playing: boolean }
     | { type: "error"; message: string };
 
 /** What the native player has loaded, and where it is. */
@@ -80,7 +83,15 @@ export interface MissedEvent {
 }
 
 /** The file path an asset URL (`convertFileSrc`, maybe with `?v=`) points at. */
-const pathOf = (url: string): string => decodeURIComponent(new URL(url).pathname.slice(1));
+const pathOf = (url: string): string => {
+	// Native `advanced` events may set `src` to a raw filesystem path.
+	if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)) return url;
+	try {
+		return decodeURIComponent(new URL(url).pathname.slice(1));
+	} catch {
+		return url;
+	}
+};
 
 /**
  * An `HTMLAudioElement` look-alike over the native player: the part of it the
@@ -250,6 +261,10 @@ export class NativeAudio extends EventTarget {
         this.player.setStopAfterTrack(on);
     }
 
+    setTransition(settings: { mode: string; delayMs: number; crossfadeSec: number }) {
+        this.player.setTransition(JSON.stringify(settings));
+    }
+
     /** The plays the player counted while the page was gone, to be recorded; given once. */
     takeMissedEvents(): MissedEvent[] {
         try {
@@ -302,6 +317,18 @@ export class NativeAudio extends EventTarget {
                 this.setPaused(true);
                 this.fire("ended");
                 break;
+            case "advanced": {
+                // Native already switched tracks (gapless / crossfade / delay).
+                this.url = event.path;
+                this.time = event.position;
+                this.length = NaN;
+                this.adopting = true;
+                this.setPaused(!event.playing);
+                this.dispatchEvent(new CustomEvent("advanced", { detail: event }));
+                this.adopting = false;
+                this.fire("timeupdate");
+                break;
+            }
             case "error":
                 this.error = { code: 4, message: event.message };
                 this.starting?.reject(new Error(event.message));

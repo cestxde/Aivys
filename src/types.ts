@@ -202,6 +202,9 @@ export type SortOrder = 'name' | 'artist' | 'album' | 'date' | 'duration' | 'man
 
 export type RepeatMode = 'none' | 'all' | 'one';
 
+/** How the player joins one track to the next. */
+export type TransitionMode = 'gapless' | 'crossfade';
+
 export interface PlayerSettings {
     volume: number;
     isShuffle: boolean;
@@ -209,6 +212,12 @@ export interface PlayerSettings {
     lastPath: string;
     // Recently opened library folders, most recent first.
     recentPaths: string[];
+    /** Gapless (optional delay) or crossfade between tracks. */
+    transitionMode: TransitionMode;
+    /** Exact silence after a track ends in gapless mode (ms). */
+    delayMs: number;
+    /** Crossfade overlap length (seconds). */
+    crossfadeSec: number;
 }
 
 export const DEFAULT_SETTINGS: PlayerSettings = {
@@ -216,7 +225,10 @@ export const DEFAULT_SETTINGS: PlayerSettings = {
     isShuffle: false,
     repeatMode: 'none',
     lastPath: '',
-    recentPaths: []
+    recentPaths: [],
+    transitionMode: 'gapless',
+    delayMs: 0,
+    crossfadeSec: 3,
 };
 
 /** Maximum number of recent folders to remember. */

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import {
     ChevronDown, ClipboardCopy, ClipboardPaste, Disc3, Heart, Info, ListMusic, ListPlus, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Tag,
 } from "lucide-react";
-import type { Track, TrackStats, UserTag } from "../../types";
+import type { Track, TrackStats, TransitionMode, UserTag } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { tagsOf } from "../../utils/tags";
 import { CoverArt } from "../CoverArt";
@@ -44,6 +44,12 @@ interface NowPlayingProps {
     onSwipePrevious: () => void;
     sleepTimer: SleepTimer;
     onSleepTimerChange: (timer: SleepTimer) => void;
+    transitionMode: TransitionMode;
+    delayMs: number;
+    crossfadeSec: number;
+    onTransitionModeChange: (mode: TransitionMode) => void;
+    onDelayMsChange: (ms: number) => void;
+    onCrossfadeSecChange: (sec: number) => void;
     /** Desktop EQ API; on phone `supported` is false so only sleep appears. */
     eq?: EqualizerApi | null;
     onSeek: (time: number) => void;
@@ -144,6 +150,12 @@ export const NowPlaying = (props: NowPlayingProps) => {
                 <PlaybackOptionsButton
                     timer={props.sleepTimer}
                     onSleepChange={props.onSleepTimerChange}
+                    transitionMode={props.transitionMode}
+                    delayMs={props.delayMs}
+                    crossfadeSec={props.crossfadeSec}
+                    onTransitionModeChange={props.onTransitionModeChange}
+                    onDelayMsChange={props.onDelayMsChange}
+                    onCrossfadeSecChange={props.onCrossfadeSecChange}
                     eq={props.eq}
                     className="now-playing-icon now-playing-sleep"
                     size={22}

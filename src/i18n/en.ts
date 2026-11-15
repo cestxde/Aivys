@@ -240,6 +240,13 @@ export const en = {
     "player.repeatOne": "Repeat: this track",
     "player.equalizer": "Equalizer",
     "player.playbackOptions": "Playback options",
+    "player.transition.title": "Between tracks",
+    "player.transition.gapless": "Gapless",
+    "player.transition.crossfade": "Crossfade",
+    "player.transition.delay": "Delay",
+    "player.transition.delayValue": "{ms} ms",
+    "player.transition.crossfadeDuration": "Duration",
+    "player.transition.crossfadeValue": "{sec} s",
 
     "eq.title": "Equalizer",
     "eq.enabled": "On",

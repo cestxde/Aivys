@@ -86,6 +86,9 @@ class PlaybackService : MediaSessionService() {
     session = created
     created.setMediaButtonPreferences(modeButtons())
     PlayerHub.onModesChanged = { session?.setMediaButtonPreferences(modeButtons()) }
+    PlayerHub.onSessionPlayerChanged = {
+      session?.setPlayer(PlayerHub.sessionPlayer(this@PlaybackService))
+    }
     // Shown without a controller connecting first: the page drives the player directly.
     addSession(created)
   }
@@ -102,6 +105,7 @@ class PlaybackService : MediaSessionService() {
 
   override fun onDestroy() {
     PlayerHub.onModesChanged = null
+    PlayerHub.onSessionPlayerChanged = null
     session?.release()
     session = null
     PlayerHub.release()

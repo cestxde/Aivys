@@ -27,6 +27,7 @@ import type { View } from "../types";
 export type LibraryShellPropsFromModelArgs = {
 	listView: View;
 	settings: PlayerSettings;
+	updateSettings: (fields: Partial<PlayerSettings>) => void;
 	theme: ThemePreference;
 	setTheme: (theme: ThemePreference) => void;
 	setDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -170,6 +171,7 @@ export function libraryShellPropsFromModel(a: LibraryShellPropsFromModelArgs): L
 	return {
 		listView: a.listView,
 		settings: a.settings,
+		updateSettings: a.updateSettings,
 		theme: a.theme,
 		setTheme: a.setTheme,
 		setDrawerOpen: a.setDrawerOpen,

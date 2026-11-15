@@ -4,6 +4,15 @@ import { useBackLayer } from "../../hooks/useBackLayer";
 import { useStoredState } from "../../hooks/useRemembered";
 import type { EqualizerApi } from "../../hooks/useEqualizer";
 import type { SleepTimer } from "../../hooks/useSleepTimer";
+import type { TransitionMode } from "../../types";
+import {
+	clampCrossfadeSec,
+	clampDelayMs,
+	CROSSFADE_SEC_MAX,
+	CROSSFADE_SEC_MIN,
+	DELAY_MS_MAX,
+	DELAY_MS_MIN,
+} from "../../utils/transition";
 import { EqualizerPanel } from "../Equalizer/EqualizerPanel";
 import {
 	CustomSleepDialog,
@@ -14,16 +23,26 @@ import {
 import { t } from "../../i18n";
 import "./PlaybackOptionsDialog.css";
 
+export interface TransitionSettings {
+	mode: TransitionMode;
+	delayMs: number;
+	crossfadeSec: number;
+	onModeChange: (mode: TransitionMode) => void;
+	onDelayMsChange: (ms: number) => void;
+	onCrossfadeSecChange: (sec: number) => void;
+}
+
 interface PlaybackOptionsDialogProps {
 	timer: SleepTimer;
 	onSleepChange: (timer: SleepTimer) => void;
+	transition: TransitionSettings;
 	eq?: EqualizerApi | null;
 	onClose: () => void;
 }
 
-/** Unified dialog: sleep timer first, equalizer last (desktop). */
+/** Unified dialog: sleep, track transition, equalizer (desktop). */
 export const PlaybackOptionsDialog = ({
-	timer, onSleepChange, eq = null, onClose,
+	timer, onSleepChange, transition, eq = null, onClose,
 }: PlaybackOptionsDialogProps) => {
 	useBackLayer(true, onClose);
 	const [customOpen, setCustomOpen] = useState(false);
@@ -89,6 +108,62 @@ export const PlaybackOptionsDialog = ({
 									</button>
 								)}
 							</div>
+						</section>
+
+						<section className="playback-options-section">
+							<h3>{t("player.transition.title")}</h3>
+							<div className="playback-sleep-choices">
+								<button
+									type="button"
+									className={`playback-choice${transition.mode === "gapless" ? " is-selected" : ""}`}
+									onClick={() => transition.onModeChange("gapless")}
+								>
+									{t("player.transition.gapless")}
+								</button>
+								<button
+									type="button"
+									className={`playback-choice${transition.mode === "crossfade" ? " is-selected" : ""}`}
+									onClick={() => transition.onModeChange("crossfade")}
+								>
+									{t("player.transition.crossfade")}
+								</button>
+							</div>
+
+							{transition.mode === "gapless" ? (
+								<label className="playback-param">
+									<span className="playback-param-label">
+										{t("player.transition.delay")}
+										<span className="playback-param-value">
+											{t("player.transition.delayValue", { ms: transition.delayMs })}
+										</span>
+									</span>
+									<input
+										type="range"
+										min={DELAY_MS_MIN}
+										max={DELAY_MS_MAX}
+										step={50}
+										value={transition.delayMs}
+										onChange={(e) => transition.onDelayMsChange(clampDelayMs(Number(e.target.value)))}
+									/>
+								</label>
+							) : (
+								<label className="playback-param">
+									<span className="playback-param-label">
+										{t("player.transition.crossfadeDuration")}
+										<span className="playback-param-value">
+											{t("player.transition.crossfadeValue", { sec: transition.crossfadeSec })}
+										</span>
+									</span>
+									<input
+										type="range"
+										min={CROSSFADE_SEC_MIN}
+										max={CROSSFADE_SEC_MAX}
+										step={0.5}
+										value={transition.crossfadeSec}
+										onChange={(e) => transition.onCrossfadeSecChange(clampCrossfadeSec(Number(e.target.value)))}
+									/>
+								</label>
+							)}
 						</section>
 
 						{eq?.supported && (

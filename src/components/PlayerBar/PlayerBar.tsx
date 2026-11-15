@@ -8,7 +8,7 @@ import {
 	Repeat1, ListMusic,
 } from "lucide-react";
 import { useState, type CSSProperties } from "react";
-import type { Track } from "../../types";
+import type { Track, TransitionMode } from "../../types";
 import { displayArtists, displayTitle } from "../../utils/track";
 import { CoverArt } from "../CoverArt";
 import { ArtistLinks } from "../ArtistLinks/ArtistLinks";
@@ -44,6 +44,12 @@ interface PlayerBarProps {
 	queueOpen: boolean;
 	sleepTimer: SleepTimer;
 	onSleepTimerChange: (timer: SleepTimer) => void;
+	transitionMode: TransitionMode;
+	delayMs: number;
+	crossfadeSec: number;
+	onTransitionModeChange: (mode: TransitionMode) => void;
+	onDelayMsChange: (ms: number) => void;
+	onCrossfadeSecChange: (sec: number) => void;
 	eq: EqualizerApi;
 	onToggleQueue: () => void;
 	onToggleRepeat: () => void;
@@ -127,6 +133,12 @@ export const PlayerBar = (props: PlayerBarProps) => {
 					<PlaybackOptionsButton
 						timer={props.sleepTimer}
 						onSleepChange={props.onSleepTimerChange}
+						transitionMode={props.transitionMode}
+						delayMs={props.delayMs}
+						crossfadeSec={props.crossfadeSec}
+						onTransitionModeChange={props.onTransitionModeChange}
+						onDelayMsChange={props.onDelayMsChange}
+						onCrossfadeSecChange={props.onCrossfadeSecChange}
 						eq={props.eq}
 						className="control-btn secondary"
 						size={20}

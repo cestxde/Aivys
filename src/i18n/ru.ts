@@ -253,6 +253,13 @@ export const ru: Record<MessageKey, Message> = {
     "player.repeatOne": "Повтор: этот трек",
     "player.equalizer": "Эквалайзер",
     "player.playbackOptions": "Настройки воспроизведения",
+    "player.transition.title": "Между треками",
+    "player.transition.gapless": "Без паузы",
+    "player.transition.crossfade": "Кроссфейд",
+    "player.transition.delay": "Задержка",
+    "player.transition.delayValue": "{ms} мс",
+    "player.transition.crossfadeDuration": "Длительность",
+    "player.transition.crossfadeValue": "{sec} с",
 
     "eq.title": "Эквалайзер",
     "eq.enabled": "Вкл",

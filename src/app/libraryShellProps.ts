@@ -51,6 +51,7 @@ export type TranslateFn = (key: MessageKey, params?: Record<string, string | num
 export type LibraryAppShellProps = {
 	listView: View;
 	settings: PlayerSettings;
+	updateSettings: (fields: Partial<PlayerSettings>) => void;
 	theme: ThemePreference;
 	setTheme: (theme: ThemePreference) => void;
 	setDrawerOpen: Dispatch<SetStateAction<boolean>>;

@@ -94,3 +94,28 @@
 .playback-choice-off {
 	opacity: 0.85;
 }
+
+.playback-param {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	font-size: 0.8rem;
+	color: var(--text);
+}
+
+.playback-param-label {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	color: var(--text-h);
+}
+
+.playback-param-value {
+	font-variant-numeric: tabular-nums;
+	opacity: 0.8;
+}
+
+.playback-param input[type="range"] {
+	width: 100%;
+	accent-color: var(--accent);
+}
